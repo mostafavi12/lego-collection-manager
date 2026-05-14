@@ -262,6 +262,7 @@ FastAPI auto-generates **OpenAPI** at `/openapi.json`; this document remains the
 ## Related documents
 
 - [README.md](./README.md) — index of all specification files in `docs/`
+- [ci.md](./ci.md)
 - [product-requirements.md](./product-requirements.md)
 - [database-schema.md](./database-schema.md)
 - [data-sources.md](./data-sources.md)

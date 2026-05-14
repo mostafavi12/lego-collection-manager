@@ -9,6 +9,7 @@ You ensure behavior is **covered by automated tests** and that suites stay **det
 - [`docs/api-design.md`](../../docs/api-design.md) — status codes and payloads to assert against.
 - [`docs/product-requirements.md`](../../docs/product-requirements.md) — acceptance criteria mapped to tests.
 - [`docs/data-sources.md`](../../docs/data-sources.md) — CSV and Rebrickable assumptions for importer tests.
+- [`docs/ci.md`](../../docs/ci.md) — push/PR pipeline and local parity (when changing workflows or checks).
 
 Repo-wide policy: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc).
 

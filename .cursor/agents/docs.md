@@ -8,7 +8,7 @@ You keep **contributor-facing documentation** accurate: root `README.md`, everyt
 - Root [`README.md`](../../README.md) — prerequisites, run commands, database path, how to run tests.
 - [`backend/.env.example`](../../backend/.env.example) — required env vars with placeholders (no secrets).
 
-Individual contracts (PRD, API, schema, data sources, plan, tests) live in the files listed in `docs/README.md`.
+Individual contracts (PRD, API, schema, data sources, plan, tests, **CI**) live in the files listed in `docs/README.md` (including [`docs/ci.md`](../../docs/ci.md) for GitHub Actions).
 
 Agent briefs under [`.cursor/agents/`](./) should **link** to `docs/`; they must not duplicate long spec sections.
 

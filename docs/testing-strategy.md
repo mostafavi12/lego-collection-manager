@@ -66,10 +66,12 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 Keep fixtures **small** and composable; regenerate from captured responses only after stripping private data (none expected for Rebrickable public metadata).
 
-## Continuous integration (optional MVP)
+## Continuous integration
 
-- Single workflow: install Python + Node, `pytest`, `vitest run`, lint (Ruff/ESLint) if configured.
-- No secrets in CI; Rebrickable tests always mocked.
+The default pipeline is documented in [ci.md](./ci.md): on every **push** and **pull request**, GitHub Actions runs **backend `pytest`** and a **frontend `npm run build`** (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
+
+- No secrets in CI; Rebrickable and other upstream HTTP remain **mocked** in tests.
+- When Vitest is wired for the frontend, extend the workflow (and [ci.md](./ci.md)) with `npm test` or `vitest run` as agreed in this document.
 
 ## Definition of done (per change)
 
@@ -79,6 +81,7 @@ Keep fixtures **small** and composable; regenerate from captured responses only 
 ## Related documents
 
 - [README.md](./README.md) — index of all specification files in `docs/`
+- [ci.md](./ci.md)
 - [product-requirements.md](./product-requirements.md)
 - [api-design.md](./api-design.md)
 - [data-sources.md](./data-sources.md)

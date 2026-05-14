@@ -133,3 +133,4 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 - [api-design.md](./api-design.md) — REST endpoints and payloads.
 - [development-plan.md](./development-plan.md) — delivery phases.
 - [testing-strategy.md](./testing-strategy.md) — verification approach.
+- [ci.md](./ci.md) — continuous integration (push/PR).
