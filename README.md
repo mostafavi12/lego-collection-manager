@@ -68,4 +68,4 @@ Example owned set numbers for CSV import experiments live in [`data/sample_sets.
 
 ## Documentation
 
-Product and technical specs are in [`docs/`](docs/).
+Product and technical specs are in [`docs/`](docs/). Use [`docs/README.md`](docs/README.md) as an index of each specification file.

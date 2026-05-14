@@ -9,6 +9,10 @@ alwaysApply: true
 
 Build a local-first LEGO collection manager that imports owned LEGO set IDs from CSV, fetches set inventory data from allowed online sources, stores data locally, and provides a web UI for browsing sets, parts, minifigures, stickers, and missing items.
 
+## Authoritative specifications
+
+Product requirements, REST contracts, database schema, CSV/Rebrickable rules, phased delivery, and the testing strategy live under **`docs/`** (see **`docs/README.md`** for an index). Cursor agent briefs under **`.cursor/agents/`** describe contributor roles and must **link** to those files rather than restating them.
+
 ## Preferred stack
 
 - Backend: Python 3.12+

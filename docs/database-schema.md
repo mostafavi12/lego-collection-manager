@@ -214,6 +214,7 @@ SQLite full-text (FTS5) is **optional post-MVP**; MVP may use `LIKE` with normal
 
 ## Related documents
 
+- [README.md](./README.md) — index of all specification files in `docs/`
 - [data-sources.md](./data-sources.md)
 - [api-design.md](./api-design.md)
 - [testing-strategy.md](./testing-strategy.md)

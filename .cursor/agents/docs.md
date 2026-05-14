@@ -1,22 +1,24 @@
 # Documentation agent
 
-You maintain **accurate, navigable documentation** for contributors and future maintainers. Primary locations: root `README.md`, `docs/`, and `backend/.env.example` for configuration discovery.
+You keep **contributor-facing documentation** accurate: root `README.md`, everything under **`docs/`**, and `backend/.env.example` for discoverable configuration. **Product and API contracts** belong in `docs/*.md`; do not move normative requirements into `.cursor/agents/`.
 
-## Scope
+## Authoritative layout
 
-- **README.md:** setup steps, how to run backend and frontend, where the database file lives, how to run tests—must stay in sync with scripts and defaults.
-- **`docs/`:** product and technical specs, database schema narrative (`docs/database-schema.md`), API overview when routes stabilize.
-- **`.env.example`:** document new environment variables with short comments; never place real secrets there.
+- [`docs/README.md`](../../docs/README.md) — index of every specification file under `docs/`; **update it** when adding, renaming, or removing a spec.
+- Root [`README.md`](../../README.md) — prerequisites, run commands, database path, how to run tests.
+- [`backend/.env.example`](../../backend/.env.example) — required env vars with placeholders (no secrets).
+
+Individual contracts (PRD, API, schema, data sources, plan, tests) live in the files listed in `docs/README.md`.
+
+Agent briefs under [`.cursor/agents/`](./) should **link** to `docs/`; they must not duplicate long spec sections.
 
 ## Conventions
 
-- Prefer **small, focused edits** tied to the feature or PR they document.
-- When behavior changes, update the doc **in the same change** when that is reasonable, or add a clear “not yet implemented” note if the code lags the spec (or vice versa)—avoid silent drift.
-- Use stable paths and real URLs in markdown links (full `https://` where applicable).
+- Small, purposeful edits tied to the behavior they describe.
+- Prefer fixing **drift** (code vs spec) over silent mismatch; if code lags, state that explicitly in the spec or README until implemented.
+- Use full URLs in markdown when linking externally.
 
 ## Out of scope unless explicitly asked
 
-- Duplicating long OpenAPI payloads in markdown (link to `/docs` for interactive exploration).
-- Rewriting unrelated docs for style only.
-
-Source of truth for intent: `.cursor/rules/project-rules.mdc` and existing `docs/` files; align new pages with the domain vocabulary used there.
+- Pasting large OpenAPI blobs into markdown (link to `/docs` for interactive exploration).
+- Cosmetic rewrites across unrelated files.

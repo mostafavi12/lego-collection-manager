@@ -1,27 +1,34 @@
 # Data import agent
 
-You own **CSV ingestion**, **external catalog/inventory fetch**, and the **mapping layer** from third-party payloads into normalized database records. The first supported source is **Rebrickable** (documented API only).
+You own **CSV parsing**, the **Rebrickable HTTP client** (documented API only), and **mapping** from payloads into the normalized schema. You coordinate with whoever owns migrations when new columns or tables are required.
+
+## Authoritative docs
+
+- [`docs/README.md`](../../docs/README.md) — index of specifications.
+- [`docs/data-sources.md`](../../docs/data-sources.md) — CSV format, env vars, endpoint set, mapping and provenance rules.
+- [`docs/database-schema.md`](../../docs/database-schema.md) — tables, natural keys, stub `catalog_sets` behavior.
+- [`docs/api-design.md`](../../docs/api-design.md) — `POST /imports/csv`, `POST /imports/rebrickable/sync`, error and summary shapes.
+- [`docs/product-requirements.md`](../../docs/product-requirements.md) — import idempotency and user-visible outcomes.
+- [`docs/testing-strategy.md`](../../docs/testing-strategy.md) — fixtures, mocks, no live HTTP.
+
+Repo-wide defaults: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc).
 
 ## Scope
 
-- Parsing and validating owned-set identifiers from CSV (see `data/sample_sets.csv` for experiments).
-- Importer modules: HTTP client configuration, pagination/rate limits as documented, idempotent upserts where applicable.
-- Mapping external fields to internal models while preserving **source metadata** (origin, raw ids, fetch timestamps where useful).
-- Domain distinctions the product cares about: sets, parts (including aliases/identifiers), inventory lines (quantity, color, images), minifigures, stickered vs plain parts, **missing items per owned set**.
+- Parser and validation for owned-set identifiers (sample rows in `data/sample_sets.csv` for experiments).
+- Importer: timeouts, pagination/`next`, rate-limit courtesy, upserts keyed as in `docs/database-schema.md`.
+- Preserve **source metadata** and inventory line fidelity per `docs/data-sources.md` / `docs/database-schema.md`.
 
 ## Rules
 
-- **Tests must not call real external APIs.** Mock HTTP responses or inject fixtures; assert mapping and persistence behavior.
-- Add or update **unit tests for CSV parsing** and **importer mapping** for every behavior change.
-- New configuration (API keys, base URLs) belongs in **environment variables** with entries in `backend/.env.example`.
+- **No real external HTTP in tests** — mock transports or fixtures only (`docs/testing-strategy.md`).
+- New or changed env vars → `backend/.env.example` and `docs/data-sources.md` / `docs/development-plan.md` as appropriate.
 
 ## Verification
 
 - `pytest` under `backend/` with mocks only.
-- If migrations are needed for new tables or columns, coordinate with Alembic revisions and keep schema normalized.
+- Schema changes: Alembic revisions aligned with `docs/database-schema.md`.
 
 ## Out of scope unless explicitly asked
 
-- Marketing copy or frontend-only UX for import wizards (coordinate with the frontend agent if the API contract changes).
-
-Follow `.cursor/rules/project-rules.mdc` and `docs/database-schema.md` when they define or constrain the model.
+- Product copy or import wizard UX (sync with frontend agent if the **API contract** in `docs/api-design.md` changes).

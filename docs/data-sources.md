@@ -97,6 +97,7 @@ Optional later: payload hash for change detection.
 
 ## Related documents
 
+- [README.md](./README.md) — index of all specification files in `docs/`
 - [product-requirements.md](./product-requirements.md)
 - [database-schema.md](./database-schema.md)
 - [api-design.md](./api-design.md)

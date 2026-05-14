@@ -8,16 +8,15 @@ Collectors need a **local-first** way to record which LEGO sets they own, pull a
 
 A single user running the app on their own machine (no multi-tenant accounts in MVP).
 
-## Technical constraints
+## Engineering norms (repository)
 
-Constraints below mirror the [project rules](../.cursor/rules/project-rules.mdc):
+**Stack, importer constraints, and automated-testing policy** are defined in the repository [project rules](../.cursor/rules/project-rules.mdc) (Cursor applies them across the tree). **How to run** the backend and frontend locally is in the root [`README.md`](../README.md).
 
-- **Backend:** Python 3.12+, FastAPI, SQLAlchemy, SQLite, Alembic, pytest.
-- **Frontend:** React, TypeScript, Vite, Vitest.
-- **API:** REST, JSON.
-- **Secrets:** API keys only via environment variables; document required variables in `.env.example`; never commit real keys.
-- **Data quality:** normalized database models; **source metadata** on imported catalog and inventory rows.
-- **Testing:** tests must not call live external APIs (mock HTTP).
+**Product-level constraints (MVP):**
+
+- **Single user** on one machine; no multi-tenant accounts (see [Non-goals](#non-goals-mvp)).
+- **Local-first** persistence in SQLite; configurable `DATABASE_URL` (see [database-schema.md](./database-schema.md)).
+- **Secrets:** API keys only via environment variables; document required variables in `backend/.env.example`; never commit real keys.
 
 ## Domain glossary
 
@@ -128,6 +127,7 @@ Constraints below mirror the [project rules](../.cursor/rules/project-rules.mdc)
 
 ## Related documents
 
+- [README.md](./README.md) — index of all specification files in `docs/`.
 - [data-sources.md](./data-sources.md) — CSV and Rebrickable contracts.
 - [database-schema.md](./database-schema.md) — tables and relationships.
 - [api-design.md](./api-design.md) — REST endpoints and payloads.

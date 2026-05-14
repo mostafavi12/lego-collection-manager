@@ -1,28 +1,36 @@
 # Backend agent
 
-You work on the **FastAPI** service under `backend/`. The MVP uses **SQLite**, **SQLAlchemy**, and **Alembic**; API style is **REST JSON**.
+You implement and maintain the **FastAPI** service under `backend/`: routes, persistence, and migrations. Behavior and shapes are defined in **`docs/`**, not in this file.
+
+## Authoritative docs
+
+- [`docs/README.md`](../../docs/README.md) — index of specifications.
+- [`docs/api-design.md`](../../docs/api-design.md) — REST JSON routes, status codes, payloads.
+- [`docs/database-schema.md`](../../docs/database-schema.md) — tables, keys, indexes, invariants.
+- [`docs/product-requirements.md`](../../docs/product-requirements.md) — MVP acceptance criteria that surface in APIs.
+- [`docs/development-plan.md`](../../docs/development-plan.md) — phased delivery (backend-heavy steps).
+- [`docs/testing-strategy.md`](../../docs/testing-strategy.md) — pytest expectations per endpoint and layer.
+- [`docs/data-sources.md`](../../docs/data-sources.md) — when work touches import env vars or upstream semantics.
+
+Repo-wide defaults: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc). Runbook: root [`README.md`](../../README.md).
 
 ## Scope
 
-- HTTP routes, request/response models (Pydantic), dependency injection, and error handling consistent with OpenAPI.
-- Database access via SQLAlchemy; session management in `app/db/`.
-- Alembic migrations for any schema change; keep migrations small and reversible when practical.
-- Configuration from the environment only; extend `backend/.env.example` when new variables are required. **Never commit secrets or real API keys.**
+- HTTP routes, Pydantic models, DI, and errors consistent with OpenAPI and `docs/api-design.md`.
+- SQLAlchemy access and session lifecycle (e.g. `app/db/`).
+- Alembic migrations for schema changes; keep revisions focused.
 
 ## Conventions
 
-- Prefer **Python 3.12+** semantics compatible with the range declared in `backend/pyproject.toml`.
-- Keep models **normalized**; attach **source metadata** to imported or externally derived rows as the product spec requires.
-- Match existing layout and import style in `app/` before adding new packages or layers.
+- Prefer **Python 3.12+** while respecting `requires-python` in `backend/pyproject.toml`.
+- Match existing `app/` layout and import style before adding new layers.
 
 ## Verification
 
-- Run from `backend/` with the venv active: `pytest`.
-- Run the app with `uvicorn` from `backend/` so `DATABASE_URL` resolves to `backend/data/lego.db` as documented in the root `README.md`.
+- From `backend/` with the venv active: `pytest` (see `docs/testing-strategy.md`).
+- Run `uvicorn` from `backend/` so `DATABASE_URL` resolves as in root `README.md`.
 
 ## Out of scope unless explicitly asked
 
-- Frontend UI and Vite config.
-- Rewrites that introduce large frameworks without justification in the task.
-
-When in doubt, follow `.cursor/rules/project-rules.mdc` and `docs/` for domain behavior.
+- Frontend UI and Vite configuration.
+- Large framework churn without justification tied to the task.

@@ -8,7 +8,7 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - Python **3.12+** project layout under `backend/` (FastAPI application factory, dependency injection for DB session).
 - `frontend/` scaffold: **React**, **TypeScript**, **Vite**, router, API client base URL from env.
-- Root **`.env.example`**: `DATABASE_URL`, `REBRICKABLE_API_KEY`, `VITE_API_BASE_URL`, CORS-related vars as needed.
+- `backend/.env.example`: `DATABASE_URL`, `REBRICKABLE_API_KEY`, `VITE_API_BASE_URL`, CORS-related vars as needed.
 - `.gitignore` excludes `.env`, SQLite files under `data/` if desired, and virtualenvs.
 
 **Exit criteria**
@@ -22,7 +22,7 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - SQLAlchemy models matching [database-schema.md](./database-schema.md).
 - Alembic initialized; initial migration creates all MVP tables and indexes.
-- Configurable `DATABASE_URL` with default SQLite path documented in `.env.example`.
+- Configurable `DATABASE_URL` with default SQLite path documented in `backend/.env.example`.
 
 **Exit criteria**
 
@@ -104,7 +104,7 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 **Exit criteria**
 
 - New developer can run the stack from README alone.
-- No committed secrets; `.env.example` complete.
+- No committed secrets; `backend/.env.example` complete.
 
 ## Dependency graph (high level)
 
@@ -131,5 +131,6 @@ flowchart LR
 
 ## Related documents
 
+- [README.md](./README.md) — index of all specification files in `docs/`
 - [product-requirements.md](./product-requirements.md)
 - [testing-strategy.md](./testing-strategy.md)

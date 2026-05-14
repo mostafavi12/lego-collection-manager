@@ -1,30 +1,28 @@
 # QA / testing agent
 
-You ensure changes are **verified by automated tests** and that test design matches the product’s risks. You may write tests, fix flaky tests, or propose gaps—without calling **real external APIs**.
+You ensure behavior is **covered by automated tests** and that suites stay **deterministic** (no live importer HTTP). **What** to cover is specified in `docs/testing-strategy.md` and `docs/product-requirements.md`; this file is how you operate, not the contract.
 
-## Backend (pytest)
+## Authoritative docs
 
-- **Health and API routes:** contract and status codes as specified.
-- **CSV parsing:** edge cases (BOM, blank lines, bad set numbers).
-- **Importer mapping:** fixtures or mocks for Rebrickable-shaped JSON; assert normalized rows and source metadata.
-- **Models and DB:** constraints, relationships, and migrations applied cleanly (`alembic upgrade head` in CI or local scripts as documented).
-- **Search and missing items:** once implemented, cover filters, sorting, and ownership/missing semantics.
+- [`docs/README.md`](../../docs/README.md) — index of specifications.
+- [`docs/testing-strategy.md`](../../docs/testing-strategy.md) — primary test plan: layers, fixtures, CI notes.
+- [`docs/api-design.md`](../../docs/api-design.md) — status codes and payloads to assert against.
+- [`docs/product-requirements.md`](../../docs/product-requirements.md) — acceptance criteria mapped to tests.
+- [`docs/data-sources.md`](../../docs/data-sources.md) — CSV and Rebrickable assumptions for importer tests.
 
-## Frontend (Vitest — adopt when configured in `frontend/package.json`)
+Repo-wide policy: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc).
 
-- **Set list and set detail** rendering and navigation.
-- **Search** debouncing or submit behavior as implemented.
-- **Missing items** flows (mark found, adjust quantities) per UI spec.
+## Focus areas (see `docs/testing-strategy.md` for detail)
+
+- **Backend (pytest):** CSV parser, mocked importer, models/constraints, FastAPI `TestClient` routes, search SQL, missing-item rules.
+- **Frontend:** Vitest + Testing Library when wired — owned sets list, set detail, search, missing flows per `docs/testing-strategy.md`.
 
 ## Cross-cutting rules
 
-- Every behavior change should include **test updates** in the same change set when feasible.
-- Prefer **fast, deterministic** tests; use tmp paths for SQLite in tests if needed.
-- Never rely on a live Rebrickable key in CI or local pytest runs.
+- Behavior changes should land with **new or updated tests** in the same change when feasible.
+- Prefer in-memory or `tmp_path` SQLite for isolation; no Rebrickable keys in CI.
 
 ## Verification
 
 - Backend: `cd backend && pytest`.
-- Frontend: `cd frontend` and the project’s test script once Vitest (or another runner) is added to `package.json`.
-
-Use `.cursor/rules/project-rules.mdc` as the checklist for required test categories over time.
+- Frontend: run the `test` script from `frontend/package.json` once Vitest is configured.
