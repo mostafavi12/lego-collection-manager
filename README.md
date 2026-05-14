@@ -62,6 +62,10 @@ Then open the URL printed by Vite (typically [http://127.0.0.1:5173](http://127.
 npm run build   # production build
 ```
 
+## Continuous integration
+
+On **GitHub**, every **push** and **pull request** runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml): backend **`pytest`** and frontend **`npm ci`** + **`npm run build`**. Details and local parity commands are in [`docs/ci.md`](docs/ci.md).
+
 ## Sample data
 
 Example owned set numbers for CSV import experiments live in [`data/sample_sets.csv`](data/sample_sets.csv).

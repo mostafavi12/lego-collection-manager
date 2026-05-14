@@ -99,12 +99,13 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - Structured logging for importer (no secrets).
 - README sections: prerequisites, how to run backend/frontend, how to run migrations, where the SQLite file lives.
-- Optional: GitHub Action stub (document only or minimal workflow) running pytest + vitest on push.
+- GitHub Actions CI on push/PR: backend `pytest` and frontend `npm run build` (see [ci.md](./ci.md), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)); extend with Vitest when configured.
 
 **Exit criteria**
 
 - New developer can run the stack from README alone.
 - No committed secrets; `backend/.env.example` complete.
+- GitHub Actions workflow (see [ci.md](./ci.md)) runs on push and pull request.
 
 ## Dependency graph (high level)
 
@@ -132,5 +133,6 @@ flowchart LR
 ## Related documents
 
 - [README.md](./README.md) — index of all specification files in `docs/`
+- [ci.md](./ci.md)
 - [product-requirements.md](./product-requirements.md)
 - [testing-strategy.md](./testing-strategy.md)

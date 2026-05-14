@@ -19,10 +19,11 @@ You keep **implementation and docs aligned**: trade-offs, boundaries, and consis
 - [`docs/data-sources.md`](../../docs/data-sources.md) — CSV rules, Rebrickable usage, provenance.
 - [`docs/development-plan.md`](../../docs/development-plan.md) — sequencing and milestones.
 - [`docs/testing-strategy.md`](../../docs/testing-strategy.md) — what to verify and how.
+- [`docs/ci.md`](../../docs/ci.md) — default push/PR checks (GitHub Actions).
 
 ## Collaboration
 
-- Delegate bounded work using the focused briefs in this folder (`backend`, `data-import`, `frontend`, `qa`, `docs`). You own **cross-cutting** consistency and risk.
+- Delegate bounded work using the focused briefs in this folder (`backend`, `data-import`, `frontend`, `qa`, `docs`, `ci`). You own **cross-cutting** consistency and risk.
 
 ## Boundaries
 
