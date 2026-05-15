@@ -4,6 +4,7 @@ from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, pool
 
+from app.db import models  # noqa: F401 — register ORM tables for autogenerate
 from app.db.base import Base
 from app.db.session import get_database_url
 

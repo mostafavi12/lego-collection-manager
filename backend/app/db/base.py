@@ -1,4 +1,4 @@
-"""SQLAlchemy declarative base (models will register here in later migrations)."""
+"""SQLAlchemy declarative base for ORM models."""
 
 from sqlalchemy.orm import DeclarativeBase
 
