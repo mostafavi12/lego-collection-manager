@@ -3,15 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AddSetPage } from "./AddSetPage";
+import { AddSetWizard } from "../components/AddSetWizard";
 
-describe("AddSetPage", () => {
+describe("AddSetWizard", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it("creates a new set after preview", async () => {
+  it("shows set number step then creates a new set", async () => {
+    const onCreated = vi.fn();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -22,6 +23,12 @@ describe("AddSetPage", () => {
           set_name: null,
           existing_copy_count: 0,
           suggested_label: "Copy #1",
+          theme_name: null,
+          year: null,
+          num_parts: null,
+          age: null,
+          image_url: null,
+          set_parts: [],
         }),
       } as Response)
       .mockResolvedValueOnce({
@@ -49,21 +56,21 @@ describe("AddSetPage", () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <AddSetPage />
+        <AddSetWizard onClose={() => {}} onCreated={onCreated} />
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByPlaceholderText(/6024-1/i), "8888-1");
-    await user.click(screen.getByRole("button", { name: /^continue$/i }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/lego set number/i), "8888-1");
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
 
-    expect(await screen.findByRole("heading", { name: /new set 8888-1/i })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /create set/i }));
+    expect(
+      await screen.findByRole("heading", { name: /new set — 8888-1/i }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/owned-sets"),
-        expect.objectContaining({ method: "POST" }),
-      );
+      expect(onCreated).toHaveBeenCalledWith(9);
     });
   });
 });

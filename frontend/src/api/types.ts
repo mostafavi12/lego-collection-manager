@@ -143,12 +143,27 @@ export interface SearchResponse {
   parts: SearchPartResult[];
 }
 
+export interface AddPreviewPartLine {
+  part_num: string;
+  part_name: string | null;
+  color_name: string;
+  quantity: number;
+  is_spare: boolean;
+  is_alternate: boolean;
+}
+
 export interface OwnedSetAddPreviewResponse {
   set_num: string;
   catalog_exists: boolean;
   set_name: string | null;
   existing_copy_count: number;
   suggested_label: string;
+  theme_name: string | null;
+  year: number | null;
+  num_parts: number | null;
+  age: number | null;
+  image_url: string | null;
+  set_parts: AddPreviewPartLine[];
 }
 
 export interface ManualAddCatalogInput {
