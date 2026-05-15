@@ -9,6 +9,7 @@ from app.schemas.missing import (
     MissingUpsertResponse,
 )
 from app.schemas.instance_inventory import (
+    AddSetPartLineRequest,
     InstanceInventoryLineResponse,
     InstanceInventoryLineUpdate,
 )
@@ -37,6 +38,10 @@ from app.services.missing_items_service import (
 from app.services.instance_inventory import (
     InstanceInventoryError,
     update_instance_inventory_line,
+)
+from app.services.inventory_parts_service import (
+    InventoryPartsError,
+    add_set_part_to_owned_set,
 )
 from app.services.owned_sets_service import (
     OwnedSetServiceError,
@@ -92,6 +97,33 @@ def get_owned_set(
     if detail is None:
         raise HTTPException(status_code=404, detail="Owned set not found")
     return detail
+
+
+@router.post(
+    "/{owned_set_id}/set-parts",
+    response_model=InstanceInventoryLineResponse,
+    status_code=201,
+)
+def post_set_part_line(
+    owned_set_id: int,
+    body: AddSetPartLineRequest,
+    db: Session = Depends(get_db),
+) -> InstanceInventoryLineResponse:
+    from app.schemas.manual_add import ManualAddPartInput
+
+    try:
+        line = add_set_part_to_owned_set(
+            db,
+            owned_set_id,
+            ManualAddPartInput.model_validate(body.model_dump()),
+        )
+    except InventoryPartsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return InstanceInventoryLineResponse(
+        instance_line_id=line.id,
+        quantity=line.quantity,
+        quantity_missing=line.quantity_missing,
+    )
 
 
 @router.patch(

@@ -8,6 +8,7 @@ import { Modal } from "../components/Modal";
 import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
 import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
 import { MissingLineEditor } from "../components/MissingLineEditor";
+import { AddPartLineDialog } from "../components/AddPartLineDialog";
 import { PartImageEditor } from "../components/PartImageEditor";
 
 interface InstanceForm {
@@ -47,6 +48,7 @@ export function OwnedSetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAddPart, setShowAddPart] = useState(false);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(ownedSetId)) {
@@ -308,7 +310,17 @@ export function OwnedSetDetailPage() {
       </form>
 
       <section className="inventory-section">
-        <h2>Parts inventory</h2>
+        <div className="inventory-section__header">
+          <button
+            type="button"
+            className="btn btn--small btn--primary inventory-section__add"
+            aria-label="Add part"
+            onClick={() => setShowAddPart(true)}
+          >
+            +
+          </button>
+          <h2>Parts inventory</h2>
+        </div>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
@@ -316,7 +328,6 @@ export function OwnedSetDetailPage() {
                 <th>Part</th>
                 <th>Color</th>
                 <th>Qty</th>
-                <th>Flags</th>
                 <th>Missing</th>
               </tr>
             </thead>
@@ -346,13 +357,10 @@ export function OwnedSetDetailPage() {
                     />
                   </td>
                   <td>
-                    {line.is_spare && <span className="tag">spare</span>}
-                    {line.is_alternate && <span className="tag">alt</span>}
-                  </td>
-                  <td>
                     <MissingLineEditor
                       ownedSetId={detail.id}
                       line={line}
+                      inventoryKind="set_part"
                       onUpdated={() => void load()}
                     />
                   </td>
@@ -401,6 +409,7 @@ export function OwnedSetDetailPage() {
                           <MissingLineEditor
                             ownedSetId={detail.id}
                             line={line}
+                            inventoryKind="minifig_part"
                             onUpdated={() => void load()}
                           />
                         </td>
@@ -412,6 +421,14 @@ export function OwnedSetDetailPage() {
             </article>
           ))}
         </section>
+      )}
+
+      {showAddPart && (
+        <AddPartLineDialog
+          ownedSetId={detail.id}
+          onClose={() => setShowAddPart(false)}
+          onAdded={() => void load()}
+        />
       )}
 
       {showSetNumWarning && (

@@ -21,6 +21,10 @@ from app.db.models import (
     SetPartInventoryLine,
     Theme,
 )
+from app.importers.rebrickable_inventory_filters import (
+    include_minifig_part_line,
+    include_set_part_line,
+)
 from app.rebrickable.dto import (
     CatalogSetDTO,
     ColorDTO,
@@ -182,15 +186,17 @@ def replace_set_part_inventory(
     """Upsert set part lines; return (parts_upserted, lines_written)."""
     parts_upserted = 0
     lines_written = 0
-    new_keys: set[tuple[int, int, bool, bool]] = set()
+    new_keys: set[tuple[int, int]] = set()
 
     for line in lines:
+        if not include_set_part_line(line):
+            continue
         part, created = upsert_part_counting(session, line.part, fetched_at=fetched_at)
         if created:
             parts_upserted += 1
         color = upsert_color(session, line.color, fetched_at=fetched_at)
 
-        key = (part.id, color.id, line.is_spare, line.is_alternate)
+        key = (part.id, color.id)
         new_keys.add(key)
 
         existing = session.scalar(
@@ -198,8 +204,6 @@ def replace_set_part_inventory(
                 SetPartInventoryLine.catalog_set_id == catalog_set_id,
                 SetPartInventoryLine.part_id == part.id,
                 SetPartInventoryLine.color_id == color.id,
-                SetPartInventoryLine.is_spare == line.is_spare,
-                SetPartInventoryLine.is_alternate == line.is_alternate,
             )
         )
         source_ref = str(line.inventory_id) if line.inventory_id is not None else None
@@ -210,8 +214,6 @@ def replace_set_part_inventory(
                     part_id=part.id,
                     color_id=color.id,
                     quantity=line.quantity,
-                    is_spare=line.is_spare,
-                    is_alternate=line.is_alternate,
                     image_url=line.image_url,
                     source=SOURCE,
                     source_ref=source_ref,
@@ -231,12 +233,7 @@ def replace_set_part_inventory(
         )
     ).all()
     for existing in existing_lines:
-        key = (
-            existing.part_id,
-            existing.color_id,
-            existing.is_spare,
-            existing.is_alternate,
-        )
+        key = (existing.part_id, existing.color_id)
         if key in new_keys:
             continue
         session.execute(
@@ -288,14 +285,16 @@ def replace_minifig_part_inventory(
 ) -> tuple[int, int]:
     parts_upserted = 0
     lines_written = 0
-    new_keys: set[tuple[int, int, bool]] = set()
+    new_keys: set[tuple[int, int]] = set()
 
     for line in lines:
+        if not include_minifig_part_line(line):
+            continue
         part, created = upsert_part_counting(session, line.part, fetched_at=fetched_at)
         if created:
             parts_upserted += 1
         color = upsert_color(session, line.color, fetched_at=fetched_at)
-        key = (part.id, color.id, line.is_spare)
+        key = (part.id, color.id)
         new_keys.add(key)
 
         existing = session.scalar(
@@ -303,7 +302,6 @@ def replace_minifig_part_inventory(
                 MinifigPartInventoryLine.catalog_minifig_id == catalog_minifig_id,
                 MinifigPartInventoryLine.part_id == part.id,
                 MinifigPartInventoryLine.color_id == color.id,
-                MinifigPartInventoryLine.is_spare == line.is_spare,
             )
         )
         if existing is None:
@@ -313,7 +311,6 @@ def replace_minifig_part_inventory(
                     part_id=part.id,
                     color_id=color.id,
                     quantity=line.quantity,
-                    is_spare=line.is_spare,
                     image_url=line.image_url,
                     source=SOURCE,
                     fetched_at=fetched_at,
@@ -331,7 +328,7 @@ def replace_minifig_part_inventory(
         )
     ).all()
     for existing in existing_lines:
-        key = (existing.part_id, existing.color_id, existing.is_spare)
+        key = (existing.part_id, existing.color_id)
         if key in new_keys:
             continue
         session.execute(

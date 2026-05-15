@@ -1,4 +1,5 @@
 import type {
+  AddSetPartLineBody,
   CsvImportResponse,
   DuplicatePreviewResponse,
   OwnedSetAddPreviewResponse,
@@ -177,6 +178,17 @@ export function syncRebrickable(
     body: JSON.stringify(
       ownedSetIds?.length ? { owned_set_ids: ownedSetIds } : {},
     ),
+  });
+}
+
+export function addSetPartLine(
+  ownedSetId: number,
+  body: AddSetPartLineBody,
+): Promise<InstanceInventoryLineResponse> {
+  return request(`/owned-sets/${ownedSetId}/set-parts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 }
 

@@ -226,7 +226,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 - **Add set wizard (frontend):**
   1. Modal/page with single required field: **LEGO set number**.
   2. If `set_num` **exists**: inform user they are creating a **new instance**; load shared catalog + template inventory from DB; create instance (investigated false); navigate to detail for instance-level edits.
-  3. If `set_num` **new**: step 2 — set metadata (name, theme, year, `num_parts`, age) and **parts list** (part number, color, quantity, spare/alt flags as needed); optional “Fetch from Rebrickable” button to prefill without images; step 3 — confirm and create catalog + first owned instance + instance inventory lines.
+  3. If `set_num` **new**: step 2 — set metadata (name, theme, year, `num_parts`, age) and **parts list** (part number, color, quantity); optional “Fetch from Rebrickable” button to prefill without images; step 3 — confirm and create catalog + first owned instance + instance inventory lines.
 - APIs: `POST /owned-sets` (or `POST /catalog/sets` + instance) with the branching semantics above; `PATCH` parts alias list with **symmetric closure** (adding B to X’s aliases adds X to B’s; removing A from X’s list removes X from A’s).
 - **Collection invariant:** deleting the last instance for a `set_num` deletes catalog + inventory for that set (existing rule); no orphan `catalog_sets` without `owned_sets`.
 - Tests: wizard flows (mocked API); alias symmetry property tests (add/remove pairs); new set with only `set_num` then expand metadata.

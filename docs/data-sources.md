@@ -90,7 +90,9 @@ General rules (details in [database-schema.md](./database-schema.md)):
 | `set_num` | Primary business key for `catalog_sets`; many `owned_sets` may reference one `catalog_set_id`. |
 | `part` / `part_num` | Upsert `parts`; store `name`, `part_img_url` or equivalent as returned. |
 | `color_id` | Upsert `colors`; FK on inventory lines. |
-| Quantity, `is_spare`, `is_alternate` | Store on the appropriate inventory line table; include in uniqueness so spare vs non-spare lines do not collide. |
+| Quantity | Store on the appropriate inventory line table. |
+| `is_spare`, `is_alternate` (set parts) | Parsed from Rebrickable DTOs; **not persisted**. Rows with either flag set are skipped during catalog import (`include_set_part_line` / `include_minifig_part_line` in `backend/app/importers/rebrickable_inventory_filters.py`). |
+| `is_spare` (minifig BOM) | Parsed from Rebrickable; **not persisted** (spare BOM lines skipped on import). |
 | Stickered vs plain | When Rebrickable uses different `part_num` values, store as **distinct** `parts` and distinct inventory lines—**no merging** in MVP. |
 | Minifig `minifig_num` | Upsert `catalog_minifigs`; set-level minifig rows go to `set_minifig_inventory_lines`; BOM rows go to `minifig_part_inventory_lines`. |
 | Aliases | When the API exposes alternate part IDs or legacy numbers, populate `part_aliases` so search remains accurate. |

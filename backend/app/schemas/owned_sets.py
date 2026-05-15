@@ -77,8 +77,6 @@ class SetPartLineDetail(BaseModel):
     color_id: int
     color_name: str
     quantity: int
-    is_spare: bool
-    is_alternate: bool
     image_url: str | None
     part_image_url: str | None
     missing_quantity: int

@@ -135,13 +135,13 @@ def test_sync_populates_catalog(db_session, fake_client) -> None:
     assert result.sets_synced == 1
     assert result.sets_failed == []
     assert result.parts_upserted >= 2
-    assert result.inventory_lines_written >= 4
+    assert result.inventory_lines_written >= 3
 
     updated = db_session.scalar(select(CatalogSet).where(CatalogSet.set_num == "6024-1"))
     assert updated is not None
     assert updated.name == "Police Car"
     assert updated.source == "rebrickable"
-    assert db_session.scalar(select(func.count()).select_from(SetPartInventoryLine)) == 2
+    assert db_session.scalar(select(func.count()).select_from(SetPartInventoryLine)) == 1
     assert db_session.scalar(select(func.count()).select_from(SetMinifigInventoryLine)) == 1
     assert db_session.scalar(select(func.count()).select_from(CatalogMinifig)) == 1
 

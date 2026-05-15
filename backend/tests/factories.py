@@ -248,7 +248,6 @@ def add_minifig_with_parts(
         part_id=part.id,
         color_id=color.id,
         quantity=1,
-        is_spare=False,
         image_url=None,
         source="rebrickable",
         fetched_at=utc_now(),

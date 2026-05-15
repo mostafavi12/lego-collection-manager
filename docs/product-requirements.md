@@ -30,7 +30,7 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 | **Instance age** | Integer on each owned-set row (e.g. `6` from Rebrickable `6+`). Shown as `?` when unset. Editing age on one instance updates **all** instances of the same catalog set. |
 | **Part** | A LEGO element type identified primarily by a part number; may have **aliases** (alternate identifiers). |
 | **Color** | A color identifier and display name as provided by the importer (used on inventory lines). |
-| **Set inventory line** | A row linking a catalog set to a part in a given color with quantity, optional image URL, and flags (e.g. spare, alternate) from the source. **Stickered** and **plain** variants are distinct lines when the source uses distinct part identities. |
+| **Set inventory line** | A row linking a catalog set to a part in a given color with quantity and optional image URL. Rebrickable spare and alternate rows are ignored on import. **Stickered** and **plain** variants are distinct lines when the source uses distinct part identities. |
 | **Minifigure (catalog)** | A minifig design referenced by the source (e.g. `fig-…`); may appear as its own inventory line on a set and may have **constituent part** lines when the API exposes a minifig BOM. |
 | **Missing item** | A user-tracked gap for a specific **owned-set instance**: which part (and color) is missing, in what quantity, and optionally **one user-provided photo** stored locally for offline reference and future reports. |
 
@@ -98,7 +98,7 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 - User can edit **shared catalog fields** on detail (`name`, theme, part count, age, etc.); changes apply to **every** owned-set instance with the same `catalog_set_id`, except **`set_num`** (see below).
 - Changing **`set_num`**: show a warning (“You are about to change the LEGO set number”); **Cancel** restores the previous value; **Continue** re-links **only this instance** to the new set number (create or match `catalog_sets` row) without changing other instances.
 - Inventory table supports sorting or stable default order (e.g. by part number, then color).
-- Spare and alternate lines from the source are visible or filterable (MVP: visible with labels is sufficient).
+- Rebrickable **spare** and **alternate** inventory rows are **not imported** (not shown in the UI).
 - Distinct **stickered vs plain** parts appear as distinct rows matching importer data.
 
 ### 6. Search by set number and part number

@@ -54,6 +54,14 @@ export interface CatalogBlock {
   num_parts: number | null;
 }
 
+export interface AddSetPartLineBody {
+  part_num: string;
+  part_name?: string | null;
+  color_id?: number;
+  color_name?: string | null;
+  quantity: number;
+}
+
 export interface InstanceInventoryLineUpdate {
   quantity?: number;
   quantity_missing?: number;
@@ -74,8 +82,6 @@ export interface SetPartLineDetail {
   color_id: number;
   color_name: string;
   quantity: number;
-  is_spare: boolean;
-  is_alternate: boolean;
   image_url: string | null;
   part_image_url: string | null;
   missing_quantity: number;
@@ -148,8 +154,6 @@ export interface AddPreviewPartLine {
   part_name: string | null;
   color_name: string;
   quantity: number;
-  is_spare: boolean;
-  is_alternate: boolean;
 }
 
 export interface OwnedSetAddPreviewResponse {
@@ -179,8 +183,6 @@ export interface ManualAddPartInput {
   color_id?: number;
   color_name?: string | null;
   quantity: number;
-  is_spare?: boolean;
-  is_alternate?: boolean;
 }
 
 export interface OwnedSetCreateBody {

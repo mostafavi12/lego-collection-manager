@@ -1,4 +1,14 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class AddSetPartLineRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    part_num: str
+    part_name: str | None = None
+    color_id: int = 0
+    color_name: str | None = None
+    quantity: int = Field(gt=0)
 
 
 class InstanceInventoryLineUpdate(BaseModel):

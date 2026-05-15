@@ -6,8 +6,6 @@ class AddPreviewPartLine(BaseModel):
     part_name: str | None
     color_name: str
     quantity: int
-    is_spare: bool
-    is_alternate: bool
 
 
 class OwnedSetAddPreviewResponse(BaseModel):
@@ -41,8 +39,6 @@ class ManualAddPartInput(BaseModel):
     color_id: int = 0
     color_name: str | None = None
     quantity: int = Field(gt=0)
-    is_spare: bool = False
-    is_alternate: bool = False
 
 
 class OwnedSetCreateRequest(BaseModel):

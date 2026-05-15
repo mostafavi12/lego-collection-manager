@@ -70,8 +70,6 @@ export const ownedSetDetailFixture: OwnedSetDetailResponse = {
         color_id: 0,
         color_name: "Black",
         quantity: 4,
-        is_spare: false,
-        is_alternate: false,
         image_url: null,
         part_image_url: null,
         missing_quantity: 1,

@@ -283,8 +283,6 @@ def get_owned_set_detail(
                 color_id=color.external_id,
                 color_name=color.name,
                 quantity=instance_line.quantity,
-                is_spare=line.is_spare,
-                is_alternate=line.is_alternate,
                 image_url=resolve_part_image_url(part) or line.image_url,
                 part_image_url=resolve_part_image_url(part),
                 missing_quantity=instance_line.quantity_missing,

@@ -17,7 +17,7 @@ Migrations: **Alembic** tracks revisions; application startup fails fast if the 
 1. **Catalog vs collection:** Catalog tables mirror importer entities; collection tables reference catalog by foreign key.
 2. **Many instances per set number:** Multiple `owned_sets` rows may reference the same `catalog_sets.id` (several physical copies, complete or not).
 3. **No duplicate catalog primaries:** Upserts keyed by natural keys (`set_num`, `part_num`, `color_id` from API, etc.).
-4. **Inventory fidelity:** Spare, alternate, stickered vs plain, and distinct Rebrickable part numbers are preserved on line tables—**no collapsing** of lines in MVP.
+4. **Inventory fidelity:** Stickered vs plain and distinct Rebrickable part numbers are preserved on line tables—**no collapsing** of lines in MVP. Rebrickable **spare** and **alternate** rows are read from the API but **not stored** (see [data-sources.md](./data-sources.md)).
 5. **Missing parts** belong to an **owned-set instance** and reference a **specific inventory line** (set-level part row or minifig BOM row) for traceability in the UI.
 6. **User images:** At most one JPEG/PNG BLOB per `parts` row (global part image) and per `catalog_sets` row (shared set box image). Missing-line uploads attach to the part record.
 
@@ -146,13 +146,11 @@ Direct **set → part** inventory (not inside a minifig BOM).
 | `part_id` | INTEGER FK → `parts.id` NOT NULL | |
 | `color_id` | INTEGER FK → `colors.id` NOT NULL | |
 | `quantity` | INTEGER NOT NULL | Must be > 0. |
-| `is_spare` | BOOLEAN NOT NULL DEFAULT 0 | |
-| `is_alternate` | BOOLEAN NOT NULL DEFAULT 0 | |
 | `image_url` | TEXT NULL | Element image for this color. |
 | `source` | TEXT NOT NULL | |
 | `source_ref` | TEXT NULL | Optional stable id from API if present. |
 | `fetched_at` | TIMESTAMP NOT NULL | |
-| **UNIQUE** | | `(catalog_set_id, part_id, color_id, is_spare, is_alternate)` — if collisions occur in source data, disambiguate with `source_ref` in a follow-up migration. |
+| **UNIQUE** | | `(catalog_set_id, part_id, color_id)` |
 
 ### `catalog_minifigs`
 
@@ -190,11 +188,10 @@ BOM: parts belonging to a minifig design.
 | `part_id` | INTEGER FK → `parts.id` NOT NULL | |
 | `color_id` | INTEGER FK → `colors.id` NOT NULL | |
 | `quantity` | INTEGER NOT NULL | |
-| `is_spare` | BOOLEAN NOT NULL DEFAULT 0 | |
 | `image_url` | TEXT NULL | |
 | `source` | TEXT NOT NULL | |
 | `fetched_at` | TIMESTAMP NOT NULL | |
-| **UNIQUE** | | `(catalog_minifig_id, part_id, color_id, is_spare)` |
+| **UNIQUE** | | `(catalog_minifig_id, part_id, color_id)` |
 
 ### `missing_items`
 

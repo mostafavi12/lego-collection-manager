@@ -13,11 +13,16 @@ type InventoryLine = SetPartLineDetail | MinifigPartLineDetail;
 interface MissingLineEditorProps {
   ownedSetId: number;
   line: InventoryLine;
+  inventoryKind: "set_part" | "minifig_part";
   onUpdated: () => void;
 }
 
-function patchBody(line: InventoryLine, quantity: number) {
-  if ("is_spare" in line) {
+function patchBody(
+  line: InventoryLine,
+  inventoryKind: "set_part" | "minifig_part",
+  quantity: number,
+) {
+  if (inventoryKind === "set_part") {
     return {
       set_part_inventory_line_id: line.catalog_line_id,
       quantity_missing: quantity,
@@ -32,6 +37,7 @@ function patchBody(line: InventoryLine, quantity: number) {
 export function MissingLineEditor({
   ownedSetId,
   line,
+  inventoryKind,
   onUpdated,
 }: MissingLineEditorProps) {
   const [qty, setQty] = useState(String(line.missing_quantity));
@@ -51,7 +57,10 @@ export function MissingLineEditor({
     setBusy(true);
     setError(null);
     try {
-      const result = await patchMissing(ownedSetId, patchBody(line, parsed));
+      const result = await patchMissing(
+        ownedSetId,
+        patchBody(line, inventoryKind, parsed),
+      );
       if (parsed === 0) {
         setMissingItemId(null);
         setImageUrl(null);

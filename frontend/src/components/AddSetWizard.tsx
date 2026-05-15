@@ -19,8 +19,6 @@ interface PartDraft {
   color_id: string;
   color_name: string;
   quantity: string;
-  is_spare: boolean;
-  is_alternate: boolean;
 }
 
 const emptyPart = (): PartDraft => ({
@@ -29,8 +27,6 @@ const emptyPart = (): PartDraft => ({
   color_id: "0",
   color_name: "Black",
   quantity: "1",
-  is_spare: false,
-  is_alternate: false,
 });
 
 export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
@@ -94,8 +90,6 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
         color_id: Number.parseInt(row.color_id, 10) || 0,
         color_name: row.color_name.trim() || null,
         quantity: Number.parseInt(row.quantity, 10),
-        is_spare: row.is_spare,
-        is_alternate: row.is_alternate,
       }))
       .filter((row) => row.part_num.length > 0);
   }
@@ -269,13 +263,12 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
                         <th>Part</th>
                         <th>Color</th>
                         <th>Qty</th>
-                        <th>Flags</th>
                       </tr>
                     </thead>
                     <tbody>
                       {preview.set_parts.map((line) => (
                         <tr
-                          key={`${line.part_num}-${line.color_name}-${line.is_spare}-${line.is_alternate}`}
+                          key={`${line.part_num}-${line.color_name}`}
                         >
                           <td>
                             <strong>{line.part_num}</strong>
@@ -283,12 +276,6 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
                           </td>
                           <td>{line.color_name}</td>
                           <td>{line.quantity}</td>
-                          <td>
-                            {line.is_spare && <span className="tag">spare</span>}
-                            {line.is_alternate && (
-                              <span className="tag">alt</span>
-                            )}
-                          </td>
                         </tr>
                       ))}
                     </tbody>

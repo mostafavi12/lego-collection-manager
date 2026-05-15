@@ -159,8 +159,6 @@ class SetPartInventoryLine(Base):
             "catalog_set_id",
             "part_id",
             "color_id",
-            "is_spare",
-            "is_alternate",
             name="uq_set_part_inventory_lines_natural_key",
         ),
         CheckConstraint("quantity > 0", name="ck_set_part_inventory_lines_quantity"),
@@ -174,12 +172,6 @@ class SetPartInventoryLine(Base):
     part_id: Mapped[int] = mapped_column(Integer, ForeignKey("parts.id"), nullable=False)
     color_id: Mapped[int] = mapped_column(Integer, ForeignKey("colors.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    is_spare: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=text("0")
-    )
-    is_alternate: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=text("0")
-    )
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(Text, nullable=False)
     source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -247,7 +239,6 @@ class MinifigPartInventoryLine(Base):
             "catalog_minifig_id",
             "part_id",
             "color_id",
-            "is_spare",
             name="uq_minifig_part_inventory_lines_natural_key",
         ),
         CheckConstraint("quantity > 0", name="ck_minifig_part_inventory_lines_quantity"),
@@ -261,9 +252,6 @@ class MinifigPartInventoryLine(Base):
     part_id: Mapped[int] = mapped_column(Integer, ForeignKey("parts.id"), nullable=False)
     color_id: Mapped[int] = mapped_column(Integer, ForeignKey("colors.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    is_spare: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=text("0")
-    )
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(Text, nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

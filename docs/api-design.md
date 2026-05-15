@@ -171,8 +171,6 @@ Multiple `items` may share the same `set_num` with different `id`.
         "color_id": 0,
         "color_name": "Black",
         "quantity": 4,
-        "is_spare": false,
-        "is_alternate": false,
         "image_url": "https://…",
         "part_image_url": "/api/parts/42/image",
         "missing_quantity": 1,
@@ -526,7 +524,7 @@ Contracts below are **targets** for remaining post-MVP work.
   "set_num": "99999-1",
   "catalog": { "name": "...", "theme_name": "...", "year": 2020, "num_parts": 100 },
   "parts": [
-    { "part_num": "3024", "color_id": 0, "quantity": 2, "is_spare": false, "is_alternate": false }
+    { "part_num": "3024", "color_id": 0, "quantity": 2 }
   ]
 }
 ```
