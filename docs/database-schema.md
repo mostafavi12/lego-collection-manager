@@ -78,13 +78,16 @@ Represents **one physical copy** the user owns of a catalog set. **Many rows** m
 | `id` | INTEGER PK | Surrogate key; exposed in API and UI. |
 | `catalog_set_id` | INTEGER FK → `catalog_sets.id` NOT NULL | **Not unique** — multiple instances per set number. |
 | `investigated` | BOOLEAN NOT NULL DEFAULT 0 | `false` for new CSV imports and UI duplicates until user marks investigated. |
-| `label` | TEXT NULL | Optional user label to distinguish copies (e.g. “complete”, “missing minifigs”). |
+| `label` | TEXT NULL | Optional user label to distinguish copies (e.g. “Copy #2”, “eBay lot — incomplete”). When NULL, the UI shows a default of `Copy #n` where `n` is the 1-based copy index among rows sharing this `catalog_set_id` (ordered by `created_at`, then `id`). |
+| `age` | INTEGER NULL | Recommended age as a **number** (e.g. `6` from Rebrickable `6+`). User may edit on detail; when saved, the same value is written to **all** owned-set instances sharing this `catalog_set_id` (see [product-requirements.md](./product-requirements.md)). UI shows `?` when NULL. |
 | `created_at` | TIMESTAMP NOT NULL | When this instance was first recorded. |
 | `notes` | TEXT NULL | Optional free-text note. |
 
 **Index:** `(catalog_set_id)` for listing all copies of a set number.
 
-**Duplicate instance (UI/API):** `POST /owned-sets/{id}/duplicate` inserts a new row with the same `catalog_set_id`, `investigated` = `false`, `label` and `notes` = NULL, and **no** `missing_items`. The source row is unchanged. Provenance of “copied from” is optional in the API response only (no extra column required in MVP).
+**Duplicate instance (UI/API):** `POST /owned-sets/{id}/duplicate` inserts a new row with the same `catalog_set_id`, `investigated` = `false`, user-confirmed `label` (default `Copy #n` where `n` = existing copy count + 1), `age` and `notes` = NULL, and **no** `missing_items`. The source row is unchanged. The UI shows a confirmation dialog before POST; provenance of “copied from” is optional in the API response only (no extra column required in MVP).
+
+**Delete instance (UI/API):** `DELETE /owned-sets/{id}` removes the owned-set row, cascades `missing_items`, and deletes any missing-part image files on disk. If this was the **last** owned-set row for a `catalog_set_id`, also delete that catalog set and its inventory rows (full removal from the database).
 
 ### `parts`
 

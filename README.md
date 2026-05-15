@@ -36,7 +36,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - **Health check:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) returns `{"status":"ok"}`.
 - **API docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (OpenAPI).
 
-**CSV import**, **Rebrickable sync**, **read APIs** (`GET/PATCH /api/owned-sets`, duplicate, search), and **missing-parts API** (`PATCH` missing quantities, `PUT/DELETE` images, `GET /api/media/missing/{id}`) are implemented. The collection **frontend UI** is not implemented yet.
+**Backend APIs** (CSV import, Rebrickable sync, owned sets, search, missing parts, local images) and the **React MVP UI** (collection list, set detail, search, import) are implemented.
 
 Configuration is read from the environment (see [`backend/.env.example`](backend/.env.example)). The default `DATABASE_URL` points at `sqlite:///./data/lego.db` relative to the **current working directory**; run Alembic and uvicorn from `backend/` so the database file is created at `backend/data/lego.db`.
 
@@ -56,7 +56,9 @@ npm install
 npm run dev
 ```
 
-Then open the URL printed by Vite (typically [http://127.0.0.1:5173](http://127.0.0.1:5173)).
+Then open the URL printed by Vite (typically [http://127.0.0.1:5173](http://127.0.0.1:5173)). The dev server proxies `/api` to the backend on port 8000 — start **uvicorn** in `backend/` first.
+
+Optional: set `VITE_API_BASE_URL` (default `/api`) if the API is hosted elsewhere.
 
 ```bash
 npm test        # Vitest unit tests (see docs/frontend-testing.md)

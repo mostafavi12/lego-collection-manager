@@ -114,6 +114,23 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - End-to-end manual flow: CSV (additive) → sync → duplicate an owned set from UI → new uninvestigated copy → mark missing + upload photo → reload shows persisted state and local image.
 
+## Phase 7b — Instance management UX (feedback)
+
+**Deliverables**
+
+- Schema: `owned_sets.age` (INTEGER NULL) + Alembic migration; Rebrickable age strings (`6+`) parsed to integer on sync.
+- Shared-field PATCH (e.g. age → all instances); `set_num` change with instance-only re-link + UI warning.
+- DELETE removes catalog + inventory when last instance for that catalog set is removed.
+- API: `copy_index` / `display_label` on list and detail; `PATCH` adds `age` and `notes`; `DELETE /owned-sets/{id}`; `GET .../duplicate-preview` + `POST .../duplicate` with optional `label` body.
+- Frontend: list layout (`{display_label} — {set_num}`, metadata line); rename **Make a copy** + confirmation modal; remove duplicate from detail; instance editor on detail; delete with confirmation.
+
+**Exit criteria**
+
+- List shows label before set number and name/theme/parts/age with documented defaults.
+- Make a copy only from list; dialog shows set number X and default `Copy #n`; create only after confirm.
+- Detail allows editing instance fields and deleting the instance; no Make a copy on detail.
+- Tests cover delete, duplicate preview/POST with label, PATCH age, and updated list/detail UI (mocked API).
+
 ## Phase 8 — Hardening and documentation
 
 **Deliverables**

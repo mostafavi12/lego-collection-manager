@@ -17,6 +17,7 @@ Repo-wide defaults: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.m
 ## Scope
 
 - HTTP routes, Pydantic models, DI, and errors consistent with OpenAPI and `docs/api-design.md`.
+- **Phase 7b (instance UX):** `owned_sets.age` migration; `copy_index` / `display_label` helpers; `DELETE`, `GET .../duplicate-preview`, `POST .../duplicate` with `label` body — see [development-plan.md](../../docs/development-plan.md) Phase 7b.
 - SQLAlchemy access and session lifecycle (e.g. `app/db/`).
 - Alembic migrations for schema changes; keep revisions focused.
 

@@ -17,6 +17,9 @@ Repo-wide defaults: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.m
 
 - Components, routing, state, and API clients against the FastAPI base URL from env (see root `README.md`).
 - Loading, empty, and error states; accessible, consistent layout with the existing shell.
+- **Modals:** `MakeACopyDialog` (preview + label + Cancel / **Create a copy**); `ConfirmDialog` for delete; **`SetNumChangeWarning`** (Cancel restores prior value, Continue applies instance-only re-link).
+- **List row:** `{display_label} — {set_num}`; subline with name / theme / parts / age (defaults when null).
+- **Detail:** instance fields (`label`, `investigated`, `notes`) + shared catalog fields (`name`, theme, `num_parts`, `age`); `set_num` edit uses warning flow per PRD §10.
 
 ## Unit tests (required habit)
 
