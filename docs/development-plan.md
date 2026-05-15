@@ -43,13 +43,27 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 - Token-level errors reported without aborting valid tokens (unless zero valid tokens).
 - Second upload of the same file creates **additional** instances (documented behavior).
 
-## Phase 4 — Rebrickable client and sync
+## Phase 4A — Rebrickable HTTP client
 
 **Deliverables**
 
-- HTTP client module (timeouts, retries/backoff for `429`/`5xx` as minimal courtesy).
-- Mappers from JSON responses to ORM objects (sets, themes, colors, parts, aliases, all inventory line types).
-- Orchestration service: for each owned set (by distinct `set_num` or per `owned_set_id` scope in API), fetch set metadata, parts, minifigs, then each minifig’s BOM; upsert with **source metadata**.
+- HTTP client module under `backend/app/rebrickable/` (timeouts, retries/backoff for `429`/`5xx` as minimal courtesy).
+- JSON → **DTO** mappers (sets, themes, colors, parts, set-part lines, minifigs, minifig BOM lines).
+- Pagination via Rebrickable `next` links; auth via `REBRICKABLE_API_KEY` (`Authorization: key …`).
+- Fixture-based tests with **mocked HTTP only** (no live API in CI).
+
+**Exit criteria**
+
+- Client methods return stable DTOs from fixture JSON.
+- Missing API key raises a clear configuration error before any network call.
+- Multi-page list endpoints are exhausted in tests (mock `next`).
+
+## Phase 4B — Rebrickable sync service
+
+**Deliverables**
+
+- DTO → ORM upsert mappers (sets, themes, colors, parts, aliases, all inventory line types).
+- Orchestration service: for each owned set (by distinct `set_num` or per `owned_set_id` scope in API), fetch via the Phase 4A client (set metadata, parts, minifigs, then each minifig’s BOM); upsert with **source metadata**.
 - `POST /imports/rebrickable/sync` synchronous implementation per [api-design.md](./api-design.md).
 
 **Exit criteria**
@@ -121,16 +135,18 @@ flowchart LR
   phase1[Phase1_Tooling]
   phase2[Phase2_DB]
   phase3[Phase3_CSV]
-  phase4[Phase4_Rebrickable]
+  phase4a[Phase4A_Client]
+  phase4b[Phase4B_Sync]
   phase5[Phase5_ReadAPI]
   phase6[Phase6_MissingAPI]
   phase7[Phase7_Frontend]
   phase8[Phase8_Hardening]
   phase1 --> phase2
   phase2 --> phase3
-  phase2 --> phase4
-  phase3 --> phase4
-  phase4 --> phase5
+  phase2 --> phase4a
+  phase3 --> phase4a
+  phase4a --> phase4b
+  phase4b --> phase5
   phase5 --> phase6
   phase5 --> phase7
   phase6 --> phase7
