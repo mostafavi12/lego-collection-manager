@@ -33,7 +33,7 @@ describe("SetDetailPage", () => {
 
     renderDetail();
 
-    expect(await screen.findByRole("heading", { name: /copy A — 6024-1/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /6024-1 \(Police Car\) - copy A/i })).toBeInTheDocument();
     expect(screen.getByText(/Plate 1 x 1/)).toBeInTheDocument();
     expect(screen.getByText("3024b")).toBeInTheDocument();
     expect(screen.getByLabelText(/missing quantity for 3024/i)).toHaveValue(1);
@@ -51,7 +51,7 @@ describe("SetDetailPage", () => {
     const user = userEvent.setup();
     renderDetail();
 
-    await screen.findByRole("heading", { name: /copy A — 6024-1/i });
+    await screen.findByRole("heading", { name: /6024-1 \(Police Car\) - copy A/i });
     await user.click(screen.getByRole("button", { name: /add part/i }));
 
     expect(

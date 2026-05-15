@@ -6,17 +6,17 @@ import type { SetCopyListItem } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { AddSetWizard } from "../components/AddSetWizard";
 import { MakeACopyDialog } from "../components/MakeACopyDialog";
+import { formatSetCopyTitle } from "../utils/setCopyTitle";
 
 const PAGE_SIZE = 20;
 
 type InvestigatedFilter = "all" | "true" | "false";
 
 function formatMeta(item: SetCopyListItem): string {
-  const name = item.name?.trim() || "Unknown name";
   const theme = item.theme_name?.trim() || "Unknown theme";
   const parts = item.num_parts != null ? String(item.num_parts) : "?";
   const age = item.age != null ? String(item.age) : "?";
-  return `${name} · ${theme} · ${parts} parts · Age ${age}`;
+  return `${theme} · ${parts} parts · Age ${age}`;
 }
 
 export function SetsListPage() {
@@ -131,7 +131,7 @@ export function SetsListPage() {
               )}
               <div className="set-card__body">
                 <h2 className="set-card__title">
-                  {item.display_label} — {item.set_num}
+                  {formatSetCopyTitle(item.set_num, item.name, item.display_label)}
                 </h2>
                 <p className="set-card__meta">{formatMeta(item)}</p>
                 <div className="set-card__badges">

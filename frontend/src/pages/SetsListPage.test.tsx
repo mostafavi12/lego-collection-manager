@@ -30,7 +30,7 @@ describe("SetsListPage", () => {
 
     renderPage();
 
-    expect(await screen.findByText(/copy A — 6024-1/)).toBeInTheDocument();
+    expect(await screen.findByText(/6024-1 \(Police Car\) - copy A/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /make a copy/i })).toHaveLength(2);
   });
 

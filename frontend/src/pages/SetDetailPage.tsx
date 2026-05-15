@@ -14,6 +14,7 @@ import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
 import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
 import { MissingLineEditor } from "../components/MissingLineEditor";
 import { PartLineModal } from "../components/PartLineModal";
+import { formatSetCopyTitle } from "../utils/setCopyTitle";
 
 interface InstanceForm {
   label: string;
@@ -180,11 +181,16 @@ export function SetDetailPage() {
   }
 
   const { catalog, inventory } = detail;
+  const pageTitle = formatSetCopyTitle(
+    catalog.set_num,
+    catalog.name,
+    detail.display_label,
+  );
 
   return (
     <section className="page page--detail">
       <p className="breadcrumb">
-        <Link to="/">Collection</Link> / {detail.display_label} — {catalog.set_num}
+        <Link to="/">Collection</Link> / {pageTitle}
       </p>
 
       <header className="detail-header">
@@ -195,10 +201,7 @@ export function SetDetailPage() {
           onUpdated={() => void load()}
         />
         <div className="detail-header__body">
-          <h1>
-            {detail.display_label} — {catalog.set_num}
-            {catalog.name ? ` (${catalog.name})` : ""}
-          </h1>
+          <h1>{pageTitle}</h1>
         </div>
       </header>
 
@@ -494,10 +497,11 @@ export function SetDetailPage() {
       {showDeleteConfirm && (
         <Modal title="Delete this copy?" onClose={() => setShowDeleteConfirm(false)}>
           <p>
-            This removes {detail.display_label} from your collection and its missing-part data for this copy.
-            If it is the <strong>last copy</strong> of LEGO set{" "}
-            <strong>{catalog.set_num}</strong>, shared catalog and inventory rows for that
-            set number are removed from the database too.
+            This removes <strong>{pageTitle}</strong> from your collection and
+            its missing-part data for this copy. If it is the{" "}
+            <strong>last copy</strong> of LEGO set <strong>{catalog.set_num}</strong>,
+            shared catalog and inventory rows for that set number are removed from
+            the database too.
           </p>
           <div className="modal__actions">
             <button
