@@ -1,13 +1,30 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { ownedSetListFixture } from "./test/fixtures";
 
 describe("App", () => {
-  it("renders the application title", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders the application title and collection nav", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ownedSetListFixture,
+      } as Response),
+    );
+
     render(<App />);
+
     expect(
-      screen.getByRole("heading", { name: /lego collection manager/i }),
+      screen.getByRole("link", { name: /lego collection manager/i }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /owned sets/i }),
     ).toBeInTheDocument();
   });
 });

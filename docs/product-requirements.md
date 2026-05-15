@@ -26,6 +26,8 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 | **Catalog set** | Global LEGO set record (set number, name, year, theme, image URL, etc.) as imported from a source such as Rebrickable. One row per `set_num`. |
 | **Owned set (instance)** | One **physical copy** the user owns of a catalog set. The same `set_num` may appear as **many** owned-set rows (complete, incomplete, or not yet investigated). |
 | **Investigated** | A boolean on each owned-set instance: the user has manually checked that copy against its imported inventory (typical after buying second-hand). Uninvestigated copies remain flagged until the user marks them investigated. |
+| **Instance label** | Optional text on an owned-set row to distinguish copies. When unset, the UI displays **`Copy #n`** where `n` is the copy index for that `set_num` (1-based among instances, oldest first). |
+| **Instance age** | Integer on each owned-set row (e.g. `6` from Rebrickable `6+`). Shown as `?` when unset. Editing age on one instance updates **all** instances of the same catalog set. |
 | **Part** | A LEGO element type identified primarily by a part number; may have **aliases** (alternate identifiers). |
 | **Color** | A color identifier and display name as provided by the importer (used on inventory lines). |
 | **Set inventory line** | A row linking a catalog set to a part in a given color with quantity, optional image URL, and flags (e.g. spare, alternate) from the source. **Stickered** and **plain** variants are distinct lines when the source uses distinct part identities. |
@@ -80,7 +82,9 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 - **Investigated** vs **not investigated** is visible (badge or column); optional filter by investigation state.
 - Multiple rows may share the same `set_num` (distinct `id`).
 - Sets without a successful catalog sync yet appear as owned with **placeholder or partial** display until sync completes.
-- User can **add another copy** of an existing owned set from the list or detail view (see [§8](#8-duplicate-owned-set-instance)).
+- Each row shows **`{display_label} — {set_num}`** where `display_label` is the user label or default `Copy #n`.
+- Under the set number line, show **name** (default “Unknown name”), **theme** (default “Unknown theme”), **part count** (default `?`), and **age** (default `?`).
+- **Make a copy** action per row opens a **confirmation dialog** before creating a new instance (see [§8](#8-duplicate-owned-set-instance)); no duplicate action on the detail page.
 
 ### 5. Set detail page with parts
 
@@ -89,8 +93,11 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 **Acceptance criteria:**
 
 - Detail view includes theme, year, name, set number, and image when present.
-- User can toggle **investigated** and edit an optional **label** for this instance (e.g. “eBay lot May 2026 — incomplete”).
-- User can **add another copy** of the same catalog set (duplicate this instance’s `set_num`); navigates to or highlights the new uninvestigated instance.
+- User can edit **all instance-level fields**: `label` (default `Copy #n` when empty in the UI), `investigated`, `age`, and `notes`.
+- User can **delete** this owned-set instance (with confirmation); missing rows and local photos for that instance are removed.
+- **Make a copy** is **not** on the detail page (list only, with confirmation dialog per [§8](#8-duplicate-owned-set-instance)).
+- User can edit **shared catalog fields** on detail (`name`, theme, part count, age, etc.); changes apply to **every** owned-set instance with the same `catalog_set_id`, except **`set_num`** (see below).
+- Changing **`set_num`**: show a warning (“You are about to change the LEGO set number”); **Cancel** restores the previous value; **Continue** re-links **only this instance** to the new set number (create or match `catalog_sets` row) without changing other instances.
 - Inventory table supports sorting or stable default order (e.g. by part number, then color).
 - Spare and alternate lines from the source are visible or filterable (MVP: visible with labels is sufficient).
 - Distinct **stickered vs plain** parts appear as distinct rows matching importer data.
@@ -118,23 +125,45 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 - Clearing missing removes or zeroes the corresponding records without deleting catalog inventory; **deleting** a missing row removes any stored image file for that row.
 - User can **upload**, **replace**, and **remove** the image for a missing item; stored path is served by the API for display in the UI (no dependency on Rebrickable CDN for that photo).
 
-### 8. Duplicate owned-set instance
+### 8. Duplicate owned-set instance (“Make a copy”)
 
-**User outcome:** When the user buys another copy of a set they already own, they can select an existing owned-set instance and create a **new instance** for the same `set_num` without re-importing CSV.
+**User outcome:** When the user buys another copy of a set they already own, they use **Make a copy** on the owned sets list to create a **new instance** for the same `set_num` after confirming in a dialog.
 
 **Acceptance criteria:**
 
-- Action available from **owned sets list** and **set detail** (e.g. “Add another copy”).
+- Button label is **Make a copy** (not “Add copy”).
+- Action available from **owned sets list only** (not on set detail).
+- Dialog states that a copy of set number **X** is being created; shows editable **label** prefilled with **`Copy #n`** (`n` = number of existing instances for that `set_num` + 1); **Cancel** and **Create a copy** buttons; POST runs only after confirm.
 - Creates a new `owned_sets` row with the same `catalog_set_id` as the source instance.
-- New instance has `investigated` = **false**, `label` = **null**, `notes` = **null**, and **no** `missing_items` (missing state is not copied from the source).
+- New instance has `investigated` = **false**, confirmed `label`, `age` = **null**, `notes` = **null**, and **no** `missing_items`.
 - Response returns the new instance `id` for navigation.
 - **`404`** if the source owned-set `id` does not exist.
 - Does not modify or delete the source instance.
 
+### 9. Delete owned-set instance
+
+**User outcome:** The user can remove an owned-set instance they no longer own.
+
+**Acceptance criteria:**
+
+- **Delete** action on the **set detail** view (after opening the instance), with a confirmation dialog.
+- **`DELETE /owned-sets/{id}`** removes the instance, its `missing_items`, and any image files under `UPLOAD_ROOT`.
+- If this was the last instance for that catalog set, **catalog and inventory rows are deleted** as well (full removal from the database).
+- **`404`** if the id does not exist.
+
+### 10. Shared vs per-instance catalog edits
+
+| Field | Scope when edited from detail |
+|-------|-------------------------------|
+| `set_num` | **This instance only**, after warning + Continue; Cancel restores previous value. |
+| `name`, theme, `num_parts`, `age`, etc. | **All instances** sharing the same `catalog_set_id`. |
+
+Rebrickable sync may populate age as `6+` → store **`6`** (integer). CSV import does **not** rename existing instance labels; duplicate custom labels are allowed.
+
 ## UX surfaces (MVP)
 
-1. **Owned sets** — list + pagination; investigation badge/filter; distinguish duplicate `set_num` via label and/or instance id; **add another copy** per row.
-2. **Set detail** — metadata + investigation/label + inventory + **missing** panel with per-line photo upload; **add another copy** action.
+1. **Owned sets** — list layout per [§4](#4-owned-sets-list); **Make a copy** with confirmation dialog per row.
+2. **Set detail** — instance field editor + inventory + missing panel; **delete** instance; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
 4. **Import** — CSV/text file upload (additive); trigger Rebrickable sync (from owned list or global import action).
 

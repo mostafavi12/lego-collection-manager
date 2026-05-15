@@ -110,6 +110,10 @@ Omit `owned_set_ids` or pass `null` to sync **all** owned sets (distinct `catalo
       "catalog_sync_state": "ok",
       "investigated": false,
       "label": "eBay May 2026",
+      "display_label": "eBay May 2026",
+      "copy_index": 1,
+      "age": "6+",
+      "num_parts": 27,
       "missing_count": 2
     }
   ],
@@ -117,9 +121,20 @@ Omit `owned_set_ids` or pass `null` to sync **all** owned sets (distinct `catalo
 }
 ```
 
+| Field | Notes |
+|-------|--------|
+| `display_label` | `label` if set, else `Copy #{copy_index}`. |
+| `copy_index` | 1-based index among instances sharing `catalog_set_id` (order: `created_at`, `id`). |
+| `name` | Catalog name; UI default **Unknown name** when null. |
+| `theme_name` | UI default **Unknown theme** when null. |
+| `num_parts` | From catalog; UI default **`?`** when null. |
+| `age` | Integer; shared across instances of same catalog set when PATCHed; UI default **`?`** when null. Rebrickable `6+` → `6` on sync. |
+
 `catalog_sync_state`: `ok` \| `pending` \| `error` (surface last sync issue for the underlying catalog set if stored).
 
 Multiple `items` may share the same `set_num` with different `id`.
+
+**List title (UI):** render `{display_label} — {set_num}`; secondary line: name, theme, parts, age with defaults above.
 
 ### Owned set detail
 
@@ -132,6 +147,10 @@ Multiple `items` may share the same `set_num` with different `id`.
   "id": 1,
   "investigated": false,
   "label": "eBay May 2026",
+  "display_label": "eBay May 2026",
+  "copy_index": 1,
+  "age": null,
+  "notes": null,
   "catalog": {
     "set_num": "6024-1",
     "name": "Police Car",
@@ -193,49 +212,77 @@ Multiple `items` may share the same `set_num` with different `id`.
 ```json
 {
   "investigated": true,
-  "label": "Checked — missing windshield"
+  "label": "Copy #2",
+  "age": "8+",
+  "notes": "Second-hand, box damaged"
 }
 ```
 
-Both fields optional; omitted fields unchanged.
+All fields optional; omitted fields unchanged. `label` may be set to empty string to clear (stored as NULL); UI should default empty display to `Copy #{copy_index}`.
+
+**Shared catalog fields:** when `age` (and other agreed shared fields) are included in PATCH, apply to **all** `owned_sets` rows with the same `catalog_set_id`.
+
+**Set number change:** use **`PATCH /owned-sets/{id}`** with `set_num` only after UI warning; server re-links this instance to the matching or new `catalog_sets` row; other instances unchanged. Invalid or empty `set_num` → **400**.
 
 **Response `200`:** same shape as list item fields for the updated instance.
 
-### Duplicate owned-set instance
+### Delete owned-set instance
+
+**`DELETE /owned-sets/{id}`**
+
+- Deletes the `owned_sets` row, cascades `missing_items`, and removes any missing-part image files on disk.
+- If no other `owned_sets` reference the same `catalog_set_id`, delete that **catalog set and its inventory** as well.
+- **`404`** if unknown id.
+- **`204`** No Content on success (or **`200`** with `{ "deleted": true, "id": 1 }` — pick one in implementation and keep consistent).
+
+### Duplicate owned-set instance (“Make a copy”)
+
+#### Preview (for confirmation dialog)
+
+**`GET /owned-sets/{id}/duplicate-preview`**
+
+**Response `200`:**
+
+```json
+{
+  "source_owned_set_id": 1,
+  "set_num": "6024-1",
+  "set_name": "Police Car",
+  "existing_copy_count": 2,
+  "suggested_label": "Copy #3"
+}
+```
+
+`suggested_label` = `Copy #{existing_copy_count + 1}`.
+
+#### Create copy
 
 **`POST /owned-sets/{id}/duplicate`**
 
-Creates a **new** owned-set instance for the same catalog set as the source row.
+**Body (optional):**
+
+```json
+{
+  "label": "Copy #3"
+}
+```
+
+If `label` is omitted, server uses `suggested_label` from the preview rules.
 
 | Rule | Behavior |
 |------|----------|
 | `catalog_set_id` | Copied from source instance |
 | `investigated` | Always **`false`** |
-| `label`, `notes` | **`null`** (not copied from source) |
+| `label` | From request body or `Copy #n` default |
+| `age`, `notes` | **`null`** (not copied from source) |
 | `missing_items` | **None** on the new instance |
 | Source instance | Unchanged |
 
-**Response `201`:**
-
-```json
-{
-  "id": 8,
-  "set_num": "6024-1",
-  "name": "Police Car",
-  "year": 1980,
-  "theme_name": "Classic Town",
-  "image_url": "https://cdn.rebrickable.com/…",
-  "catalog_sync_state": "ok",
-  "investigated": false,
-  "label": null,
-  "missing_count": 0,
-  "duplicated_from_owned_set_id": 1
-}
-```
-
-`duplicated_from_owned_set_id` is informational (the `{id}` in the path); omit from persistence if not needed in the database.
+**Response `201`:** list-item shape plus `duplicated_from_owned_set_id`.
 
 **`404`** if source `id` is unknown.
+
+**UI:** list row **Make a copy** opens dialog using preview; **Create a copy** submits POST; **Cancel** discards.
 
 ## Media (local missing-part images)
 

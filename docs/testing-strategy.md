@@ -40,8 +40,10 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 - `POST /imports/csv`: multipart upload, size limit, token errors shape, `instances_created` count.
 - `POST /imports/rebrickable/sync`: success summary; per-set failure; missing API key.
 - `GET /owned-sets`: pagination, `investigated` filter, multiple rows same `set_num`.
-- `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation and label; nested `missing_image_url` when file present.
-- `POST /owned-sets/{id}/duplicate`: `201` with new id; `investigated` false; no `missing_items` on new instance; source missing rows unchanged; `404` for unknown source.
+- `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation, label, age, notes; `display_label` / `copy_index`; nested `missing_image_url` when file present.
+- `DELETE /owned-sets/{id}`: removes instance, missing rows, and image files; catalog row remains when other instances exist.
+- `GET /owned-sets/{id}/duplicate-preview`: `suggested_label` = `Copy #n`.
+- `POST /owned-sets/{id}/duplicate`: `201` with label from body or default; `investigated` false; no `missing_items` on new instance.
 - `GET /search`: 400 on empty `q`; set mode returns distinct `owned_set_id` per instance.
 - `PATCH .../missing`: validation against inventory quantity; clear with zero removes row and image file.
 - `PUT` / `DELETE` missing image; `GET /media/missing/{id}`: 404 when absent; content-type for JPEG/PNG fixtures.
@@ -60,8 +62,8 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 | Area | Cases |
 |------|--------|
-| **Owned sets list** | Renders rows from mocked API; shows `investigated` state and `label`; filter param; pagination; duplicate action calls `POST .../duplicate`. |
-| **Set detail** | Renders catalog header; investigation toggle; duplicate action; inventory tables; minifig nested parts; spare/alternate labels. |
+| **Owned sets list** | `{display_label} — {set_num}`; metadata line (name, theme, parts, age defaults); filter; pagination; **Make a copy** opens modal → preview → POST on confirm. |
+| **Set detail** | Instance field form (label, investigated, age, notes); **delete** with confirm; no duplicate button; inventory + missing UI. |
 | **Search** | Debounce (if any), submit triggers correct API, displays multiple instances per `set_num` when applicable. |
 | **Missing UI** | Changing missing quantity calls PATCH; upload calls PUT image endpoint; preview uses `missing_image_url`. |
 | **Import** | File picker posts to CSV endpoint; success message reflects instances created. |

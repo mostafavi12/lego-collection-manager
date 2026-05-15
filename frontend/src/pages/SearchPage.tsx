@@ -1,0 +1,120 @@
+import { FormEvent, useState } from "react";
+import { Link } from "react-router-dom";
+
+import { searchCatalog } from "../api/client";
+import type { SearchResponse } from "../api/types";
+import { AsyncMessage } from "../components/AsyncMessage";
+
+type SearchType = "all" | "set" | "part";
+
+export function SearchPage() {
+  const [query, setQuery] = useState("");
+  const [searchType, setSearchType] = useState<SearchType>("all");
+  const [results, setResults] = useState<SearchResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setError("Enter a search term");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await searchCatalog({ q: trimmed, type: searchType });
+      setResults(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Search failed");
+      setResults(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="page">
+      <header className="page__header">
+        <h1>Search</h1>
+        <p className="page__lede">Find owned sets or parts in your collection inventory.</p>
+      </header>
+
+      <form className="search-form" onSubmit={(e) => void onSubmit(e)}>
+        <input
+          type="search"
+          value={query}
+          placeholder="Set number or part number…"
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search query"
+        />
+        <select
+          value={searchType}
+          onChange={(e) => setSearchType(e.target.value as SearchType)}
+          aria-label="Search type"
+        >
+          <option value="all">Sets and parts</option>
+          <option value="set">Sets only</option>
+          <option value="part">Parts only</option>
+        </select>
+        <button type="submit" className="btn btn--primary" disabled={loading}>
+          Search
+        </button>
+      </form>
+
+      <AsyncMessage error={error} loading={loading} />
+
+      {results && !loading && (
+        <div className="search-results">
+          {(searchType === "all" || searchType === "set") && (
+            <section>
+              <h2>Sets ({results.sets.length})</h2>
+              {results.sets.length === 0 ? (
+                <p className="empty-hint">No matching owned sets.</p>
+              ) : (
+                <ul className="result-list">
+                  {results.sets.map((row) => (
+                    <li key={row.owned_set_id}>
+                      <Link to={`/sets/${row.owned_set_id}`}>
+                        <strong>{row.set_num}</strong>
+                        {row.name ? ` — ${row.name}` : ""}
+                        <span className="result-list__meta">
+                          {row.label ?? `Copy #${row.owned_set_id}`} ·{" "}
+                          {row.investigated ? "investigated" : "not investigated"}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+
+          {(searchType === "all" || searchType === "part") && (
+            <section>
+              <h2>Parts ({results.parts.length})</h2>
+              {results.parts.length === 0 ? (
+                <p className="empty-hint">No matching parts in owned inventories.</p>
+              ) : (
+                <ul className="result-list result-list--parts">
+                  {results.parts.map((row) => (
+                    <li key={row.part_num}>
+                      {row.image_url && (
+                        <img src={row.image_url} alt="" className="result-list__thumb" />
+                      )}
+                      <span>
+                        <strong>{row.part_num}</strong>
+                        {row.name ? ` — ${row.name}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
