@@ -36,7 +36,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - **Health check:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) returns `{"status":"ok"}`.
 - **API docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (OpenAPI).
 
-**CSV import** (`POST /api/imports/csv`) and **Rebrickable sync** (`POST /api/imports/rebrickable/sync`) are implemented. The Rebrickable **client** (Phase 4A) is in [`backend/app/rebrickable/`](backend/app/rebrickable/); sync orchestration and catalog upserts (Phase 4B) are in [`backend/app/importers/`](backend/app/importers/). Owned-set browse APIs, missing parts, search, and the collection UI are not implemented yet.
+**CSV import** (`POST /api/imports/csv`), **Rebrickable sync** (`POST /api/imports/rebrickable/sync`), and **read APIs** (`GET /api/owned-sets`, detail, `PATCH`, duplicate, `GET /api/search`) are implemented. Missing-parts write API, local missing images, and the collection UI are not implemented yet.
 
 Configuration is read from the environment (see [`backend/.env.example`](backend/.env.example)). The default `DATABASE_URL` points at `sqlite:///./data/lego.db` relative to the **current working directory**; run Alembic and uvicorn from `backend/` so the database file is created at `backend/data/lego.db`.
 
