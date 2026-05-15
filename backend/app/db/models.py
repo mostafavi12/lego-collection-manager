@@ -122,7 +122,9 @@ class Part(Base):
 class PartAlias(Base):
     __tablename__ = "part_aliases"
     __table_args__ = (
-        UniqueConstraint("alias", "source", name="uq_part_aliases_alias_source"),
+        UniqueConstraint(
+            "part_id", "alias", "source", name="uq_part_aliases_part_alias_source"
+        ),
         Index("ix_part_aliases_alias", "alias"),
     )
 

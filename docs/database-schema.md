@@ -122,7 +122,7 @@ Supports search and cross-references when Rebrickable exposes alternate identifi
 | `part_id` | INTEGER FK → `parts.id` NOT NULL | |
 | `alias` | TEXT NOT NULL | Alternate string. |
 | `source` | TEXT NOT NULL | |
-| `UNIQUE(alias, source)` | | Prevent duplicate alias rows. |
+| `UNIQUE(part_id, alias, source)` | | One row per alias string per part and source (symmetric user closure). |
 
 ### `colors`
 
