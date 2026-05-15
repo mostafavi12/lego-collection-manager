@@ -69,6 +69,10 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _aliases_for_part(part: Part) -> list[str]:
+    return sorted(a.alias for a in part.aliases if a.alias != part.part_num)
+
+
 def _missing_counts(session: Session, owned_set_ids: list[int]) -> dict[int, int]:
     return count_lines_with_missing(session, owned_set_ids)
 
@@ -259,16 +263,20 @@ def get_owned_set_detail(
                 instance_line.minifig_part_inventory_line_id
             ] = instance_line
 
-    set_part_rows = session.execute(
-        select(SetPartInventoryLine, Part, Color)
-        .join(Part, SetPartInventoryLine.part_id == Part.id)
-        .join(Color, SetPartInventoryLine.color_id == Color.id)
+    set_part_catalog_lines = session.scalars(
+        select(SetPartInventoryLine)
         .where(SetPartInventoryLine.catalog_set_id == catalog_set.id)
+        .options(
+            selectinload(SetPartInventoryLine.part).selectinload(Part.aliases),
+            selectinload(SetPartInventoryLine.color),
+        )
         .order_by(SetPartInventoryLine.id)
     ).all()
 
     set_parts: list[SetPartLineDetail] = []
-    for line, part, color in set_part_rows:
+    for line in set_part_catalog_lines:
+        part = line.part
+        color = line.color
         instance_line = instance_by_set_line.get(line.id)
         if instance_line is None:
             continue
@@ -283,6 +291,7 @@ def get_owned_set_detail(
                 color_id=color.external_id,
                 color_name=color.name,
                 quantity=instance_line.quantity,
+                aliases=_aliases_for_part(part),
                 image_url=resolve_part_image_url(part) or line.image_url,
                 part_image_url=resolve_part_image_url(part),
                 missing_quantity=instance_line.quantity_missing,

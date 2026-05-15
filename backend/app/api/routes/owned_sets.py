@@ -12,6 +12,7 @@ from app.schemas.instance_inventory import (
     AddSetPartLineRequest,
     InstanceInventoryLineResponse,
     InstanceInventoryLineUpdate,
+    UpdateSetPartLineRequest,
 )
 from app.schemas.manual_add import (
     OwnedSetAddPreviewResponse,
@@ -42,6 +43,9 @@ from app.services.instance_inventory import (
 from app.services.inventory_parts_service import (
     InventoryPartsError,
     add_set_part_to_owned_set,
+    delete_set_part_from_owned_set,
+    instance_line_response,
+    update_set_part_on_owned_set,
 )
 from app.services.owned_sets_service import (
     OwnedSetServiceError,
@@ -119,11 +123,39 @@ def post_set_part_line(
         )
     except InventoryPartsError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return InstanceInventoryLineResponse(
-        instance_line_id=line.id,
-        quantity=line.quantity,
-        quantity_missing=line.quantity_missing,
-    )
+    return instance_line_response(db, line)
+
+
+@router.patch(
+    "/{owned_set_id}/set-parts/{instance_line_id}",
+    response_model=InstanceInventoryLineResponse,
+)
+def patch_set_part_line(
+    owned_set_id: int,
+    instance_line_id: int,
+    body: UpdateSetPartLineRequest,
+    db: Session = Depends(get_db),
+) -> InstanceInventoryLineResponse:
+    try:
+        line = update_set_part_on_owned_set(db, owned_set_id, instance_line_id, body)
+    except InventoryPartsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return instance_line_response(db, line)
+
+
+@router.delete(
+    "/{owned_set_id}/set-parts/{instance_line_id}",
+    status_code=204,
+)
+def delete_set_part_line(
+    owned_set_id: int,
+    instance_line_id: int,
+    db: Session = Depends(get_db),
+) -> None:
+    try:
+        delete_set_part_from_owned_set(db, owned_set_id, instance_line_id)
+    except InventoryPartsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @router.patch(
@@ -151,11 +183,31 @@ def patch_instance_inventory_line(
         )
     except InstanceInventoryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return InstanceInventoryLineResponse(
-        instance_line_id=line.id,
-        quantity=line.quantity,
-        quantity_missing=line.quantity_missing,
-    )
+    from app.db.models import MinifigPartInventoryLine, SetPartInventoryLine
+
+    if line.set_part_inventory_line_id is not None:
+        catalog_line = db.get(SetPartInventoryLine, line.set_part_inventory_line_id)
+        if catalog_line is not None:
+            return InstanceInventoryLineResponse(
+                instance_line_id=line.id,
+                part_id=catalog_line.part_id,
+                catalog_line_id=catalog_line.id,
+                quantity=line.quantity,
+                quantity_missing=line.quantity_missing,
+            )
+    if line.minifig_part_inventory_line_id is not None:
+        mf_line = db.get(
+            MinifigPartInventoryLine, line.minifig_part_inventory_line_id
+        )
+        if mf_line is not None:
+            return InstanceInventoryLineResponse(
+                instance_line_id=line.id,
+                part_id=mf_line.part_id,
+                catalog_line_id=mf_line.id,
+                quantity=line.quantity,
+                quantity_missing=line.quantity_missing,
+            )
+    raise HTTPException(status_code=500, detail="Inventory line has no catalog reference")
 
 
 @router.patch("/{owned_set_id}", response_model=OwnedSetListItem)
