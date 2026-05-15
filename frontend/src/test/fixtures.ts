@@ -51,6 +51,7 @@ export const ownedSetDetailFixture: OwnedSetDetailResponse = {
   age: null,
   notes: null,
   catalog: {
+    catalog_set_id: 10,
     set_num: "6024-1",
     name: "Police Car",
     year: 1980,
@@ -63,6 +64,7 @@ export const ownedSetDetailFixture: OwnedSetDetailResponse = {
       {
         instance_line_id: 100,
         catalog_line_id: 10,
+        part_id: 42,
         part_num: "3024",
         part_name: "Plate 1 x 1",
         color_id: 0,
@@ -71,9 +73,10 @@ export const ownedSetDetailFixture: OwnedSetDetailResponse = {
         is_spare: false,
         is_alternate: false,
         image_url: null,
+        part_image_url: null,
         missing_quantity: 1,
         missing_item_id: 5,
-        missing_image_url: "/api/media/missing/5",
+        missing_image_url: "/api/parts/42/image",
       },
     ],
     minifigs: [],

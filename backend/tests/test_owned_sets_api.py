@@ -68,7 +68,7 @@ def test_get_owned_set_detail(api_client, db_session) -> None:
     assert body["catalog"]["set_num"] == "6024-1"
     assert len(body["inventory"]["set_parts"]) == 1
     assert body["inventory"]["set_parts"][0]["missing_quantity"] == 1
-    assert body["inventory"]["set_parts"][0]["missing_image_url"] == "/api/media/missing/1"
+    assert body["inventory"]["set_parts"][0]["missing_item_id"] == 1
     assert len(body["inventory"]["minifigs"]) == 1
     assert len(body["inventory"]["minifigs"][0]["parts"]) == 1
 

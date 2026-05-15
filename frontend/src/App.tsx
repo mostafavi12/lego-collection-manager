@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { Layout } from "./components/Layout";
+import { AddSetPage } from "./pages/AddSetPage";
 import { ImportPage } from "./pages/ImportPage";
 import { OwnedSetDetailPage } from "./pages/OwnedSetDetailPage";
 import { OwnedSetsPage } from "./pages/OwnedSetsPage";
@@ -15,6 +16,7 @@ export default function App() {
           <Route index element={<OwnedSetsPage />} />
           <Route path="sets/:id" element={<OwnedSetDetailPage />} />
           <Route path="search" element={<SearchPage />} />
+          <Route path="add" element={<AddSetPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

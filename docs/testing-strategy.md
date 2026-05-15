@@ -8,7 +8,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 |-----------|-------------|
 | **Deterministic** | Fixed clocks where `fetched_at` matters; no network. |
 | **Isolated DB** | Use file SQLite `:memory:` or `tmp_path` per test session/module as appropriate; migrations applied in fixture. |
-| **Isolated uploads** | Point `UPLOAD_ROOT` at `tmp_path` per test; assert files created/removed with missing rows. |
+| **Isolated images** | Image BLOB tests use in-memory SQLite and small PNG/JPEG fixtures in `tests/factories.py`; no filesystem upload directory. |
 | **Contract fidelity** | Mocked Rebrickable payloads match **v3 JSON shapes** from official docs (trim fixtures to required keys only). |
 | **Fast feedback** | Unit tests run without browser unless explicitly UI/integration. |
 
@@ -40,24 +40,25 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 - `POST /imports/csv`: multipart upload, size limit, token errors shape, `instances_created` count.
 - `POST /imports/rebrickable/sync`: success summary; per-set failure; missing API key.
 - `GET /owned-sets`: pagination, `investigated` filter, multiple rows same `set_num`.
-- `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation, label, age, notes; shared catalog fields (`catalog_name`, `catalog_theme_name`, `catalog_num_parts`, `catalog_year`); `catalog_theme_name` when `theme_id` is NULL (creates/links theme); `age` shared across instances; `set_num` re-link (single instance); `display_label` / `copy_index`; nested `missing_image_url` when file present.
-- `DELETE /owned-sets/{id}`: removes instance, missing rows, and image files; catalog row remains when other instances exist.
+- `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation, label, age, notes; shared catalog fields (`catalog_name`, `catalog_theme_name`, `catalog_num_parts`, `catalog_year`); `catalog_theme_name` when `theme_id` is NULL (creates/links theme); `age` shared across instances; `set_num` re-link (single instance); `display_label` / `copy_index`; `catalog_set_id`, `part_id`, `part_image_url`, `missing_image_url` when BLOB present.
+- `DELETE /owned-sets/{id}`: removes instance and missing rows; catalog row remains when other instances exist.
 - `GET /owned-sets/{id}/duplicate-preview`: `suggested_label` = `Copy #n`.
 - `POST /owned-sets/{id}/duplicate`: `201` with label from body or default; `investigated` false; no `missing_items` on new instance.
 - `GET /search`: 400 on empty `q`; set mode returns distinct `owned_set_id` per instance.
-- `PATCH .../missing`: validation against inventory quantity; clear with zero removes row and image file.
-- `PUT` / `DELETE` missing image; `GET /media/missing/{id}`: 404 when absent; content-type for JPEG/PNG fixtures.
+- `PATCH .../missing`: validation against instance inventory quantity; clear with zero removes missing row (part BLOB unchanged unless DELETE image).
+- `PUT` / `DELETE` missing image → part BLOB; `GET /media/missing/{id}` and `GET /parts/{id}/image`: 404 when absent; content-type for JPEG/PNG fixtures.
+- `PUT` / `GET` / `DELETE` `/parts/{id}/image` and `/catalog-sets/{id}/image`: BLOB round-trip, size/MIME validation (`test_image_blob_api.py`).
 
 ### Post-MVP (Phases 9–12)
 
-Add when each phase is implemented (still **no live Rebrickable** in CI):
+Still **no live Rebrickable** in CI.
 
-| Phase | Focus |
-|-------|--------|
-| **9** | Instance quantity PATCH isolation across two `owned_sets` sharing `catalog_set_id`; `quantity_missing` validation. |
-| **10** | BLOB round-trip; 5 MB limit; JPEG/PNG only; part image visible on two sets; migration off `UPLOAD_ROOT`. |
-| **11** | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
-| **12** | `POST /owned-sets` branch existing vs new `set_num`; alias symmetry (add/remove pairs). |
+| Phase | Status | Focus |
+|-------|--------|--------|
+| **9** | implemented | `PATCH .../inventory-lines/{instance_line_id}` isolation across two instances; `quantity_missing` validation (`test_instance_inventory_api.py`). |
+| **10** | implemented | BLOB round-trip; 5 MB limit; JPEG/PNG only; part image visible on two sets (`test_image_blob_api.py`). |
+| **11** | planned | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
+| **12** | planned | `POST /owned-sets` branch existing vs new `set_num`; alias symmetry (add/remove pairs). |
 
 ### Search
 
@@ -76,7 +77,8 @@ Add when each phase is implemented (still **no live Rebrickable** in CI):
 | **Owned sets list** | `{display_label} — {set_num}`; metadata line (name, theme, parts, age defaults); filter; pagination; **Make a copy** opens modal → preview → POST on confirm. |
 | **Set detail** | Instance field form (label, investigated, age, notes); **set number change** warning modal (Cancel / Continue); **delete** with confirm → `DELETE`; no duplicate button; inventory + missing UI. |
 | **Search** | Debounce (if any), submit triggers correct API, displays multiple instances per `set_num` when applicable. |
-| **Missing UI** | Changing missing quantity calls PATCH; upload calls PUT image endpoint; preview uses `missing_image_url`. |
+| **Missing UI** | Changing missing quantity calls PATCH; upload calls PUT missing image endpoint; preview uses `part_image_url` / `missing_image_url`. |
+| **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`. |
 | **Import** | File picker posts to CSV endpoint; success message reflects instances created. |
 
 **Mocking:** MSW (Mock Service Worker) or fetch mocks to return canned JSON aligned with [api-design.md](./api-design.md).

@@ -1,6 +1,11 @@
 import type {
   CsvImportResponse,
   DuplicatePreviewResponse,
+  OwnedSetAddPreviewResponse,
+  OwnedSetCreateBody,
+  OwnedSetCreateResponse,
+  ImageDeleteResponse,
+  ImageUploadResponse,
   InstanceInventoryLineResponse,
   InstanceInventoryLineUpdate,
   MissingImageResponse,
@@ -68,6 +73,23 @@ export function mediaUrl(path: string | null): string | null {
     return null;
   }
   return path;
+}
+
+export function fetchAddSetPreview(
+  setNum: string,
+): Promise<OwnedSetAddPreviewResponse> {
+  const params = new URLSearchParams({ set_num: setNum.trim() });
+  return request(`/owned-sets/add-preview?${params}`);
+}
+
+export function createOwnedSet(
+  body: OwnedSetCreateBody,
+): Promise<OwnedSetCreateResponse> {
+  return request("/owned-sets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 export function listOwnedSets(params: {
@@ -207,4 +229,37 @@ export function deleteMissingImage(
     `/owned-sets/${ownedSetId}/missing/${missingItemId}/image`,
     { method: "DELETE" },
   );
+}
+
+function uploadImageBlob(
+  path: string,
+  file: File,
+): Promise<ImageUploadResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  return request(path, { method: "PUT", body: form });
+}
+
+export function uploadCatalogSetImage(
+  catalogSetId: number,
+  file: File,
+): Promise<ImageUploadResponse> {
+  return uploadImageBlob(`/catalog-sets/${catalogSetId}/image`, file);
+}
+
+export function deleteCatalogSetImage(
+  catalogSetId: number,
+): Promise<ImageDeleteResponse> {
+  return request(`/catalog-sets/${catalogSetId}/image`, { method: "DELETE" });
+}
+
+export function uploadPartImage(
+  partId: number,
+  file: File,
+): Promise<ImageUploadResponse> {
+  return uploadImageBlob(`/parts/${partId}/image`, file);
+}
+
+export function deletePartImage(partId: number): Promise<ImageDeleteResponse> {
+  return request(`/parts/${partId}/image`, { method: "DELETE" });
 }

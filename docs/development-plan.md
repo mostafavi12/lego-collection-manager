@@ -8,7 +8,7 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - Python **3.12+** project layout under `backend/` (FastAPI application factory, dependency injection for DB session).
 - `frontend/` scaffold: **React**, **TypeScript**, **Vite**, router, API client base URL from env.
-- `backend/.env.example`: `DATABASE_URL`, `REBRICKABLE_API_KEY`, `UPLOAD_ROOT`, `VITE_API_BASE_URL`, CORS-related vars as needed.
+- `backend/.env.example`: `DATABASE_URL`, `REBRICKABLE_API_KEY`, `VITE_API_BASE_URL`, CORS-related vars as needed. (MVP also used `UPLOAD_ROOT` for disk missing photos; **Phase 10** moved images into SQLite BLOBs.)
 - `.gitignore` excludes `.env`, SQLite files under `data/` if desired, upload directory contents, and virtualenvs.
 
 **Exit criteria**
@@ -92,7 +92,7 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 **Deliverables**
 
 - `PATCH /owned-sets/{id}/missing` implementing upsert/clear rules and quantity validation.
-- `PUT` / `DELETE` missing-part image endpoints; `GET /media/missing/{missing_item_id}`; files under `UPLOAD_ROOT`.
+- `PUT` / `DELETE` missing-part image endpoints; `GET /media/missing/{missing_item_id}`; files under `UPLOAD_ROOT`. *(Superseded by Phase 10 BLOB storage — see Phase 10.)*
 
 **Exit criteria**
 
@@ -139,7 +139,7 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - Structured logging for importer (no secrets); `LOG_LEVEL` in `.env.example`.
 - Startup migration gate: API fails fast unless DB is at Alembic head (`SKIP_DB_MIGRATION_CHECK` for tests).
-- README sections: prerequisites, how to run backend/frontend, migrations, `DATABASE_URL` / `UPLOAD_ROOT` paths, configuration table.
+- README sections: prerequisites, how to run backend/frontend, migrations, `DATABASE_URL`, configuration table.
 - GitHub Actions CI on push/PR: backend `pytest`, frontend `npm test`, and `npm run build` (see [ci.md](./ci.md), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
 
 **Exit criteria**
@@ -180,7 +180,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 - Editing set name/theme/year/age/set image on one instance still updates **all** instances of that `set_num` (unchanged from MVP).
 - All backend tests pass; no live Rebrickable calls.
 
-## Phase 10 — Images in database (parts and sets)
+## Phase 10 — Images in database (parts and sets) — **complete**
 
 **Goal:** Store user and optional catalog images as **BLOBs in SQLite**; remove reliance on `UPLOAD_ROOT` / filesystem for product images.
 

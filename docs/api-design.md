@@ -152,17 +152,20 @@ Multiple `items` may share the same `set_num` with different `id`.
   "age": null,
   "notes": null,
   "catalog": {
+    "catalog_set_id": 10,
     "set_num": "6024-1",
     "name": "Police Car",
     "year": 1980,
     "theme_name": "Classic Town",
-    "image_url": "https://cdn.rebrickable.com/…",
+    "image_url": "/api/catalog-sets/10/image",
     "num_parts": 27
   },
   "inventory": {
     "set_parts": [
       {
-        "line_id": 9001,
+        "instance_line_id": 100,
+        "catalog_line_id": 9001,
+        "part_id": 42,
         "part_num": "3024",
         "part_name": "Plate 1 x 1",
         "color_id": 0,
@@ -171,9 +174,10 @@ Multiple `items` may share the same `set_num` with different `id`.
         "is_spare": false,
         "is_alternate": false,
         "image_url": "https://…",
+        "part_image_url": "/api/parts/42/image",
         "missing_quantity": 1,
         "missing_item_id": 501,
-        "missing_image_url": "/api/media/missing/501"
+        "missing_image_url": "/api/parts/42/image"
       }
     ],
     "minifigs": [
@@ -184,7 +188,9 @@ Multiple `items` may share the same `set_num` with different `id`.
         "quantity": 1,
         "parts": [
           {
-            "line_id": 9101,
+            "instance_line_id": 200,
+            "catalog_line_id": 9101,
+            "part_id": 7,
             "part_num": "3626b",
             "part_name": "Minifig Head",
             "color_id": 14,
@@ -201,9 +207,9 @@ Multiple `items` may share the same `set_num` with different `id`.
 }
 ```
 
-`missing_quantity`, `missing_item_id`, and `missing_image_url` are derived from `missing_items` for this owned-set instance. `missing_image_url` is null when no user photo exists.
+`quantity` and `missing_quantity` are **per instance** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect this instance’s missing state. When a part has a user BLOB, `part_image_url` is `/api/parts/{part_id}/image`; `missing_image_url` is the same URL when `missing_quantity` > 0 and a part image exists, otherwise null.
 
-**Catalog images:** Rebrickable URLs are passed through from the database; the frontend does not proxy them in MVP.
+**Catalog `image_url`:** Rebrickable CDN URL when synced, or `/api/catalog-sets/{catalog_set_id}/image` when the user uploaded a set BLOB.
 
 ### Update owned-set instance metadata
 
@@ -246,7 +252,7 @@ Example (instance + shared catalog fields):
 
 **`DELETE /owned-sets/{id}`**
 
-- Deletes the `owned_sets` row, cascades `missing_items`, and removes any missing-part image files on disk.
+- Deletes the `owned_sets` row; cascades `missing_items` and `owned_set_inventory_lines`.
 - If no other `owned_sets` reference the same `catalog_set_id`, delete that **catalog set and its inventory** as well.
 - **`404`** if unknown id.
 - **`200`** with `{ "deleted": true, "id": 1 }` on success.
@@ -300,13 +306,32 @@ If `label` is omitted, server uses `suggested_label` from the preview rules.
 
 **UI:** list row **Make a copy** opens dialog using preview; **Create a copy** submits POST; **Cancel** discards.
 
-## Media (local missing-part images)
+## Images (SQLite BLOBs — Phase 10)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/parts/{part_id}/image` | Serve part image bytes |
+| `PUT` | `/parts/{part_id}/image` | Upload/replace (multipart `file`; max 5 MB; JPEG/PNG) |
+| `DELETE` | `/parts/{part_id}/image` | Clear part image |
+| `GET` | `/catalog-sets/{catalog_set_id}/image` | Serve set box image |
+| `PUT` | `/catalog-sets/{catalog_set_id}/image` | Upload/replace set image |
+| `DELETE` | `/catalog-sets/{catalog_set_id}/image` | Clear set image |
+
+**`PUT` response `200`:** `{ "image_url": "/api/parts/{part_id}/image" }` (or catalog-set path).
+
+**`DELETE` response `200`:** `{ "image_url": null }`.
+
+**`GET`** returns raw bytes with stored `Content-Type`. **`404`** when no BLOB. **`413`** when upload exceeds size limit.
+
+Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, and `catalog.image_url` as same-origin paths when BLOBs exist.
+
+### Media (missing-line convenience)
 
 **`GET /media/missing/{missing_item_id}`**
 
-- Returns the stored image bytes with correct `Content-Type` (`image/jpeg` or `image/png`).
-- **`404`** if no image or unknown id.
-- Used by the UI and future report generation; works offline when the app and files are local.
+- Serves the **part** BLOB for the inventory line linked to this missing row when `quantity_missing` > 0.
+- **`404`** if unknown id, no missing quantity, or no part image.
+- Prefer `GET /parts/{part_id}/image` for direct part access; this route keeps older clients and `missing_image_url` working.
 
 ## Search
 
@@ -375,7 +400,7 @@ or
 
 **Rules:**
 
-- `quantity_missing` ≥ 0. If `0`, **delete** existing missing row for that owned set + line (and **delete** any stored image file).
+- `quantity_missing` ≥ 0. If `0`, **delete** existing missing row for that owned set + line (part BLOB is **not** cleared automatically).
 - If > 0, must be ≤ `quantity` on the referenced inventory line (**400** if not).
 - Creates `missing_items` row when needed; does not accept image bytes in this endpoint.
 
@@ -393,8 +418,8 @@ or
 
 **`PUT /owned-sets/{owned_set_id}/missing/{missing_item_id}/image`**
 
-- **Body:** `multipart/form-data`, field `file` (JPEG or PNG; max **5 MB** MVP default).
-- **Behavior:** Store under `UPLOAD_ROOT`; set `missing_items.image_path`; replace deletes previous file.
+- **Body:** `multipart/form-data`, field `file` (JPEG or PNG; max **5 MB**).
+- **Behavior:** Writes bytes to the linked line’s **`parts`** row (`image_blob`, `image_content_type`, `image_byte_size`). Global for that part across all sets.
 - **`404`** if `missing_item_id` does not belong to `owned_set_id`.
 - **`400`** if wrong content type or empty file.
 
@@ -403,7 +428,8 @@ or
 ```json
 {
   "missing_item_id": 501,
-  "missing_image_url": "/api/media/missing/501"
+  "missing_image_url": "/api/parts/42/image",
+  "part_image_url": "/api/parts/42/image"
 }
 ```
 
@@ -411,10 +437,18 @@ or
 
 **`DELETE /owned-sets/{owned_set_id}/missing/{missing_item_id}/image`**
 
-- Clears `image_path` and deletes file from disk.
+- Clears the **part** BLOB (affects every set using that part).
 - Missing quantity row **remains** unless cleared via `PATCH .../missing` with `quantity_missing: 0`.
 
-**Response `204`** or **`200`** with `{ "missing_item_id": 501, "missing_image_url": null }`.
+**Response `200`:**
+
+```json
+{
+  "missing_item_id": 501,
+  "missing_image_url": null,
+  "part_image_url": null
+}
+```
 
 ### Optional read
 
@@ -422,15 +456,13 @@ Missing lines are embedded in **`GET /owned-sets/{id}`**; a dedicated `GET /owne
 
 ---
 
-## Planned API additions (Phases 9–12, not yet implemented)
-
-Contracts below are **targets** for post-MVP work. MVP endpoints above remain until each phase ships.
+## Post-MVP endpoints (Phases 9–10 — implemented)
 
 ### Instance inventory (Phase 9)
 
-Detail payload (`GET /owned-sets/{id}`) exposes per-line **`quantity`** and **`quantity_missing`** for **this instance** (not catalog template quantities).
+Detail payload (`GET /owned-sets/{id}`) exposes per-line **`quantity`** and **`missing_quantity`** for **this instance** (from `owned_set_inventory_lines`).
 
-**`PATCH /owned-sets/{owned_set_id}/inventory-lines/{line_id}`** (or batch variant):
+**`PATCH /owned-sets/{owned_set_id}/inventory-lines/{instance_line_id}`**
 
 ```json
 {
@@ -439,28 +471,21 @@ Detail payload (`GET /owned-sets/{id}`) exposes per-line **`quantity`** and **`q
 }
 ```
 
-- `quantity` > 0; `0 ≤ quantity_missing ≤ quantity`.
-- `404` if line does not belong to this instance.
+- `quantity` > 0 when provided; `0 ≤ quantity_missing ≤ quantity` when provided.
+- **`404`** if `instance_line_id` does not belong to this owned set.
 - Does not change other instances’ lines.
 
-MVP **`PATCH .../missing`** may be deprecated or delegated to this endpoint once instance lines own `quantity_missing`.
+**`PATCH .../missing`** remains for missing-only updates using catalog line ids (`set_part_inventory_line_id` / `minifig_part_inventory_line_id`).
 
 ### Images in database (Phase 10)
 
-Replace disk **`/api/media/missing/{id}`** with BLOB-backed routes, e.g.:
+See [Images (SQLite BLOBs — Phase 10)](#images-sqlite-blobs--phase-10) above.
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/parts/{part_id}/image` | Serve part image bytes |
-| `PUT` | `/parts/{part_id}/image` | Upload/replace (multipart; max 5 MB) |
-| `DELETE` | `/parts/{part_id}/image` | Clear part image |
-| `GET` | `/catalog-sets/{catalog_set_id}/image` | Serve set image |
-| `PUT` | `/catalog-sets/{catalog_set_id}/image` | Upload/replace set image |
-| `DELETE` | `/catalog-sets/{catalog_set_id}/image` | Clear set image |
+---
 
-Responses use stored `Content-Type` (`image/jpeg` or `image/png`). **`413`** when over size limit.
+## Planned API additions (Phases 11–12, not yet implemented)
 
-JSON fields may expose `part_image_url` / `set_image_url` as same-origin API paths instead of Rebrickable CDN URLs.
+Contracts below are **targets** for remaining post-MVP work.
 
 ### CSV import with Rebrickable (Phase 11)
 

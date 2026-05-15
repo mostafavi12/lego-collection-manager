@@ -65,6 +65,9 @@ export function OwnedSetsPage() {
       </header>
 
       <div className="toolbar">
+        <Link to="/add" className="btn btn--primary">
+          Add set
+        </Link>
         <label className="toolbar__field">
           Investigation
           <select
@@ -86,7 +89,8 @@ export function OwnedSetsPage() {
       {!loading && items.length === 0 && !error && (
         <p className="empty-state">
           No owned sets yet.{" "}
-          <Link to="/import">Import a CSV</Link> to get started.
+          <Link to="/add">Add a set manually</Link> or{" "}
+          <Link to="/import">import a CSV</Link> to get started.
         </p>
       )}
 

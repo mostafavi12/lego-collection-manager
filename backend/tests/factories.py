@@ -20,6 +20,13 @@ from app.db.models import (
 )
 from app.services.instance_inventory import clone_instance_inventory
 
+# Minimal 1x1 PNG
+TINY_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -185,7 +192,6 @@ def add_missing_item_for_set_line(
     owned_set: OwnedSet,
     line: SetPartInventoryLine,
     quantity_missing: int = 1,
-    image_path: str | None = "/data/uploads/1.jpg",
 ) -> MissingItem:
     instance = add_instance_line_for_set_part(
         session,
@@ -196,7 +202,6 @@ def add_missing_item_for_set_line(
     item = MissingItem(
         owned_set_id=owned_set.id,
         owned_set_inventory_line_id=instance.id,
-        image_path=image_path,
         created_at=utc_now(),
         updated_at=utc_now(),
     )

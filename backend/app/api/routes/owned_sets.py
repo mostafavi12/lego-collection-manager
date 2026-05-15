@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.config.upload_settings import get_max_missing_image_bytes
+from app.config.image_settings import get_max_image_bytes
 from app.db.deps import get_db
 from app.schemas.missing import (
     MissingImageResponse,
@@ -11,6 +11,11 @@ from app.schemas.missing import (
 from app.schemas.instance_inventory import (
     InstanceInventoryLineResponse,
     InstanceInventoryLineUpdate,
+)
+from app.schemas.manual_add import (
+    OwnedSetAddPreviewResponse,
+    OwnedSetCreateRequest,
+    OwnedSetCreateResponse,
 )
 from app.schemas.owned_sets import (
     DuplicatePreviewResponse,
@@ -22,6 +27,7 @@ from app.schemas.owned_sets import (
     OwnedSetListResponse,
     OwnedSetUpdateRequest,
 )
+from app.services.manual_add_service import create_owned_set_manual, get_add_preview
 from app.services.missing_items_service import (
     MissingItemError,
     delete_missing_image,
@@ -53,6 +59,28 @@ def get_owned_sets(
     db: Session = Depends(get_db),
 ) -> OwnedSetListResponse:
     return list_owned_sets(db, limit=limit, offset=offset, investigated=investigated)
+
+
+@router.get("/add-preview", response_model=OwnedSetAddPreviewResponse)
+def get_owned_set_add_preview(
+    set_num: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+) -> OwnedSetAddPreviewResponse:
+    try:
+        return get_add_preview(db, set_num)
+    except OwnedSetServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post("", response_model=OwnedSetCreateResponse, status_code=201)
+def post_owned_set(
+    body: OwnedSetCreateRequest,
+    db: Session = Depends(get_db),
+) -> OwnedSetCreateResponse:
+    try:
+        return create_owned_set_manual(db, body)
+    except OwnedSetServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @router.get("/{owned_set_id}", response_model=OwnedSetDetailResponse)
@@ -179,7 +207,7 @@ async def put_missing_image(
     db: Session = Depends(get_db),
 ) -> MissingImageResponse:
     raw = await file.read()
-    max_bytes = get_max_missing_image_bytes()
+    max_bytes = get_max_image_bytes()
     if len(raw) > max_bytes:
         raise HTTPException(status_code=413, detail="Image file too large")
     content_type = file.content_type or ""

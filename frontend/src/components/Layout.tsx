@@ -7,6 +7,11 @@ const NAV = [
     match: (path: string) => path === "/" || path.startsWith("/sets"),
   },
   {
+    to: "/add",
+    label: "Add set",
+    match: (path: string) => path.startsWith("/add"),
+  },
+  {
     to: "/search",
     label: "Search",
     match: (path: string) => path.startsWith("/search"),

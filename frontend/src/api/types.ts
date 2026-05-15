@@ -45,6 +45,7 @@ export interface OwnedSetDuplicateResponse extends OwnedSetListItem {
 }
 
 export interface CatalogBlock {
+  catalog_set_id: number;
   set_num: string;
   name: string | null;
   year: number | null;
@@ -67,6 +68,7 @@ export interface InstanceInventoryLineResponse {
 export interface SetPartLineDetail {
   instance_line_id: number;
   catalog_line_id: number;
+  part_id: number;
   part_num: string;
   part_name: string | null;
   color_id: number;
@@ -75,6 +77,7 @@ export interface SetPartLineDetail {
   is_spare: boolean;
   is_alternate: boolean;
   image_url: string | null;
+  part_image_url: string | null;
   missing_quantity: number;
   missing_item_id: number | null;
   missing_image_url: string | null;
@@ -83,11 +86,14 @@ export interface SetPartLineDetail {
 export interface MinifigPartLineDetail {
   instance_line_id: number;
   catalog_line_id: number;
+  part_id: number;
   part_num: string;
   part_name: string | null;
   color_id: number;
   color_name: string;
   quantity: number;
+  image_url: string | null;
+  part_image_url: string | null;
   missing_quantity: number;
   missing_item_id: number | null;
   missing_image_url: string | null;
@@ -137,6 +143,43 @@ export interface SearchResponse {
   parts: SearchPartResult[];
 }
 
+export interface OwnedSetAddPreviewResponse {
+  set_num: string;
+  catalog_exists: boolean;
+  set_name: string | null;
+  existing_copy_count: number;
+  suggested_label: string;
+}
+
+export interface ManualAddCatalogInput {
+  name?: string | null;
+  theme_name?: string | null;
+  year?: number | null;
+  num_parts?: number | null;
+}
+
+export interface ManualAddPartInput {
+  part_num: string;
+  part_name?: string | null;
+  color_id?: number;
+  color_name?: string | null;
+  quantity: number;
+  is_spare?: boolean;
+  is_alternate?: boolean;
+}
+
+export interface OwnedSetCreateBody {
+  set_num: string;
+  label?: string | null;
+  age?: number | null;
+  catalog?: ManualAddCatalogInput;
+  parts?: ManualAddPartInput[];
+}
+
+export interface OwnedSetCreateResponse extends OwnedSetListItem {
+  catalog_created: boolean;
+}
+
 export interface CsvImportResponse {
   instances_created: number;
   catalog_stubs_created: number;
@@ -156,7 +199,16 @@ export interface MissingUpsertResponse {
   updated_lines: number;
 }
 
+export interface ImageUploadResponse {
+  image_url: string;
+}
+
+export interface ImageDeleteResponse {
+  image_url: string | null;
+}
+
 export interface MissingImageResponse {
   missing_item_id: number;
   missing_image_url: string | null;
+  part_image_url: string | null;
 }

@@ -123,25 +123,21 @@ Except for the per-instance **label** (user-only), set-level metadata may come f
 
 **Re-sync behavior:** each successful Rebrickable sync **upserts** catalog fields from the API. When the API returns `age_range`, sync updates **all** owned instances for that catalog set. Manual values for those catalog fields may be **overwritten** on a later sync.
 
-## User-provided images
+## User-provided images (Phase 10+)
 
-### MVP (Phases 1–8): disk storage
+User photos are stored as **BLOBs in SQLite**, not on disk:
 
-| Variable | Purpose |
-|----------|---------|
-| `UPLOAD_ROOT` | Directory for user-uploaded missing-part images (default e.g. `./data/uploads` relative to backend working directory). |
+| Storage | Table | Scope |
+|---------|-------|--------|
+| Part image | `parts` (`image_blob`, `image_content_type`, `image_byte_size`) | **Global** — one image per part; shown in every set that uses that part. |
+| Set box image | `catalog_sets` (same BLOB columns) | **Shared** across all owned instances of that set. |
 
 Rules:
 
-- **One image per `missing_items` row** (replace on re-upload).
-- Accepted formats: **JPEG** and **PNG**; max size per [api-design.md](./api-design.md).
-- Files on disk; database holds relative path only.
-
-### Phase 10+: SQLite BLOBs
-
-- Part images on `parts`; set images on `catalog_sets`.
-- Max **5 MB**; JPEG/PNG; min size **0** allowed.
-- No `UPLOAD_ROOT`, `MEDIA_ROOT`, or thumbnail/full folder layout.
+- Accepted formats: **JPEG** and **PNG**; max **5 MB** per [api-design.md](./api-design.md); min size **0** allowed.
+- Missing-part upload (`PUT .../missing/{id}/image`) writes the **part** BLOB (not a per-missing-row file).
+- `GET /media/missing/{missing_item_id}` serves the part BLOB when the line has missing quantity > 0.
+- No `UPLOAD_ROOT`, `MEDIA_ROOT`, or thumbnail/cache folders required for normal operation.
 - Images are **not** sent to Rebrickable.
 
 ## Testing constraint
