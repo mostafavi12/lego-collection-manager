@@ -19,6 +19,7 @@ class CatalogSetDTO:
     theme_external_id: int | None
     num_parts: int | None
     image_url: str | None
+    age: int | None = None
 
 
 @dataclass(frozen=True)

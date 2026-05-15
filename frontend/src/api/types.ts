@@ -8,7 +8,31 @@ export interface OwnedSetListItem {
   catalog_sync_state: string;
   investigated: boolean;
   label: string | null;
+  display_label: string;
+  copy_index: number;
+  age: number | null;
+  num_parts: number | null;
   missing_count: number;
+}
+
+export interface DuplicatePreviewResponse {
+  source_owned_set_id: number;
+  set_num: string;
+  set_name: string | null;
+  existing_copy_count: number;
+  suggested_label: string;
+}
+
+export interface OwnedSetUpdateBody {
+  investigated?: boolean;
+  label?: string | null;
+  notes?: string | null;
+  age?: number | null;
+  set_num?: string;
+  catalog_name?: string | null;
+  catalog_num_parts?: number | null;
+  catalog_year?: number | null;
+  catalog_theme_name?: string | null;
 }
 
 export interface OwnedSetListResponse {
@@ -73,6 +97,10 @@ export interface OwnedSetDetailResponse {
   id: number;
   investigated: boolean;
   label: string | null;
+  display_label: string;
+  copy_index: number;
+  age: number | null;
+  notes: string | null;
   catalog: CatalogBlock;
   inventory: InventoryBlock;
 }

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
@@ -19,11 +19,14 @@ from app.db.models import (
     SetPartInventoryLine,
     Theme,
 )
+CSV_STUB_SOURCE = "csv_import"
 from app.schemas.owned_sets import (
     CatalogBlock,
+    DuplicatePreviewResponse,
     InventoryBlock,
     MinifigInventoryBlock,
     MinifigPartLineDetail,
+    OwnedSetDeleteResponse,
     OwnedSetDetailResponse,
     OwnedSetDuplicateResponse,
     OwnedSetListItem,
@@ -31,7 +34,23 @@ from app.schemas.owned_sets import (
     OwnedSetUpdateRequest,
     SetPartLineDetail,
 )
+from app.services.catalog_cleanup import delete_catalog_set_data
 from app.services.catalog_state import catalog_sync_state, missing_image_url
+from app.services.instance_labels import (
+    copy_index_for_owned_set,
+    copy_index_map,
+    count_owned_instances,
+    display_label,
+    suggested_copy_label,
+)
+from app.services.missing_storage import delete_image_file
+from app.utils.age import parse_age_value
+
+
+class OwnedSetServiceError(Exception):
+    def __init__(self, message: str, *, status_code: int = 400) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def utc_now() -> datetime:
@@ -54,6 +73,7 @@ def _to_list_item(
     catalog_set: CatalogSet,
     theme_name: str | None,
     missing_count: int,
+    copy_index: int,
 ) -> OwnedSetListItem:
     return OwnedSetListItem(
         id=owned_set.id,
@@ -65,8 +85,62 @@ def _to_list_item(
         catalog_sync_state=catalog_sync_state(catalog_set),
         investigated=owned_set.investigated,
         label=owned_set.label,
+        display_label=display_label(owned_set.label, copy_index),
+        copy_index=copy_index,
+        age=owned_set.age,
+        num_parts=catalog_set.num_parts,
         missing_count=missing_count,
     )
+
+
+def _clear_missing_for_owned_set(session: Session, owned_set_id: int) -> None:
+    items = session.scalars(
+        select(MissingItem).where(MissingItem.owned_set_id == owned_set_id)
+    ).all()
+    for item in items:
+        delete_image_file(item.image_path)
+        session.delete(item)
+    session.flush()
+
+
+def _apply_shared_age(
+    session: Session,
+    catalog_set_id: int,
+    age: int | None,
+) -> None:
+    for owned in session.scalars(
+        select(OwnedSet).where(OwnedSet.catalog_set_id == catalog_set_id)
+    ).all():
+        owned.age = age
+
+
+def _relocate_to_set_num(session: Session, owned_set: OwnedSet, set_num: str) -> None:
+    trimmed = set_num.strip()
+    if not trimmed:
+        raise OwnedSetServiceError("Set number must not be empty")
+
+    _clear_missing_for_owned_set(session, owned_set.id)
+
+    existing = session.scalar(select(CatalogSet).where(CatalogSet.set_num == trimmed))
+    if existing is not None:
+        owned_set.catalog_set_id = existing.id
+    else:
+        now = utc_now()
+        stub = CatalogSet(
+            set_num=trimmed,
+            name=None,
+            year=None,
+            theme_id=None,
+            num_parts=None,
+            image_url=None,
+            source=CSV_STUB_SOURCE,
+            source_ref=trimmed,
+            fetched_at=now,
+        )
+        session.add(stub)
+        session.flush()
+        owned_set.catalog_set_id = stub.id
+    session.flush()
 
 
 def list_owned_sets(
@@ -96,7 +170,9 @@ def list_owned_sets(
     ).all()
 
     owned_ids = [row[0].id for row in rows]
+    catalog_ids = list({row[1].id for row in rows})
     missing_map = _missing_counts(session, owned_ids)
+    index_map = copy_index_map(session, catalog_ids)
 
     items = [
         _to_list_item(
@@ -104,6 +180,7 @@ def list_owned_sets(
             catalog_set,
             theme_name,
             missing_map.get(owned_set.id, 0),
+            index_map.get(catalog_set.id, {}).get(owned_set.id, 1),
         )
         for owned_set, catalog_set, theme_name in rows
     ]
@@ -127,6 +204,7 @@ def get_owned_set_detail(
 
     catalog_set = owned_set.catalog_set
     theme_name = catalog_set.theme.name if catalog_set.theme else None
+    copy_idx = copy_index_for_owned_set(session, owned_set)
 
     missing_by_set_line: dict[int, MissingItem] = {}
     missing_by_minifig_line: dict[int, MissingItem] = {}
@@ -221,6 +299,10 @@ def get_owned_set_detail(
         id=owned_set.id,
         investigated=owned_set.investigated,
         label=owned_set.label,
+        display_label=display_label(owned_set.label, copy_idx),
+        copy_index=copy_idx,
+        age=owned_set.age,
+        notes=owned_set.notes,
         catalog=CatalogBlock(
             set_num=catalog_set.set_num,
             name=catalog_set.name,
@@ -246,25 +328,74 @@ def update_owned_set(
     if owned_set is None:
         return None
 
+    catalog_set = owned_set.catalog_set
+
     if body.investigated is not None:
         owned_set.investigated = body.investigated
     if body.label is not None:
-        owned_set.label = body.label
+        owned_set.label = body.label.strip() or None
+    if body.notes is not None:
+        owned_set.notes = body.notes.strip() or None
+
+    if "age" in body.model_fields_set:
+        parsed_age = parse_age_value(body.age) if body.age is not None else None
+        _apply_shared_age(session, catalog_set.id, parsed_age)
+
+    if body.catalog_name is not None:
+        catalog_set.name = body.catalog_name.strip() or None
+    if body.catalog_num_parts is not None:
+        catalog_set.num_parts = body.catalog_num_parts
+    if body.catalog_year is not None:
+        catalog_set.year = body.catalog_year
+    if body.catalog_theme_name is not None:
+        if catalog_set.theme is not None:
+            catalog_set.theme.name = body.catalog_theme_name.strip() or catalog_set.theme.name
+
+    if body.set_num is not None and body.set_num.strip() != catalog_set.set_num:
+        _relocate_to_set_num(session, owned_set, body.set_num)
+        session.refresh(owned_set, attribute_names=["catalog_set"])
+        catalog_set = owned_set.catalog_set
 
     session.flush()
-    catalog_set = owned_set.catalog_set
+
     theme_name = catalog_set.theme.name if catalog_set.theme else None
     missing_count = session.scalar(
         select(func.count())
         .select_from(MissingItem)
         .where(MissingItem.owned_set_id == owned_set_id)
     ) or 0
-    return _to_list_item(owned_set, catalog_set, theme_name, int(missing_count))
+    copy_idx = copy_index_for_owned_set(session, owned_set)
+    return _to_list_item(owned_set, catalog_set, theme_name, int(missing_count), copy_idx)
+
+
+def get_duplicate_preview(
+    session: Session,
+    source_id: int,
+) -> DuplicatePreviewResponse | None:
+    source = session.scalar(
+        select(OwnedSet)
+        .where(OwnedSet.id == source_id)
+        .options(selectinload(OwnedSet.catalog_set))
+    )
+    if source is None:
+        return None
+
+    catalog_set = source.catalog_set
+    count = count_owned_instances(session, catalog_set.id)
+    return DuplicatePreviewResponse(
+        source_owned_set_id=source_id,
+        set_num=catalog_set.set_num,
+        set_name=catalog_set.name,
+        existing_copy_count=count,
+        suggested_label=suggested_copy_label(count),
+    )
 
 
 def duplicate_owned_set(
     session: Session,
     source_id: int,
+    *,
+    label: str | None = None,
 ) -> OwnedSetDuplicateResponse | None:
     source = session.scalar(
         select(OwnedSet)
@@ -274,10 +405,14 @@ def duplicate_owned_set(
     if source is None:
         return None
 
+    count = count_owned_instances(session, source.catalog_set_id)
+    resolved_label = (label or "").strip() or suggested_copy_label(count)
+
     new_owned = OwnedSet(
         catalog_set_id=source.catalog_set_id,
         investigated=False,
-        label=None,
+        label=resolved_label,
+        age=None,
         notes=None,
         created_at=utc_now(),
     )
@@ -286,8 +421,34 @@ def duplicate_owned_set(
 
     catalog_set = source.catalog_set
     theme_name = catalog_set.theme.name if catalog_set.theme else None
-    item = _to_list_item(new_owned, catalog_set, theme_name, 0)
+    copy_idx = copy_index_for_owned_set(session, new_owned)
+    item = _to_list_item(new_owned, catalog_set, theme_name, 0, copy_idx)
     return OwnedSetDuplicateResponse(
         **item.model_dump(),
         duplicated_from_owned_set_id=source_id,
     )
+
+
+def delete_owned_set(
+    session: Session,
+    owned_set_id: int,
+) -> OwnedSetDeleteResponse | None:
+    owned_set = session.scalar(
+        select(OwnedSet)
+        .where(OwnedSet.id == owned_set_id)
+        .options(selectinload(OwnedSet.missing_items))
+    )
+    if owned_set is None:
+        return None
+
+    catalog_set_id = owned_set.catalog_set_id
+    _clear_missing_for_owned_set(session, owned_set_id)
+    session.delete(owned_set)
+    session.flush()
+
+    remaining = count_owned_instances(session, catalog_set_id)
+    if remaining == 0:
+        delete_catalog_set_data(session, catalog_set_id)
+        session.flush()
+
+    return OwnedSetDeleteResponse(deleted=True, id=owned_set_id)

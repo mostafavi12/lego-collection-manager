@@ -13,6 +13,10 @@ class OwnedSetListItem(BaseModel):
     catalog_sync_state: str
     investigated: bool
     label: str | None
+    display_label: str
+    copy_index: int
+    age: int | None
+    num_parts: int | None
     missing_count: int
 
 
@@ -24,10 +28,34 @@ class OwnedSetListResponse(BaseModel):
 class OwnedSetUpdateRequest(BaseModel):
     investigated: bool | None = None
     label: str | None = None
+    notes: str | None = None
+    age: int | None = None
+    set_num: str | None = None
+    catalog_name: str | None = None
+    catalog_num_parts: int | None = None
+    catalog_year: int | None = None
+    catalog_theme_name: str | None = None
+
+
+class DuplicatePreviewResponse(BaseModel):
+    source_owned_set_id: int
+    set_num: str
+    set_name: str | None
+    existing_copy_count: int
+    suggested_label: str
+
+
+class DuplicateRequest(BaseModel):
+    label: str | None = None
 
 
 class OwnedSetDuplicateResponse(OwnedSetListItem):
     duplicated_from_owned_set_id: int
+
+
+class OwnedSetDeleteResponse(BaseModel):
+    deleted: bool
+    id: int
 
 
 class CatalogBlock(BaseModel):
@@ -83,5 +111,9 @@ class OwnedSetDetailResponse(BaseModel):
     id: int
     investigated: bool
     label: str | None
+    display_label: str
+    copy_index: int
+    age: int | None
+    notes: str | None
     catalog: CatalogBlock
     inventory: InventoryBlock

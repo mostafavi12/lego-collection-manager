@@ -77,6 +77,7 @@ class OwnedSet(Base):
         Boolean, nullable=False, default=False, server_default=text("0")
     )
     label: Mapped[str | None] = mapped_column(Text, nullable=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
