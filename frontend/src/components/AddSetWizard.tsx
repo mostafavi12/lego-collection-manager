@@ -1,16 +1,16 @@
 import { FormEvent, useState } from "react";
 
-import { createOwnedSet, fetchAddSetPreview } from "../api/client";
+import { createSetCopy, fetchAddSetPreview, fetchManualAddRebrickableDraft } from "../api/client";
 import type {
+  AddSetPreviewResponse,
   ManualAddPartInput,
-  OwnedSetAddPreviewResponse,
 } from "../api/types";
 import { AsyncMessage } from "./AsyncMessage";
 import { Modal } from "./Modal";
 
 interface AddSetWizardProps {
   onClose: () => void;
-  onCreated: (ownedSetId: number) => void;
+  onCreated: (setCopyId: number) => void;
 }
 
 interface PartDraft {
@@ -19,6 +19,16 @@ interface PartDraft {
   color_id: string;
   color_name: string;
   quantity: string;
+}
+
+function manualPartToDraft(row: ManualAddPartInput): PartDraft {
+  return {
+    part_num: row.part_num,
+    part_name: row.part_name ?? "",
+    color_id: String(row.color_id ?? 0),
+    color_name: row.color_name ?? "",
+    quantity: String(row.quantity),
+  };
 }
 
 const emptyPart = (): PartDraft => ({
@@ -32,7 +42,7 @@ const emptyPart = (): PartDraft => ({
 export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [setNum, setSetNum] = useState("");
-  const [preview, setPreview] = useState<OwnedSetAddPreviewResponse | null>(null);
+  const [preview, setPreview] = useState<AddSetPreviewResponse | null>(null);
   const [label, setLabel] = useState("");
   const [catalogName, setCatalogName] = useState("");
   const [catalogTheme, setCatalogTheme] = useState("");
@@ -41,6 +51,8 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
   const [age, setAge] = useState("");
   const [parts, setParts] = useState<PartDraft[]>([emptyPart()]);
   const [loading, setLoading] = useState(false);
+  const [prefillLoading, setPrefillLoading] = useState(false);
+  const [draftHint, setDraftHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function onNext(event: FormEvent) {
@@ -71,6 +83,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
         setCatalogParts("");
         setAge("");
         setParts([emptyPart()]);
+        setDraftHint(null);
       }
       setStep(2);
     } catch (err) {
@@ -94,6 +107,49 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
       .filter((row) => row.part_num.length > 0);
   }
 
+  async function fetchFromRebrickable() {
+    if (!preview || preview.catalog_exists) {
+      return;
+    }
+    setPrefillLoading(true);
+    setError(null);
+    try {
+      const draft = await fetchManualAddRebrickableDraft(preview.set_num);
+      const { catalog } = draft;
+      setCatalogName(catalog.name ?? "");
+      setCatalogTheme(catalog.theme_name ?? "");
+      setCatalogYear(catalog.year != null ? String(catalog.year) : "");
+      setCatalogParts(catalog.num_parts != null ? String(catalog.num_parts) : "");
+      setAge(draft.age != null ? String(draft.age) : "");
+      setParts(
+        draft.parts.length > 0 ? draft.parts.map(manualPartToDraft) : [emptyPart()],
+      );
+      setDraftHint(draft.note);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not load from Rebrickable",
+      );
+    } finally {
+      setPrefillLoading(false);
+    }
+  }
+
+  function updatePart(index: number, patch: Partial<PartDraft>) {
+    setParts((rows) =>
+      rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    );
+  }
+
+  function addPartRow() {
+    setParts((rows) => [...rows, emptyPart()]);
+  }
+
+  function removePartRow(index: number) {
+    setParts((rows) =>
+      rows.length <= 1 ? [emptyPart()] : rows.filter((_, i) => i !== index),
+    );
+  }
+
   async function onAdd(event: FormEvent) {
     event.preventDefault();
     if (!preview) {
@@ -103,7 +159,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
     setError(null);
     try {
       if (preview.catalog_exists) {
-        const created = await createOwnedSet({
+        const created = await createSetCopy({
           set_num: preview.set_num,
           label: label.trim() || null,
         });
@@ -123,7 +179,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
         }
       }
 
-      const created = await createOwnedSet({
+      const created = await createSetCopy({
         set_num: preview.set_num,
         label: label.trim() || null,
         age: ageTrimmed === "" ? null : Number.parseInt(ageTrimmed, 10),
@@ -148,6 +204,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
     setStep(1);
     setPreview(null);
     setError(null);
+    setDraftHint(null);
   }
 
   if (step === 1) {
@@ -197,6 +254,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
           ? `Add instance — ${preview.set_num}`
           : `New set — ${preview.set_num}`
       }
+      modalClassName={preview.catalog_exists ? undefined : "modal--wide"}
       onClose={onClose}
     >
       <form onSubmit={(e) => void onAdd(e)}>
@@ -293,15 +351,31 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
           <>
             <p className="add-set-wizard__intro">
               Set number <strong>{preview.set_num}</strong> is not in your
-              collection yet. Enter catalog details (optional) or leave them blank
-              and fill them in later on the set detail page.
+              collection yet. Enter catalog details (optional), add part lines
+              here or on the set detail page. You can pull metadata and set-level
+              parts from Rebrickable (no images).
             </p>
+
+            <div className="add-set-wizard__toolbar">
+              <button
+                type="button"
+                className="btn btn--secondary btn--small"
+                disabled={loading || prefillLoading}
+                onClick={() => void fetchFromRebrickable()}
+              >
+                {prefillLoading ? "Fetching…" : "Fetch from Rebrickable"}
+              </button>
+              <span className="form-hint" style={{ flex: "1 1 12rem", margin: 0 }}>
+                Requires configured API key (same as CSV import / sync).
+              </span>
+            </div>
+
             <div className="instance-form__grid">
               <label className="form-field">
                 LEGO set name
                 <input
                   value={catalogName}
-                  disabled={loading}
+                  disabled={loading || prefillLoading}
                   onChange={(e) => setCatalogName(e.target.value)}
                 />
               </label>
@@ -309,8 +383,17 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
                 Theme
                 <input
                   value={catalogTheme}
-                  disabled={loading}
+                  disabled={loading || prefillLoading}
                   onChange={(e) => setCatalogTheme(e.target.value)}
+                />
+              </label>
+              <label className="form-field">
+                Year
+                <input
+                  type="number"
+                  value={catalogYear}
+                  disabled={loading || prefillLoading}
+                  onChange={(e) => setCatalogYear(e.target.value)}
                 />
               </label>
               <label className="form-field">
@@ -318,7 +401,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
                 <input
                   type="number"
                   value={catalogParts}
-                  disabled={loading}
+                  disabled={loading || prefillLoading}
                   onChange={(e) => setCatalogParts(e.target.value)}
                 />
               </label>
@@ -327,7 +410,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
                 <input
                   type="number"
                   value={age}
-                  disabled={loading}
+                  disabled={loading || prefillLoading}
                   onChange={(e) => setAge(e.target.value)}
                 />
               </label>
@@ -335,10 +418,104 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
                 Instance label
                 <input
                   value={label}
-                  disabled={loading}
+                  disabled={loading || prefillLoading}
                   onChange={(e) => setLabel(e.target.value)}
                 />
               </label>
+            </div>
+
+            {draftHint ? (
+              <p className="form-hint" role="status">
+                {draftHint}
+              </p>
+            ) : null}
+
+            <div className="add-set-wizard__parts">
+              <h3>Parts (optional)</h3>
+              <p className="form-hint" style={{ marginTop: 0 }}>
+                Spare/alternate Rebrickable lines are omitted. Add more rows for
+                manual entry.
+              </p>
+              <div className="add-set-wizard__part-rows">
+                {parts.map((row, index) => (
+                  <div key={index} className="add-set-wizard__part-fields">
+                    <label className="form-field">
+                      Part #
+                      <input
+                        value={row.part_num}
+                        disabled={loading || prefillLoading}
+                        onChange={(e) =>
+                          updatePart(index, { part_num: e.target.value })
+                        }
+                        placeholder="3024"
+                      />
+                    </label>
+                    <label className="form-field">
+                      Name
+                      <input
+                        value={row.part_name}
+                        disabled={loading || prefillLoading}
+                        onChange={(e) =>
+                          updatePart(index, { part_name: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="form-field">
+                      Color id
+                      <input
+                        inputMode="numeric"
+                        value={row.color_id}
+                        disabled={loading || prefillLoading}
+                        onChange={(e) =>
+                          updatePart(index, { color_id: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="form-field">
+                      Color name
+                      <input
+                        value={row.color_name}
+                        disabled={loading || prefillLoading}
+                        onChange={(e) =>
+                          updatePart(index, { color_name: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="form-field">
+                      Qty
+                      <input
+                        inputMode="numeric"
+                        value={row.quantity}
+                        disabled={loading || prefillLoading}
+                        onChange={(e) =>
+                          updatePart(index, { quantity: e.target.value })
+                        }
+                      />
+                    </label>
+                    <div className="add-set-wizard__part-remove-cell">
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--small"
+                        disabled={loading || prefillLoading}
+                        onClick={() => removePartRow(index)}
+                        aria-label={`Remove part row ${index + 1}`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="add-set-wizard__part-actions">
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--small"
+                  disabled={loading || prefillLoading}
+                  onClick={addPartRow}
+                >
+                  Add part row
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -347,7 +524,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
           <button
             type="button"
             className="btn btn--ghost"
-            disabled={loading}
+            disabled={loading || prefillLoading}
             onClick={onClose}
           >
             Cancel
@@ -356,13 +533,17 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={loading}
+              disabled={loading || prefillLoading}
               onClick={backToStepOne}
             >
               Back
             </button>
           )}
-          <button type="submit" className="btn btn--primary" disabled={loading}>
+          <button
+            type="submit"
+            className="btn btn--primary"
+            disabled={loading || prefillLoading}
+          >
             {loading ? "Adding…" : "Add"}
           </button>
         </div>

@@ -2,7 +2,7 @@
 
 This document defines **file** and **network** inputs: formats, environment variables, Rebrickable resources used, and mapping principles into the local database. It complements [product-requirements.md](./product-requirements.md) and [database-schema.md](./database-schema.md).
 
-## CSV import (owned set numbers)
+## CSV import (collection set numbers)
 
 ### Format
 
@@ -19,13 +19,13 @@ This document defines **file** and **network** inputs: formats, environment vari
 - Trim leading and trailing whitespace on every token.
 - Empty token after trim → token error, skip token.
 - **Case:** store and match using the canonical string returned by Rebrickable after first successful sync when possible; until sync, preserve user input trimmed.
-- **Variants:** Rebrickable uses set numbers such as `6024-1`. User values must be resolvable to the same `set_num` the API expects; if the API returns 404 for a row, surface that as a **sync-time** error for that owned instance’s catalog set (see import API).
+- **Variants:** Rebrickable uses set numbers such as `6024-1`. User values must be resolvable to the same `set_num` the API expects; if the API returns 404 for a row, surface that as a **sync-time** error for that set copy’s shared catalog (`catalog_sets`) row (see import API).
 
 ### Semantics
 
-- **One token → one owned-set instance:** each valid set number in the file creates a **new** row in `owned_sets`, linked to the shared `catalog_sets` row for that `set_num`. Repeating the same `set_num` in one file or across imports creates **multiple instances** (see [product-requirements.md](./product-requirements.md)).
-- Import is **additive** only: it never removes existing owned instances.
-- Re-uploading an identical file will create **duplicate instances**; the app does not deduplicate across imports.
+- **One token → one new physical copy:** each valid set number in the file creates a **new** row in `owned_sets`, linked to the shared `catalog_sets` row for that `set_num`. Repeating the same `set_num` in one file or across imports creates **multiple copies** (see [product-requirements.md](./product-requirements.md)).
+- Import is **additive** only: it never removes existing copies.
+- Re-uploading an identical file will create **additional duplicate copies**; the app does not deduplicate across imports.
 
 ### MVP vs Phase 12 (CSV + Rebrickable)
 
@@ -38,7 +38,7 @@ This document defines **file** and **network** inputs: formats, environment vari
 
 ### Investigation default
 
-New owned-set instances created from **CSV import** or **`POST /owned-sets/{id}/duplicate`** have `investigated = false` until the user marks them investigated in the UI or API.
+New **`owned_sets`** rows created from **CSV import** or **`POST /owned-sets/{id}/duplicate`** have `investigated = false` until the user marks them investigated in the UI or API.
 
 ## Rebrickable API
 
@@ -109,11 +109,11 @@ Optional later: payload hash for change detection.
 
 ## Catalog metadata (dual source)
 
-Except for the per-instance **label** (user-only), set-level metadata may come from **Rebrickable sync**, from **CSV import** (set number only, leaving other fields empty until sync or manual entry), or from **user edit** on the set detail form (`PATCH /owned-sets/{id}`).
+Except for the per-copy **`label`** (user-only), set-level metadata may come from **Rebrickable sync**, from **CSV import** (set number only, leaving other fields empty until sync or manual entry), or from **user edit** on the set detail form (`PATCH /owned-sets/{id}`).
 
 | Field | Storage | Rebrickable sync | User PATCH (detail form) |
 |-------|---------|------------------|---------------------------|
-| Set number | `catalog_sets.set_num` | Set API | `set_num` (this instance only; UI warning) |
+| Set number | `catalog_sets.set_num` | Set API | `set_num` (this copy only; UI warning) |
 | Name | `catalog_sets.name` | Set API | `catalog_name` |
 | Theme | `themes` + `catalog_sets.theme_id` | Set + theme APIs | `catalog_theme_name` (creates/links theme when none) |
 | Year | `catalog_sets.year` | Set API | `catalog_year` |

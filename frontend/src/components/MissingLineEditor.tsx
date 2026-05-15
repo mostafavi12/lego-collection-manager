@@ -11,7 +11,7 @@ import type { MinifigPartLineDetail, SetPartLineDetail } from "../api/types";
 type InventoryLine = SetPartLineDetail | MinifigPartLineDetail;
 
 interface MissingLineEditorProps {
-  ownedSetId: number;
+  setCopyId: number;
   line: InventoryLine;
   inventoryKind: "set_part" | "minifig_part";
   onUpdated: () => void;
@@ -35,7 +35,7 @@ function patchBody(
 }
 
 export function MissingLineEditor({
-  ownedSetId,
+  setCopyId,
   line,
   inventoryKind,
   onUpdated,
@@ -58,7 +58,7 @@ export function MissingLineEditor({
     setError(null);
     try {
       const result = await patchMissing(
-        ownedSetId,
+        setCopyId,
         patchBody(line, inventoryKind, parsed),
       );
       if (parsed === 0) {
@@ -82,7 +82,7 @@ export function MissingLineEditor({
     setBusy(true);
     setError(null);
     try {
-      const result = await uploadMissingImage(ownedSetId, missingItemId, file);
+      const result = await uploadMissingImage(setCopyId, missingItemId, file);
       setImageUrl(result.part_image_url ?? result.missing_image_url);
       onUpdated();
     } catch (err) {
@@ -99,7 +99,7 @@ export function MissingLineEditor({
     setBusy(true);
     setError(null);
     try {
-      await deleteMissingImage(ownedSetId, missingItemId);
+      await deleteMissingImage(setCopyId, missingItemId);
       setImageUrl(null);
       onUpdated();
     } catch (err) {

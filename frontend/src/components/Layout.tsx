@@ -34,7 +34,7 @@ export function Layout() {
           <Link to="/" className="layout__title">
             LEGO Collection Manager
           </Link>
-          <p className="layout__tagline">Local-first owned sets</p>
+          <p className="layout__tagline">Local-first LEGO collection</p>
         </div>
         <nav className="layout__nav" aria-label="Main">
           {NAV.map(({ to, label, match, ...rest }) => (

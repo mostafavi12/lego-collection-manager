@@ -38,7 +38,9 @@ export function SearchPage() {
     <section className="page">
       <header className="page__header">
         <h1>Search</h1>
-        <p className="page__lede">Find owned sets or parts in your collection inventory.</p>
+        <p className="page__lede">
+          Find LEGO sets or parts that appear in your collection.
+        </p>
       </header>
 
       <form className="search-form" onSubmit={(e) => void onSubmit(e)}>
@@ -71,7 +73,7 @@ export function SearchPage() {
             <section>
               <h2>Sets ({results.sets.length})</h2>
               {results.sets.length === 0 ? (
-                <p className="empty-hint">No matching owned sets.</p>
+                <p className="empty-hint">No matching sets.</p>
               ) : (
                 <ul className="result-list">
                   {results.sets.map((row) => (
@@ -80,7 +82,7 @@ export function SearchPage() {
                         <strong>{row.set_num}</strong>
                         {row.name ? ` — ${row.name}` : ""}
                         <span className="result-list__meta">
-                          {row.label ?? `Copy #${row.owned_set_id}`} ·{" "}
+                          {row.label ?? "Unlabeled copy"} ·{" "}
                           {row.investigated ? "investigated" : "not investigated"}
                         </span>
                       </Link>

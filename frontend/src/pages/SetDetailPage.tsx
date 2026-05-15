@@ -2,12 +2,12 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
-  deleteOwnedSet,
-  getOwnedSet,
+  deleteSetCopy,
+  getSetCopy,
   mediaUrl,
-  updateOwnedSet,
+  updateSetCopy,
 } from "../api/client";
-import type { OwnedSetDetailResponse, SetPartLineDetail } from "../api/types";
+import type { SetCopyDetailResponse, SetPartLineDetail } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { Modal } from "../components/Modal";
 import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
@@ -26,7 +26,7 @@ interface InstanceForm {
   catalogYear: string;
 }
 
-function formFromDetail(detail: OwnedSetDetailResponse): InstanceForm {
+function formFromDetail(detail: SetCopyDetailResponse): InstanceForm {
   return {
     label: detail.label ?? detail.display_label,
     notes: detail.notes ?? "",
@@ -40,11 +40,11 @@ function formFromDetail(detail: OwnedSetDetailResponse): InstanceForm {
   };
 }
 
-export function OwnedSetDetailPage() {
+export function SetDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const ownedSetId = Number(id);
+  const setCopyId = Number(id);
   const navigate = useNavigate();
-  const [detail, setDetail] = useState<OwnedSetDetailResponse | null>(null);
+  const [detail, setDetail] = useState<SetCopyDetailResponse | null>(null);
   const [form, setForm] = useState<InstanceForm | null>(null);
   const [originalSetNum, setOriginalSetNum] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,7 @@ export function OwnedSetDetailPage() {
   >(null);
 
   const load = useCallback(async () => {
-    if (!Number.isFinite(ownedSetId)) {
+    if (!Number.isFinite(setCopyId)) {
       setError("Invalid set id");
       setLoading(false);
       return;
@@ -65,7 +65,7 @@ export function OwnedSetDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getOwnedSet(ownedSetId);
+      const data = await getSetCopy(setCopyId);
       setDetail(data);
       setForm(formFromDetail(data));
       setOriginalSetNum(data.catalog.set_num);
@@ -74,7 +74,7 @@ export function OwnedSetDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [ownedSetId]);
+  }, [setCopyId]);
 
   useEffect(() => {
     void load();
@@ -101,7 +101,7 @@ export function OwnedSetDetailPage() {
     setSaving(true);
     setError(null);
     try {
-      await updateOwnedSet(ownedSetId, buildPatchBody(current));
+      await updateSetCopy(setCopyId, buildPatchBody(current));
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -144,7 +144,7 @@ export function OwnedSetDetailPage() {
     }
     setSaving(true);
     try {
-      await updateOwnedSet(detail.id, { investigated: !detail.investigated });
+      await updateSetCopy(detail.id, { investigated: !detail.investigated });
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
@@ -156,7 +156,7 @@ export function OwnedSetDetailPage() {
   async function onDelete() {
     setSaving(true);
     try {
-      await deleteOwnedSet(ownedSetId);
+      await deleteSetCopy(setCopyId);
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
@@ -205,7 +205,7 @@ export function OwnedSetDetailPage() {
       <AsyncMessage error={error} />
 
       <form className="instance-form" onSubmit={(e) => void onSubmit(e)}>
-        <h2>Instance details</h2>
+        <h2>Copy details</h2>
         <div className="instance-form__grid">
           <label className="form-field">
             Label
@@ -317,7 +317,7 @@ export function OwnedSetDetailPage() {
             disabled={saving}
             onClick={() => setShowDeleteConfirm(true)}
           >
-            Delete instance
+            Delete this copy
           </button>
         </div>
       </form>
@@ -377,14 +377,14 @@ export function OwnedSetDetailPage() {
                     <td>{line.color_name}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <InstanceQuantityEditor
-                        ownedSetId={detail.id}
+                        setCopyId={detail.id}
                         line={line}
                         onUpdated={() => void load()}
                       />
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <MissingLineEditor
-                        ownedSetId={detail.id}
+                        setCopyId={detail.id}
                         line={line}
                         inventoryKind="set_part"
                         onUpdated={() => void load()}
@@ -427,14 +427,14 @@ export function OwnedSetDetailPage() {
                         <td>{line.color_name}</td>
                         <td>
                           <InstanceQuantityEditor
-                            ownedSetId={detail.id}
+                            setCopyId={detail.id}
                             line={line}
                             onUpdated={() => void load()}
                           />
                         </td>
                         <td>
                           <MissingLineEditor
-                            ownedSetId={detail.id}
+                            setCopyId={detail.id}
                             line={line}
                             inventoryKind="minifig_part"
                             onUpdated={() => void load()}
@@ -453,7 +453,7 @@ export function OwnedSetDetailPage() {
       {partModal && (
         <PartLineModal
           mode={partModal.mode}
-          ownedSetId={detail.id}
+          setCopyId={detail.id}
           line={partModal.mode === "edit" ? partModal.line : undefined}
           onClose={() => setPartModal(null)}
           onSaved={() => void load()}
@@ -492,11 +492,12 @@ export function OwnedSetDetailPage() {
       )}
 
       {showDeleteConfirm && (
-        <Modal title="Delete this instance?" onClose={() => setShowDeleteConfirm(false)}>
+        <Modal title="Delete this copy?" onClose={() => setShowDeleteConfirm(false)}>
           <p>
-            This removes {detail.display_label} and its missing-part data.
-            If it is the last copy of this catalog set, catalog and inventory data
-            are removed too.
+            This removes {detail.display_label} from your collection and its missing-part data for this copy.
+            If it is the <strong>last copy</strong> of LEGO set{" "}
+            <strong>{catalog.set_num}</strong>, shared catalog and inventory rows for that
+            set number are removed from the database too.
           </p>
           <div className="modal__actions">
             <button

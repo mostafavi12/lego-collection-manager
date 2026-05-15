@@ -54,7 +54,7 @@ export function ImportPage() {
       <header className="page__header">
         <h1>Import</h1>
         <p className="page__lede">
-          Add owned sets from a comma-separated list or{" "}
+          Add LEGO sets from a comma-separated list or{" "}
           <Link to="/" state={{ openAddSet: true }}>
             add one set manually
           </Link>
@@ -72,7 +72,7 @@ export function ImportPage() {
         <h2>CSV import</h2>
         <p>
           Upload a plain text file with comma-separated LEGO set numbers (no
-          header). Each token creates a <strong>new</strong> owned instance and
+          header). Each token creates a <strong>new physical copy</strong> in your
           loads set metadata and parts from Rebrickable when the API key is
           configured. Images are not downloaded. Recommended{" "}
           <strong>age</strong> is often missing from Rebrickable — set it on the
@@ -140,7 +140,7 @@ export function ImportPage() {
           disabled={loading === "sync"}
           onClick={() => void onSync()}
         >
-          {loading === "sync" ? "Syncing…" : "Sync all owned sets"}
+          {loading === "sync" ? "Syncing…" : "Sync entire collection"}
         </button>
         {syncResult && (
           <div className="import-result" role="status">

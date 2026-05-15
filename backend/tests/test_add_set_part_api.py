@@ -1,4 +1,4 @@
-"""Add set-part line to owned-set instance."""
+"""Add set-part line to set copy `/owned-sets/{id}/set-parts`."""
 
 from tests.factories import (
     add_catalog_set,

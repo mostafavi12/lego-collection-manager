@@ -38,6 +38,12 @@ class Theme(Base):
 
 
 class CatalogSet(Base):
+    """Shared metadata and inventory **template** for one LEGO `set_num`.
+
+    In the product, this is not a wishlist row: it exists only because the user has at least
+    one physical copy (`OwnedSet`). Deleting the user's last copy removes this catalog stub.
+    """
+
     __tablename__ = "catalog_sets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -67,6 +73,13 @@ class CatalogSet(Base):
 
 
 class OwnedSet(Base):
+    """One physical LEGO set **copy** stored in the user's collection (`owned_sets` table).
+
+    Product rule: the database never represents LEGO sets outside the user's collection.
+    `catalog_sets` holds shared metadata for a `set_num` and exists only while at least
+    one copy row points to it; deleting the last copy cascades away that catalog.
+    """
+
     __tablename__ = "owned_sets"
     __table_args__ = (
         Index("ix_owned_sets_catalog_set_id", "catalog_set_id"),

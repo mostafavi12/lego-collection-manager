@@ -36,7 +36,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - **Health check:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) returns `{"status":"ok"}`.
 - **API docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (OpenAPI).
 
-**Backend APIs** (CSV import, Rebrickable sync, owned sets, search, missing parts, local images) and the **React MVP UI** (collection list, set detail, search, import) are implemented.
+**Backend APIs** (CSV import, Rebrickable sync, set copies (`/owned-sets`), search, missing parts, local images) and the **React MVP UI** (sets list, set detail, search, import) are implemented.
 
 Configuration is read from the environment (see [`backend/.env.example`](backend/.env.example)). Run Alembic and uvicorn from `backend/` so relative paths resolve under `backend/data/`.
 
@@ -89,7 +89,7 @@ See [`docs/smoke-test.md`](docs/smoke-test.md).
 
 ## Sample data
 
-Example owned set numbers for CSV import experiments live in [`data/sample_sets.csv`](data/sample_sets.csv).
+Example LEGO set numbers for CSV import experiments live in [`data/sample_sets.csv`](data/sample_sets.csv).
 
 ## Documentation
 

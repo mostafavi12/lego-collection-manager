@@ -1,4 +1,4 @@
-"""Phase 11A: set-parts CRUD and aliases on owned-set detail."""
+"""Phase 11A: set-parts CRUD and aliases on set copy detail."""
 
 from sqlalchemy import select
 

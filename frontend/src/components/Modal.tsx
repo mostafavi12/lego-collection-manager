@@ -4,13 +4,19 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  /** Extra class(es) merged onto the `.modal` dialog (e.g. `modal--wide`). */
+  modalClassName?: string;
 }
 
-export function Modal({ title, children, onClose }: ModalProps) {
+export function Modal({ title, children, onClose, modalClassName }: ModalProps) {
+  const dialogCls = modalClassName
+    ? `modal ${modalClassName}`
+    : "modal";
+
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="modal"
+        className={dialogCls}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"

@@ -1,4 +1,4 @@
-"""Per-owned-set instance inventory (quantities and missing counts)."""
+"""Per-copy inventory (quantities and missing counts) for each ``owned_sets`` row."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class InstanceInventoryError(Exception):
 
 
 def clone_instance_inventory(session: Session, owned_set_id: int) -> None:
-    """Create instance inventory lines from the catalog template for one owned set."""
+    """Create per-copy inventory rows from the catalog template for one set copy (`owned_sets`)."""
     owned_set = session.get(OwnedSet, owned_set_id)
     if owned_set is None:
         return
@@ -191,7 +191,7 @@ def resolve_or_create_instance_line_for_catalog_ref(
         minifig_part_inventory_line_id=minifig_part_inventory_line_id,
     )
     if line is None:
-        raise InstanceInventoryError("Inventory line does not belong to this owned set")
+        raise InstanceInventoryError("Inventory line does not belong to this set copy")
     return line
 
 

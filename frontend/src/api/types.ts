@@ -1,4 +1,10 @@
-export interface OwnedSetListItem {
+/**
+ * Types for `GET/POST /owned-sets` (etc.). JSON still uses `owned_set_*` where noted;
+ * each list/detail row is a **set copy** in the user's collection — the app does not store
+ * LEGO sets the user does not own (`catalog_sets` is shared metadata and is removed when the
+ * last copy is deleted).
+ */
+export interface SetCopyListItem {
   id: number;
   set_num: string;
   name: string | null;
@@ -23,7 +29,7 @@ export interface DuplicatePreviewResponse {
   suggested_label: string;
 }
 
-export interface OwnedSetUpdateBody {
+export interface SetCopyUpdateBody {
   investigated?: boolean;
   label?: string | null;
   notes?: string | null;
@@ -35,12 +41,12 @@ export interface OwnedSetUpdateBody {
   catalog_theme_name?: string | null;
 }
 
-export interface OwnedSetListResponse {
-  items: OwnedSetListItem[];
+export interface SetCopyListResponse {
+  items: SetCopyListItem[];
   total: number;
 }
 
-export interface OwnedSetDuplicateResponse extends OwnedSetListItem {
+export interface SetCopyDuplicateResponse extends SetCopyListItem {
   duplicated_from_owned_set_id: number;
 }
 
@@ -128,7 +134,7 @@ export interface InventoryBlock {
   minifigs: MinifigInventoryBlock[];
 }
 
-export interface OwnedSetDetailResponse {
+export interface SetCopyDetailResponse {
   id: number;
   investigated: boolean;
   label: string | null;
@@ -141,6 +147,7 @@ export interface OwnedSetDetailResponse {
 }
 
 export interface SearchSetResult {
+  /** Collection row id (same as `/sets/:id`). */
   owned_set_id: number;
   set_num: string;
   name: string | null;
@@ -166,7 +173,7 @@ export interface AddPreviewPartLine {
   quantity: number;
 }
 
-export interface OwnedSetAddPreviewResponse {
+export interface AddSetPreviewResponse {
   set_num: string;
   catalog_exists: boolean;
   set_name: string | null;
@@ -195,7 +202,7 @@ export interface ManualAddPartInput {
   quantity: number;
 }
 
-export interface OwnedSetCreateBody {
+export interface SetCopyCreateBody {
   set_num: string;
   label?: string | null;
   age?: number | null;
@@ -203,7 +210,16 @@ export interface OwnedSetCreateBody {
   parts?: ManualAddPartInput[];
 }
 
-export interface OwnedSetCreateResponse extends OwnedSetListItem {
+/** Live Rebrickable draft for wizard prefill (`GET /owned-sets/add-rebrickable-draft`). */
+export interface RebrickableSetDraftResponse {
+  set_num: string;
+  catalog: ManualAddCatalogInput;
+  age: number | null;
+  parts: ManualAddPartInput[];
+  note: string;
+}
+
+export interface SetCopyCreateResponse extends SetCopyListItem {
   catalog_created: boolean;
 }
 
@@ -229,6 +245,7 @@ export interface RebrickableSyncResponse {
 }
 
 export interface MissingUpsertResponse {
+  /** Set copy this missing row belongs to (`owned_sets.id`). */
   owned_set_id: number;
   missing_item_id: number;
   updated_lines: number;

@@ -1,4 +1,4 @@
-"""Parse comma-separated owned set number text files."""
+"""Parse comma-separated LEGO set number tokens for collection import."""
 
 from __future__ import annotations
 

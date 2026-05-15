@@ -1,4 +1,4 @@
-"""Copy index and display labels for owned-set instances."""
+"""Copy index and display labels for set copies (`owned_sets`)."""
 
 from __future__ import annotations
 

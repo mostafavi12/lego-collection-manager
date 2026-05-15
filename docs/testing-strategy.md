@@ -33,18 +33,18 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 - Constraint tests: uniqueness on catalog keys (`set_num`, `part_num`); **multiple** `owned_sets` per `catalog_set_id` allowed.
 - FK integrity; CHECK behavior for `missing_items` line reference (if enforced in SQLite) or application-level validator tests.
-- `investigated` defaults false on CSV-created and duplicated instances.
+- `investigated` defaults false on CSV-created and duplicated copies.
 
 ### API endpoints (FastAPI `TestClient`)
 
 - `POST /imports/csv`: multipart upload, size limit, token errors shape, `instances_created` count.
 - `POST /imports/rebrickable/sync`: success summary; per-set failure; missing API key.
 - `GET /owned-sets`: pagination, `investigated` filter, multiple rows same `set_num`.
-- `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation, label, age, notes; shared catalog fields (`catalog_name`, `catalog_theme_name`, `catalog_num_parts`, `catalog_year`); `catalog_theme_name` when `theme_id` is NULL (creates/links theme); `age` shared across instances; `set_num` re-link (single instance); `display_label` / `copy_index`; `catalog_set_id`, `part_id`, `part_image_url`, `missing_image_url` when BLOB present.
-- `DELETE /owned-sets/{id}`: removes instance and missing rows; catalog row remains when other instances exist.
+- `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation, label, age, notes; shared catalog fields (`catalog_name`, `catalog_theme_name`, `catalog_num_parts`, `catalog_year`); `catalog_theme_name` when `theme_id` is NULL (creates/links theme); `age` shared across copies of the same `set_num`; `set_num` re-link (single copy); `display_label` / `copy_index`; `catalog_set_id`, `part_id`, `part_image_url`, `missing_image_url` when BLOB present.
+- `DELETE /owned-sets/{id}`: removes the copy and missing rows; catalog row remains when other copies exist.
 - `GET /owned-sets/{id}/duplicate-preview`: `suggested_label` = `Copy #n`.
-- `POST /owned-sets/{id}/duplicate`: `201` with label from body or default; `investigated` false; no `missing_items` on new instance.
-- `GET /search`: 400 on empty `q`; set mode returns distinct `owned_set_id` per instance.
+- `POST /owned-sets/{id}/duplicate`: `201` with label from body or default; `investigated` false; no `missing_items` on the new copy.
+- `GET /search`: 400 on empty `q`; set mode returns distinct `owned_set_id` per physical copy.
 - `PATCH .../missing`: validation against instance inventory quantity; clear with zero removes missing row (part BLOB unchanged unless DELETE image).
 - `PUT` / `DELETE` missing image → part BLOB; `GET /media/missing/{id}` and `GET /parts/{id}/image`: 404 when absent; content-type for JPEG/PNG fixtures.
 - `PUT` / `GET` / `DELETE` `/parts/{id}/image` and `/catalog-sets/{id}/image`: BLOB round-trip, size/MIME validation (`test_image_blob_api.py`).
@@ -55,13 +55,13 @@ Still **no live Rebrickable** in CI.
 
 | Phase | Status | Focus |
 |-------|--------|--------|
-| **9** | implemented | `PATCH .../inventory-lines/{instance_line_id}` isolation across two instances; `quantity_missing` validation (`test_instance_inventory_api.py`). |
+| **9** | implemented | `PATCH .../inventory-lines/{instance_line_id}` isolation across two copies of the same `set_num`; `quantity_missing` validation (`test_instance_inventory_api.py`). |
 | **10** | implemented | BLOB round-trip; 5 MB limit; JPEG/PNG only; part image visible on two sets (`test_image_blob_api.py`). |
 | **11A** | implemented | `POST set-parts` returns `part_id`; `PATCH`/`DELETE set-parts`; detail `aliases`; image on add (mock `PUT`); `PartLineModal` Vitest. |
 | **11B** | implemented | `PATCH /parts/{id}/aliases` symmetry; search by alias across class. |
 | **12** | implemented | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
-| **13** | mostly implemented | `POST /owned-sets` / `GET add-preview` branches; **`test_manual_add_api.py`**; wizard Vitest (`AddSetWizard` paths); **no** Vitest coverage for a hypothetical future **wizard** multi-row **parts** UI (detail **PartLineModal** + API **`parts`** is the current path). |
-| **14a** | minimal | `POST /imports/rebrickable/sync` + Import-page “sync all” behavior; no UI tests required for optional `owned_set_ids` body. |
+| **13** | implemented | Backend: `test_manual_add_api.py`, `test_manual_add_rebrickable_draft.py`. Frontend: `AddSetPage.test.tsx` — new-catalog flow, optional **`parts`** in **`POST`**, mocked **`add-rebrickable-draft`** prefill. |
+| **14a** | minimal | `POST /imports/rebrickable/sync` + Import-page **Sync entire collection** behavior; no UI tests required for optional `owned_set_ids` body. |
 | **14b** | deferred | Subset sync UI, progress/cancel, conflict policy, CDN → BLOB backfill — see [development-plan.md](./development-plan.md). |
 
 ### Search
@@ -70,7 +70,7 @@ Still **no live Rebrickable** in CI.
 
 ### Missing item tracking
 
-- Create owned instances + inventory + missing rows; verify PATCH upsert/clear, image lifecycle, and detail endpoint aggregates.
+- Create set copies + inventory + missing rows; verify PATCH upsert/clear, image lifecycle, and detail endpoint aggregates.
 
 ## Frontend (Vitest + React Testing Library)
 
@@ -78,12 +78,12 @@ Still **no live Rebrickable** in CI.
 
 | Area | Cases |
 |------|--------|
-| **Owned sets list** | `{display_label} — {set_num}`; metadata line (name, theme, parts, age defaults); filter; pagination; **Make a copy** opens modal → preview → POST on confirm. |
-| **Set detail** | Instance field form (label, investigated, age, notes); **set number change** warning modal (Cancel / Continue); **delete** with confirm → `DELETE`; no duplicate button; inventory + missing UI. |
-| **Search** | Debounce (if any), submit triggers correct API, displays multiple instances per `set_num` when applicable. |
+| **Sets list** | `{display_label} — {set_num}`; metadata line (name, theme, parts, age defaults); filter; pagination; **Make a copy** opens modal → preview → POST on confirm. |
+| **Set detail** | Per-copy fields (label, investigated, age, notes); **set number change** warning modal (Cancel / Continue); **delete** with confirm → `DELETE`; no duplicate button; inventory + missing UI. |
+| **Search** | Debounce (if any), submit triggers correct API, displays multiple copies per `set_num` when applicable. |
 | **Missing UI** | Changing missing quantity calls PATCH; upload calls PUT missing image endpoint; preview uses `part_image_url` / `missing_image_url`. |
 | **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`. |
-| **Import** | File picker posts to CSV endpoint; success message reflects instances created; **Sync all** triggers sync endpoint (spinner / outcome messaging as implemented). |
+| **Import** | File picker posts to CSV endpoint; success message reflects copy count (e.g. `instances_created` in JSON); **Sync entire collection** triggers sync endpoint (spinner / outcome messaging as implemented). |
 
 **Mocking:** MSW (Mock Service Worker) or fetch mocks to return canned JSON aligned with [api-design.md](./api-design.md).
 

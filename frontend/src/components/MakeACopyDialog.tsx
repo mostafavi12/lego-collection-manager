@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
 
 import {
-  duplicateOwnedSet,
+  duplicateSetCopy,
   fetchDuplicatePreview,
 } from "../api/client";
 import type { DuplicatePreviewResponse } from "../api/types";
 import { Modal } from "./Modal";
 
 interface MakeACopyDialogProps {
-  ownedSetId: number;
+  setCopyId: number;
   onClose: () => void;
   onCreated: (newId: number) => void;
 }
 
 export function MakeACopyDialog({
-  ownedSetId,
+  setCopyId,
   onClose,
   onCreated,
 }: MakeACopyDialogProps) {
@@ -30,7 +30,7 @@ export function MakeACopyDialog({
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchDuplicatePreview(ownedSetId);
+        const data = await fetchDuplicatePreview(setCopyId);
         if (!cancelled) {
           setPreview(data);
           setLabel(data.suggested_label);
@@ -48,13 +48,13 @@ export function MakeACopyDialog({
     return () => {
       cancelled = true;
     };
-  }, [ownedSetId]);
+  }, [setCopyId]);
 
   async function onConfirm() {
     setSaving(true);
     setError(null);
     try {
-      const created = await duplicateOwnedSet(ownedSetId, label.trim());
+      const created = await duplicateSetCopy(setCopyId, label.trim());
       onCreated(created.id);
       onClose();
     } catch (err) {

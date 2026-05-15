@@ -16,7 +16,7 @@ Repo-wide policy: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc
 ## Focus areas (see `docs/testing-strategy.md` for detail)
 
 - **Backend (pytest):** CSV parser, mocked importer, models/constraints, FastAPI `TestClient` routes, search SQL, missing-item rules.
-- **Frontend:** Vitest + Testing Library — owned sets list, set detail, search, missing flows per `docs/testing-strategy.md`; workflow in [`docs/frontend-testing.md`](../../docs/frontend-testing.md).
+- **Frontend:** Vitest + Testing Library — sets list, set detail, search, missing flows per `docs/testing-strategy.md`; workflow in [`docs/frontend-testing.md`](../../docs/frontend-testing.md).
 
 ## Cross-cutting rules
 

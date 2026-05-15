@@ -67,3 +67,18 @@ class OwnedSetCreateResponse(BaseModel):
     age: int | None
     num_parts: int | None
     missing_count: int
+
+
+class OwnedSetRebrickableDraftResponse(BaseModel):
+    """Draft catalog + set-part lines from Rebrickable for the manual-add wizard (no persistence)."""
+
+    set_num: str
+    catalog: ManualAddCatalogInput
+    age: int | None
+    parts: list[ManualAddPartInput]
+
+    #: Minifig BOM rows are omitted; CSV import or sync still applies them to the catalog.
+    note: str = (
+        "Set-level parts only; minifig breakdown is added when you CSV-import or sync this set "
+        "from Rebrickable later."
+    )

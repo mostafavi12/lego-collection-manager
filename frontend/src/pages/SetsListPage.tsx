@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { listOwnedSets } from "../api/client";
-import type { OwnedSetListItem } from "../api/types";
+import { listSetCopies } from "../api/client";
+import type { SetCopyListItem } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { AddSetWizard } from "../components/AddSetWizard";
 import { MakeACopyDialog } from "../components/MakeACopyDialog";
@@ -11,7 +11,7 @@ const PAGE_SIZE = 20;
 
 type InvestigatedFilter = "all" | "true" | "false";
 
-function formatMeta(item: OwnedSetListItem): string {
+function formatMeta(item: SetCopyListItem): string {
   const name = item.name?.trim() || "Unknown name";
   const theme = item.theme_name?.trim() || "Unknown theme";
   const parts = item.num_parts != null ? String(item.num_parts) : "?";
@@ -19,10 +19,10 @@ function formatMeta(item: OwnedSetListItem): string {
   return `${name} · ${theme} · ${parts} parts · Age ${age}`;
 }
 
-export function OwnedSetsPage() {
+export function SetsListPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [items, setItems] = useState<OwnedSetListItem[]>([]);
+  const [items, setItems] = useState<SetCopyListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<InvestigatedFilter>("all");
@@ -37,7 +37,7 @@ export function OwnedSetsPage() {
     try {
       const investigated =
         filter === "all" ? undefined : filter === "true";
-      const data = await listOwnedSets({
+      const data = await listSetCopies({
         limit: PAGE_SIZE,
         offset,
         investigated,
@@ -69,9 +69,10 @@ export function OwnedSetsPage() {
   return (
     <section className="page">
       <header className="page__header">
-        <h1>Owned sets</h1>
+        <h1>Your sets</h1>
         <p className="page__lede">
-          {total} instance{total === 1 ? "" : "s"} in your collection
+          {total} copy{total === 1 ? "" : "ies"} in your collection (each LEGO set
+          number may appear multiple times).
         </p>
       </header>
 
@@ -103,7 +104,7 @@ export function OwnedSetsPage() {
 
       {!loading && items.length === 0 && !error && (
         <p className="empty-state">
-          No owned sets yet.{" "}
+          Nothing in your collection yet.{" "}
           <button
             type="button"
             className="link-button"
@@ -115,7 +116,7 @@ export function OwnedSetsPage() {
         </p>
       )}
 
-      <ul className="set-list" aria-label="Owned sets">
+      <ul className="set-list" aria-label="Sets in collection">
         {items.map((item) => (
           <li key={item.id} className="set-card">
             <Link to={`/sets/${item.id}`} className="set-card__main">
@@ -201,7 +202,7 @@ export function OwnedSetsPage() {
 
       {copyDialogId != null && (
         <MakeACopyDialog
-          ownedSetId={copyDialogId}
+          setCopyId={copyDialogId}
           onClose={() => setCopyDialogId(null)}
           onCreated={(newId) => navigate(`/sets/${newId}`)}
         />

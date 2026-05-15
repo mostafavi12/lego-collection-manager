@@ -1,4 +1,4 @@
-"""Orchestrate Rebrickable catalog sync for owned sets."""
+"""Orchestrate Rebrickable catalog sync for the user's LEGO collection (distinct setNums from copies)."""
 
 from __future__ import annotations
 
@@ -122,10 +122,10 @@ def sync_rebrickable(
     owned_set_ids: list[int] | None = None,
     client: RebrickableReader | None = None,
 ) -> RebrickableSyncResult:
-    """Sync catalog data for owned sets. Opens client when not provided."""
+    """Sync catalog data for set copies (dedup by `set_num`). Opens client when not provided."""
     set_nums = resolve_set_nums(session, owned_set_ids)
     if not set_nums:
-        logger.info("Rebrickable sync skipped: no owned sets to sync")
+        logger.info("Rebrickable sync skipped: no set copies to sync")
         return RebrickableSyncResult()
 
     if client is not None:
