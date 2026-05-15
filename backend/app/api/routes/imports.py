@@ -5,7 +5,18 @@ from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
 from app.importers.csv_import_service import import_set_list
-from app.schemas.imports import CsvImportResponse, CsvTokenError
+from app.importers.rebrickable_sync_service import (
+    ensure_api_key_configured,
+    sync_rebrickable,
+)
+from app.rebrickable.exceptions import RebrickableConfigError
+from app.schemas.imports import (
+    CsvImportResponse,
+    CsvTokenError,
+    RebrickableSetSyncFailure,
+    RebrickableSyncRequest,
+    RebrickableSyncResponse,
+)
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -37,4 +48,27 @@ async def import_csv(
             )
             for e in result.errors
         ],
+    )
+
+
+@router.post("/rebrickable/sync", response_model=RebrickableSyncResponse)
+def import_rebrickable_sync(
+    body: RebrickableSyncRequest | None = None,
+    db: Session = Depends(get_db),
+) -> RebrickableSyncResponse:
+    try:
+        ensure_api_key_configured()
+    except RebrickableConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    owned_set_ids = body.owned_set_ids if body is not None else None
+    result = sync_rebrickable(db, owned_set_ids=owned_set_ids)
+    return RebrickableSyncResponse(
+        sets_synced=result.sets_synced,
+        sets_failed=[
+            RebrickableSetSyncFailure(set_num=f.set_num, message=f.message)
+            for f in result.sets_failed
+        ],
+        parts_upserted=result.parts_upserted,
+        inventory_lines_written=result.inventory_lines_written,
     )
