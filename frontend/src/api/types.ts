@@ -234,6 +234,16 @@ export interface ImageDeleteResponse {
   image_url: string | null;
 }
 
+export interface PartAliasesReplaceBody {
+  aliases: string[];
+}
+
+export interface PartAliasesResponse {
+  part_id: number;
+  part_num: string;
+  aliases: string[];
+}
+
 export interface MissingImageResponse {
   missing_item_id: number;
   missing_image_url: string | null;
