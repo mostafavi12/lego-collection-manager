@@ -14,6 +14,15 @@ def test_add_preview_new_set_num(api_client) -> None:
 
 def test_add_preview_existing_set_num(api_client, db_session) -> None:
     catalog = add_catalog_set(db_session, set_num="6024-1")
+    part = add_part(db_session, part_num="3024")
+    color = add_color(db_session, external_id=0, name="Black")
+    add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part,
+        color=color,
+        quantity=3,
+    )
     add_owned_set(db_session, catalog, label="copy A")
     db_session.commit()
 
@@ -24,6 +33,8 @@ def test_add_preview_existing_set_num(api_client, db_session) -> None:
     assert body["set_name"] == "Police Car"
     assert body["existing_copy_count"] == 1
     assert body["suggested_label"] == "Copy #2"
+    assert len(body["set_parts"]) == 1
+    assert body["set_parts"][0]["part_num"] == "3024"
 
 
 def test_create_new_set_stub(api_client, db_session) -> None:

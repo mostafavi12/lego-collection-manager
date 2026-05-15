@@ -1,12 +1,27 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class AddPreviewPartLine(BaseModel):
+    part_num: str
+    part_name: str | None
+    color_name: str
+    quantity: int
+    is_spare: bool
+    is_alternate: bool
+
+
 class OwnedSetAddPreviewResponse(BaseModel):
     set_num: str
     catalog_exists: bool
     set_name: str | None
     existing_copy_count: int
     suggested_label: str
+    theme_name: str | None = None
+    year: int | None = None
+    num_parts: int | None = None
+    age: int | None = None
+    image_url: str | None = None
+    set_parts: list[AddPreviewPartLine] = Field(default_factory=list)
 
 
 class ManualAddCatalogInput(BaseModel):

@@ -16,12 +16,14 @@ from app.db.models import (
     Theme,
 )
 from app.schemas.manual_add import (
+    AddPreviewPartLine,
     ManualAddCatalogInput,
     ManualAddPartInput,
     OwnedSetAddPreviewResponse,
     OwnedSetCreateRequest,
     OwnedSetCreateResponse,
 )
+from app.services.catalog_state import resolve_catalog_image_url
 from app.services.instance_inventory import clone_instance_inventory
 from app.services.instance_labels import (
     copy_index_for_owned_set,
@@ -48,18 +50,65 @@ def normalize_set_num(set_num: str) -> str:
     return trimmed
 
 
+def _shared_age_for_catalog(session: Session, catalog_set_id: int) -> int | None:
+    return session.scalar(
+        select(OwnedSet.age)
+        .where(OwnedSet.catalog_set_id == catalog_set_id, OwnedSet.age.is_not(None))
+        .limit(1)
+    )
+
+
+def _catalog_part_lines(session: Session, catalog_set_id: int) -> list[AddPreviewPartLine]:
+    rows = session.execute(
+        select(SetPartInventoryLine, Part, Color)
+        .join(Part, SetPartInventoryLine.part_id == Part.id)
+        .join(Color, SetPartInventoryLine.color_id == Color.id)
+        .where(SetPartInventoryLine.catalog_set_id == catalog_set_id)
+        .order_by(Part.part_num, Color.name, SetPartInventoryLine.id)
+    ).all()
+    return [
+        AddPreviewPartLine(
+            part_num=part.part_num,
+            part_name=part.name,
+            color_name=color.name,
+            quantity=line.quantity,
+            is_spare=line.is_spare,
+            is_alternate=line.is_alternate,
+        )
+        for line, part, color in rows
+    ]
+
+
 def get_add_preview(session: Session, set_num: str) -> OwnedSetAddPreviewResponse:
     normalized = normalize_set_num(set_num)
     catalog = session.scalar(
-        select(CatalogSet).where(CatalogSet.set_num == normalized)
+        select(CatalogSet)
+        .where(CatalogSet.set_num == normalized)
+        .options(selectinload(CatalogSet.theme))
     )
-    count = count_owned_instances(session, catalog.id) if catalog else 0
+    if catalog is None:
+        return OwnedSetAddPreviewResponse(
+            set_num=normalized,
+            catalog_exists=False,
+            set_name=None,
+            existing_copy_count=0,
+            suggested_label=suggested_copy_label(0),
+        )
+
+    count = count_owned_instances(session, catalog.id)
+    theme_name = catalog.theme.name if catalog.theme else None
     return OwnedSetAddPreviewResponse(
         set_num=normalized,
-        catalog_exists=catalog is not None,
-        set_name=catalog.name if catalog else None,
+        catalog_exists=True,
+        set_name=catalog.name,
         existing_copy_count=count,
         suggested_label=suggested_copy_label(count),
+        theme_name=theme_name,
+        year=catalog.year,
+        num_parts=catalog.num_parts,
+        age=_shared_age_for_catalog(session, catalog.id),
+        image_url=resolve_catalog_image_url(catalog),
+        set_parts=_catalog_part_lines(session, catalog.id),
     )
 
 

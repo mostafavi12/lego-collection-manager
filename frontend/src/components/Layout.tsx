@@ -7,9 +7,10 @@ const NAV = [
     match: (path: string) => path === "/" || path.startsWith("/sets"),
   },
   {
-    to: "/add",
+    to: "/",
     label: "Add set",
-    match: (path: string) => path.startsWith("/add"),
+    state: { openAddSet: true } as const,
+    match: () => false,
   },
   {
     to: "/search",
@@ -36,10 +37,11 @@ export function Layout() {
           <p className="layout__tagline">Local-first owned sets</p>
         </div>
         <nav className="layout__nav" aria-label="Main">
-          {NAV.map(({ to, label, match }) => (
+          {NAV.map(({ to, label, match, ...rest }) => (
             <Link
-              key={to}
+              key={label}
               to={to}
+              state={"state" in rest ? rest.state : undefined}
               className={
                 match(pathname)
                   ? "layout__nav-link layout__nav-link--active"

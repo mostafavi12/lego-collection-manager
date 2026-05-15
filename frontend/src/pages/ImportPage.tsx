@@ -55,7 +55,10 @@ export function ImportPage() {
         <h1>Import</h1>
         <p className="page__lede">
           Add owned sets from a comma-separated list or{" "}
-          <Link to="/add">add one set manually</Link>, then sync catalog data from
+          <Link to="/" state={{ openAddSet: true }}>
+            add one set manually
+          </Link>
+          , then sync catalog data from
           Rebrickable.
         </p>
       </header>

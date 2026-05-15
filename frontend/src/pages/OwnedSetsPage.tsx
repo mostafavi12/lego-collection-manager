@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { listOwnedSets } from "../api/client";
 import type { OwnedSetListItem } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
+import { AddSetWizard } from "../components/AddSetWizard";
 import { MakeACopyDialog } from "../components/MakeACopyDialog";
 
 const PAGE_SIZE = 20;
@@ -20,6 +21,7 @@ function formatMeta(item: OwnedSetListItem): string {
 
 export function OwnedSetsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [items, setItems] = useState<OwnedSetListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -27,6 +29,7 @@ export function OwnedSetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copyDialogId, setCopyDialogId] = useState<number | null>(null);
+  const [addSetOpen, setAddSetOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,6 +55,14 @@ export function OwnedSetsPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const state = location.state as { openAddSet?: boolean } | null;
+    if (state?.openAddSet) {
+      setAddSetOpen(true);
+      navigate("/", { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
+
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -65,9 +76,13 @@ export function OwnedSetsPage() {
       </header>
 
       <div className="toolbar">
-        <Link to="/add" className="btn btn--primary">
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={() => setAddSetOpen(true)}
+        >
           Add set
-        </Link>
+        </button>
         <label className="toolbar__field">
           Investigation
           <select
@@ -89,8 +104,14 @@ export function OwnedSetsPage() {
       {!loading && items.length === 0 && !error && (
         <p className="empty-state">
           No owned sets yet.{" "}
-          <Link to="/add">Add a set manually</Link> or{" "}
-          <Link to="/import">import a CSV</Link> to get started.
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setAddSetOpen(true)}
+          >
+            Add a set manually
+          </button>{" "}
+          or <Link to="/import">import a CSV</Link> to get started.
         </p>
       )}
 
@@ -166,6 +187,16 @@ export function OwnedSetsPage() {
             Next
           </button>
         </div>
+      )}
+
+      {addSetOpen && (
+        <AddSetWizard
+          onClose={() => setAddSetOpen(false)}
+          onCreated={(newId) => {
+            setAddSetOpen(false);
+            navigate(`/sets/${newId}`);
+          }}
+        />
       )}
 
       {copyDialogId != null && (
