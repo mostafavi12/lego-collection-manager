@@ -123,6 +123,12 @@ def _sync_one_set(
         session, set_dto, theme_id=theme_id, fetched_at=fetched_at
     )
 
+    if set_dto.age is not None:
+        for owned in session.scalars(
+            select(OwnedSet).where(OwnedSet.catalog_set_id == catalog_set.id)
+        ).all():
+            owned.age = set_dto.age
+
     parts_upserted = 0
     inventory_lines = 0
 

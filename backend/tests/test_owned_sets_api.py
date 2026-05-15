@@ -96,7 +96,8 @@ def test_duplicate_owned_set(api_client, db_session) -> None:
     body = response.json()
     assert body["duplicated_from_owned_set_id"] == owned_a.id
     assert body["investigated"] is False
-    assert body["label"] is None
+    assert body["label"] == "Copy #3"
+    assert body["display_label"] == "Copy #3"
     assert body["missing_count"] == 0
 
     source_missing = db_session.scalars(

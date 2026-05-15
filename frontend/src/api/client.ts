@@ -1,11 +1,13 @@
 import type {
   CsvImportResponse,
+  DuplicatePreviewResponse,
   MissingImageResponse,
   MissingUpsertResponse,
   OwnedSetDetailResponse,
   OwnedSetDuplicateResponse,
   OwnedSetListItem,
   OwnedSetListResponse,
+  OwnedSetUpdateBody,
   RebrickableSyncResponse,
   SearchResponse,
 } from "./types";
@@ -91,7 +93,7 @@ export function getOwnedSet(id: number): Promise<OwnedSetDetailResponse> {
 
 export function updateOwnedSet(
   id: number,
-  body: { investigated?: boolean; label?: string | null },
+  body: OwnedSetUpdateBody,
 ): Promise<OwnedSetListItem> {
   return request(`/owned-sets/${id}`, {
     method: "PATCH",
@@ -100,10 +102,25 @@ export function updateOwnedSet(
   });
 }
 
+export function fetchDuplicatePreview(
+  id: number,
+): Promise<DuplicatePreviewResponse> {
+  return request(`/owned-sets/${id}/duplicate-preview`);
+}
+
 export function duplicateOwnedSet(
   id: number,
+  label: string,
 ): Promise<OwnedSetDuplicateResponse> {
-  return request(`/owned-sets/${id}/duplicate`, { method: "POST" });
+  return request(`/owned-sets/${id}/duplicate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label }),
+  });
+}
+
+export function deleteOwnedSet(id: number): Promise<{ deleted: boolean; id: number }> {
+  return request(`/owned-sets/${id}`, { method: "DELETE" });
 }
 
 export function searchCatalog(params: {

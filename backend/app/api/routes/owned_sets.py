@@ -9,6 +9,9 @@ from app.schemas.missing import (
     MissingUpsertResponse,
 )
 from app.schemas.owned_sets import (
+    DuplicatePreviewResponse,
+    DuplicateRequest,
+    OwnedSetDeleteResponse,
     OwnedSetDetailResponse,
     OwnedSetDuplicateResponse,
     OwnedSetListItem,
@@ -22,7 +25,10 @@ from app.services.missing_items_service import (
     upsert_missing,
 )
 from app.services.owned_sets_service import (
+    OwnedSetServiceError,
+    delete_owned_set,
     duplicate_owned_set,
+    get_duplicate_preview,
     get_owned_set_detail,
     list_owned_sets,
     update_owned_set,
@@ -58,18 +64,48 @@ def patch_owned_set(
     body: OwnedSetUpdateRequest,
     db: Session = Depends(get_db),
 ) -> OwnedSetListItem:
-    updated = update_owned_set(db, owned_set_id, body)
+    try:
+        updated = update_owned_set(db, owned_set_id, body)
+    except OwnedSetServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     if updated is None:
         raise HTTPException(status_code=404, detail="Owned set not found")
     return updated
 
 
+@router.delete("/{owned_set_id}", response_model=OwnedSetDeleteResponse)
+def delete_owned_set_route(
+    owned_set_id: int,
+    db: Session = Depends(get_db),
+) -> OwnedSetDeleteResponse:
+    deleted = delete_owned_set(db, owned_set_id)
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="Owned set not found")
+    return deleted
+
+
+@router.get(
+    "/{owned_set_id}/duplicate-preview",
+    response_model=DuplicatePreviewResponse,
+)
+def get_duplicate_preview_route(
+    owned_set_id: int,
+    db: Session = Depends(get_db),
+) -> DuplicatePreviewResponse:
+    preview = get_duplicate_preview(db, owned_set_id)
+    if preview is None:
+        raise HTTPException(status_code=404, detail="Owned set not found")
+    return preview
+
+
 @router.post("/{owned_set_id}/duplicate", response_model=OwnedSetDuplicateResponse, status_code=201)
 def post_duplicate_owned_set(
     owned_set_id: int,
+    body: DuplicateRequest | None = None,
     db: Session = Depends(get_db),
 ) -> OwnedSetDuplicateResponse:
-    duplicated = duplicate_owned_set(db, owned_set_id)
+    label = body.label if body is not None else None
+    duplicated = duplicate_owned_set(db, owned_set_id, label=label)
     if duplicated is None:
         raise HTTPException(status_code=404, detail="Owned set not found")
     return duplicated

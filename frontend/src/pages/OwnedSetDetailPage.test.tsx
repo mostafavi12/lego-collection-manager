@@ -32,7 +32,7 @@ describe("OwnedSetDetailPage", () => {
 
     renderDetail();
 
-    expect(await screen.findByRole("heading", { name: /6024-1/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /copy A — 6024-1/i })).toBeInTheDocument();
     expect(screen.getByText(/Plate 1 x 1/)).toBeInTheDocument();
     expect(screen.getByLabelText(/missing quantity for 3024/i)).toHaveValue(1);
   });

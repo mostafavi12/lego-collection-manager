@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.utils.age import parse_age_value
+
 from app.rebrickable.dto import (
     CatalogSetDTO,
     ColorDTO,
@@ -50,6 +52,7 @@ def map_set(data: dict[str, Any]) -> CatalogSetDTO:
         else None,
         num_parts=int(data["num_parts"]) if data.get("num_parts") is not None else None,
         image_url=_optional_str(data.get("set_img_url")),
+        age=parse_age_value(data.get("age_range") or data.get("age")),
     )
 
 

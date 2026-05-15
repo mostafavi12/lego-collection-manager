@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { duplicateOwnedSet, listOwnedSets } from "../api/client";
+import { listOwnedSets } from "../api/client";
 import type { OwnedSetListItem } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
+import { MakeACopyDialog } from "../components/MakeACopyDialog";
 
 const PAGE_SIZE = 20;
 
 type InvestigatedFilter = "all" | "true" | "false";
 
-function instanceLabel(item: OwnedSetListItem): string {
-  if (item.label) {
-    return item.label;
-  }
-  return `Copy #${item.id}`;
+function formatMeta(item: OwnedSetListItem): string {
+  const name = item.name?.trim() || "Unknown name";
+  const theme = item.theme_name?.trim() || "Unknown theme";
+  const parts = item.num_parts != null ? String(item.num_parts) : "?";
+  const age = item.age != null ? String(item.age) : "?";
+  return `${name} · ${theme} · ${parts} parts · Age ${age}`;
 }
 
 export function OwnedSetsPage() {
@@ -24,7 +26,7 @@ export function OwnedSetsPage() {
   const [filter, setFilter] = useState<InvestigatedFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionId, setActionId] = useState<number | null>(null);
+  const [copyDialogId, setCopyDialogId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,19 +52,6 @@ export function OwnedSetsPage() {
     void load();
   }, [load]);
 
-  async function onDuplicate(id: number) {
-    setActionId(id);
-    setError(null);
-    try {
-      const created = await duplicateOwnedSet(id);
-      navigate(`/sets/${created.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Duplicate failed");
-    } finally {
-      setActionId(null);
-    }
-  }
-
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -70,7 +59,9 @@ export function OwnedSetsPage() {
     <section className="page">
       <header className="page__header">
         <h1>Owned sets</h1>
-        <p className="page__lede">{total} instance{total === 1 ? "" : "s"} in your collection</p>
+        <p className="page__lede">
+          {total} instance{total === 1 ? "" : "s"} in your collection
+        </p>
       </header>
 
       <div className="toolbar">
@@ -114,13 +105,9 @@ export function OwnedSetsPage() {
               )}
               <div className="set-card__body">
                 <h2 className="set-card__title">
-                  {item.set_num}
-                  {item.name ? ` — ${item.name}` : ""}
+                  {item.display_label} — {item.set_num}
                 </h2>
-                <p className="set-card__meta">
-                  {item.year ?? "—"} · {item.theme_name ?? "Unknown theme"} ·{" "}
-                  {instanceLabel(item)}
-                </p>
+                <p className="set-card__meta">{formatMeta(item)}</p>
                 <div className="set-card__badges">
                   <span
                     className={
@@ -145,10 +132,9 @@ export function OwnedSetsPage() {
             <button
               type="button"
               className="btn btn--secondary set-card__duplicate"
-              disabled={actionId === item.id}
-              onClick={() => void onDuplicate(item.id)}
+              onClick={() => setCopyDialogId(item.id)}
             >
-              Add copy
+              Make a copy
             </button>
           </li>
         ))}
@@ -176,6 +162,14 @@ export function OwnedSetsPage() {
             Next
           </button>
         </div>
+      )}
+
+      {copyDialogId != null && (
+        <MakeACopyDialog
+          ownedSetId={copyDialogId}
+          onClose={() => setCopyDialogId(null)}
+          onCreated={(newId) => navigate(`/sets/${newId}`)}
+        />
       )}
     </section>
   );
