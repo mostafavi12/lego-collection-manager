@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.db.models import CatalogSet, OwnedSet
 from app.importers.set_list_parser import ParseError, parse_set_list
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -27,6 +30,12 @@ def import_set_list(session: Session, content: str) -> CsvImportResult:
     valid_tokens, errors = parse_set_list(content)
     instances_created = 0
     catalog_stubs_created = 0
+
+    logger.info(
+        "CSV import started tokens=%s parse_errors=%s",
+        len(valid_tokens),
+        len(errors),
+    )
 
     for set_num in valid_tokens:
         catalog_set = session.scalar(
@@ -53,8 +62,16 @@ def import_set_list(session: Session, content: str) -> CsvImportResult:
         instances_created += 1
 
     session.flush()
-    return CsvImportResult(
+    result = CsvImportResult(
         instances_created=instances_created,
         catalog_stubs_created=catalog_stubs_created,
         errors=errors,
     )
+    logger.info(
+        "CSV import finished instances_created=%s catalog_stubs_created=%s "
+        "token_errors=%s",
+        result.instances_created,
+        result.catalog_stubs_created,
+        len(result.errors),
+    )
+    return result

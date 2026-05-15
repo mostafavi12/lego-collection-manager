@@ -133,12 +133,13 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 **Follow-up (post-merge):** theme PATCH when catalog had no linked theme (CSV stubs); dual-source metadata documented in [data-sources.md](./data-sources.md#catalog-metadata-dual-source).
 
-## Phase 8 — Hardening and documentation
+## Phase 8 — Hardening and documentation — **complete**
 
 **Deliverables**
 
-- Structured logging for importer (no secrets).
-- README sections: prerequisites, how to run backend/frontend, how to run migrations, where the SQLite file and upload directory live.
+- Structured logging for importer (no secrets); `LOG_LEVEL` in `.env.example`.
+- Startup migration gate: API fails fast unless DB is at Alembic head (`SKIP_DB_MIGRATION_CHECK` for tests).
+- README sections: prerequisites, how to run backend/frontend, migrations, `DATABASE_URL` / `UPLOAD_ROOT` paths, configuration table.
 - GitHub Actions CI on push/PR: backend `pytest`, frontend `npm test`, and `npm run build` (see [ci.md](./ci.md), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
 
 **Exit criteria**

@@ -1,15 +1,28 @@
 """FastAPI application entrypoint."""
 
+from contextlib import asynccontextmanager
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from app.api.routes import imports, media, owned_sets, search
+from app.db.migration_check import ensure_database_at_head
+from app.logging_config import configure_logging
 
 load_dotenv()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    configure_logging()
+    ensure_database_at_head()
+    yield
+
 
 app = FastAPI(
     title="LEGO Collection Manager API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.include_router(imports.router, prefix="/api")

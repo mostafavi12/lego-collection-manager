@@ -1,5 +1,10 @@
 """Shared pytest fixtures for database tests."""
 
+import os
+
+# In-memory / metadata-only test DBs are not managed by Alembic.
+os.environ.setdefault("SKIP_DB_MIGRATION_CHECK", "1")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

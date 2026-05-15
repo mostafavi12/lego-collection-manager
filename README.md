@@ -38,7 +38,16 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 **Backend APIs** (CSV import, Rebrickable sync, owned sets, search, missing parts, local images) and the **React MVP UI** (collection list, set detail, search, import) are implemented.
 
-Configuration is read from the environment (see [`backend/.env.example`](backend/.env.example)). The default `DATABASE_URL` points at `sqlite:///./data/lego.db` relative to the **current working directory**; run Alembic and uvicorn from `backend/` so the database file is created at `backend/data/lego.db`.
+Configuration is read from the environment (see [`backend/.env.example`](backend/.env.example)). Run Alembic and uvicorn from `backend/` so relative paths resolve under `backend/data/`.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DATABASE_URL` | `sqlite:///./data/lego.db` | SQLite database file → `backend/data/lego.db` |
+| `UPLOAD_ROOT` | `./data/uploads` | Missing-part photos → `backend/data/uploads/` |
+| `REBRICKABLE_API_KEY` | — | Required for Rebrickable sync (not for tests) |
+| `LOG_LEVEL` | `INFO` | Importer and application log verbosity |
+
+On startup the API **refuses to start** unless the database is at the latest Alembic revision (`alembic upgrade head`). Importers log structured summaries (set counts, failures) and never log API keys.
 
 ### Tests
 
@@ -67,7 +76,7 @@ npm run build   # production build
 
 ## Continuous integration
 
-On **GitHub**, every **push** and **pull request** runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml): backend **`pytest`** and frontend **`npm ci`** + **`npm run build`**. Details and local parity commands are in [`docs/ci.md`](docs/ci.md).
+On **GitHub**, every **push** and **pull request** runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml): backend **`pytest`**, frontend **`npm test`**, and **`npm run build`**. Details and local parity commands are in [`docs/ci.md`](docs/ci.md).
 
 For a broader local check (install, tests, migration, API probe, frontend build), run from the repository root:
 

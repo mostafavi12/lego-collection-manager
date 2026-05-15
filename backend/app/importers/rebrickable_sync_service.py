@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Protocol
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -67,6 +70,7 @@ def sync_catalog_for_set_nums(
     set_nums: list[str],
 ) -> RebrickableSyncResult:
     result = RebrickableSyncResult()
+    logger.info("Rebrickable sync started set_count=%s", len(set_nums))
     for set_num in set_nums:
         try:
             with session.begin_nested():
@@ -74,16 +78,40 @@ def sync_catalog_for_set_nums(
             result.sets_synced += 1
             result.parts_upserted += parts
             result.inventory_lines_written += lines
+            logger.info(
+                "Rebrickable sync set_ok set_num=%s parts_upserted=%s inventory_lines=%s",
+                set_num,
+                parts,
+                lines,
+            )
         except RebrickableAPIError as exc:
             session.rollback()
+            message = _format_api_error(exc)
+            logger.warning(
+                "Rebrickable sync set_failed set_num=%s error=%s",
+                set_num,
+                message,
+            )
             result.sets_failed.append(
-                SetSyncFailure(set_num=set_num, message=_format_api_error(exc))
+                SetSyncFailure(set_num=set_num, message=message)
             )
         except Exception as exc:
             session.rollback()
+            logger.exception(
+                "Rebrickable sync set_failed set_num=%s",
+                set_num,
+            )
             result.sets_failed.append(
                 SetSyncFailure(set_num=set_num, message=str(exc))
             )
+    logger.info(
+        "Rebrickable sync finished sets_synced=%s sets_failed=%s "
+        "parts_upserted=%s inventory_lines_written=%s",
+        result.sets_synced,
+        len(result.sets_failed),
+        result.parts_upserted,
+        result.inventory_lines_written,
+    )
     return result
 
 
@@ -96,6 +124,7 @@ def sync_rebrickable(
     """Sync catalog data for owned sets. Opens client when not provided."""
     set_nums = resolve_set_nums(session, owned_set_ids)
     if not set_nums:
+        logger.info("Rebrickable sync skipped: no owned sets to sync")
         return RebrickableSyncResult()
 
     if client is not None:
