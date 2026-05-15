@@ -164,9 +164,9 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 
 Rebrickable may populate age when **`age_range`** appears on the set response (`6+` → store **`6`**). When Rebrickable has no age, the user enters it on the set detail form. Successful sync/import **never clears** existing age solely because `age_range` is missing — only explicit user PATCH clears or changes age. CSV import does **not** rename existing instance labels; duplicate custom labels are allowed.
 
-## 11. Post-MVP collection semantics (Phases 9–13)
+## 11. Post-MVP collection semantics (Phases 9–14)
 
-The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order. **Phases 9–10 are implemented** on `main`; Phases **11A–11B**, **12**, and **13** are planned (Phase 13 wizard is partially implemented).
+The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order and **Phase 14a vs 14b** sync scope. **Phases 9–10** and core **11A, 11B, 12,** and **13** are implemented on **`main`**; finer-grained Rebrickable **sync UX** (**14b**) and optional wizard affordances (**Phase 13** backlog) remain documented there.
 
 ### 11.1 Collection invariant: all sets are owned
 
@@ -215,8 +215,8 @@ Unchanged additive semantics (one token → one new instance). Additionally, for
 ### 11.7 Manual add set (Phase 13)
 
 1. User enters **set number** (only required field).
-2. If set number **already exists:** show message that a **new instance** is being created; load catalog + inventory from DB; create instance; user edits instance fields on detail.
-3. If set number **is new:** user enters set metadata and parts list (or optional Rebrickable prefill without images); system creates catalog + **first** instance + instance inventory.
+2. If set number **already exists:** message that a **new instance** is being created; read-only catalog summary + optional template **parts** preview; user sets **label**; **submit** creates the instance (**two-step** wizard; no standalone “confirm-only” third step today).
+3. If set number **is new:** user enters **shared catalog** metadata (name, theme, year, part count, optional **age**) and **label**; **submit** creates **`source=user`** catalog + **first** instance. **Catalog inventory lines** are then added via **PartLineModal** on set detail, **CSV** (§11.6), **`POST /imports/rebrickable/sync`** (**Phase 14a**), **or** a raw **`POST /owned-sets`** body that includes **`parts`** (API supports **`parts`**; the **wizard does not** yet expose per-line editors for greenfield sets). Optional **“Fetch from Rebrickable”** inside the wizard (no images) is **not** wired.
 
 ### 11.8 Part alias editing in modal (Phase 11B)
 
@@ -224,16 +224,17 @@ Unchanged additive semantics (one token → one new instance). Additionally, for
 - API: `PATCH /parts/{part_id}/aliases` with replace-list body; server enforces symmetric closure (§11.5).
 - Alias edits are **global** for the equivalence class (like part images): all sets using any member part reflect the updated alias group in search and detail.
 
-### 11.9 Sync UX (deferred)
+### 11.9 Sync UX (**Phase 14a** baseline vs **14b** backlog)
 
-No new bulk sync UI in Phases 9–13. `POST /imports/rebrickable/sync` remains for later enhancement (Phase 14+).
+- **14a (shipped):** **Import** page includes **Sync all owned sets**, calling **`POST /imports/rebrickable/sync`** with **no body** (full collection). The API optionally accepts **`{ "owned_set_ids": [...] }`** for a scoped sync; **no UI** exposes that picker yet.
+- **14b (backlog):** subset sync from list/detail, progress and cancellation, documented conflict policy vs manual/instance edits, optional CDN → BLOB image backfill — see [development-plan.md](./development-plan.md).
 
 ## UX surfaces (MVP)
 
 1. **Owned sets** — list layout per [§4](#4-owned-sets-list); **Make a copy** with confirmation dialog per row.
 2. **Set detail** — instance field editor + inventory + missing panel; **delete** instance; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
-4. **Import** — CSV/text file upload (additive); trigger Rebrickable sync (MVP). *Post-MVP:* CSV also fetches full set data (Phase 12); **Add set** wizard (Phase 13); **PartLineModal** on set detail (Phases 11A–11B).
+4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Sync all owned sets** (Phase **14a**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
 
 ## Non-goals (MVP)
 

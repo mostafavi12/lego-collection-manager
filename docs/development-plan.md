@@ -150,15 +150,15 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 ---
 
-## Post-MVP overview (Phases 9–13)
+## Post-MVP overview (Phases 9–13; sync baseline **14a**)
 
 Phases **1–8** delivered the original MVP (including Rebrickable sync endpoint and disk-based missing photos). Phases **9–13** refactor collection semantics around:
 
 - **Rebrickable as the catalog source** (metadata + full inventory, **no image downloads** from the API).
 - **Every catalog set has at least one owned instance** — there is no “catalog-only” set the user does not own.
-- **Per-instance inventory** (part quantities and missing counts), while **set-level metadata** and **part-level images/aliases** follow the sharing rules in [product-requirements.md §11](./product-requirements.md#11-post-mvp-collection-semantics-phases-913).
+- **Per-instance inventory** (part quantities and missing counts), while **set-level metadata** and **part-level images/aliases** follow the sharing rules in [product-requirements.md §11](./product-requirements.md#11-post-mvp-collection-semantics-phases-914).
 - **Images in SQLite** (JPEG/PNG BLOBs), not on disk under `MEDIA_ROOT` / thumbnails.
-- **Deferred:** bulk sync UX (sync all / selected / current set) — existing `POST /imports/rebrickable/sync` remains; no new sync UI work in 9–13.
+- **Sync UX:** **Phase 14a** ships **Import → Sync all owned sets** (`POST /imports/rebrickable/sync` with no body); the API accepts optional **`owned_set_ids`** for scoped sync (**UI not built**). **Phase 14b** covers subset UX, progress/cancel, conflicts, and optional CDN→BLOB backfill (see Phase **14** below).
 
 Implement **one phase at a time**; update [database-schema.md](./database-schema.md), [api-design.md](./api-design.md), and tests before marking a phase complete.
 
@@ -244,7 +244,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 - `POST /imports/csv`: after each valid token, call Rebrickable (set metadata, set parts, minifigs, minifig BOMs) using the Phase 4A client; upsert catalog + template inventory; create instance rows from template (Phase 9). **Do not** HTTP-fetch `part_img_url` / set image URLs into files or BLOBs.
 - Replace **stub-only** catalog creation: new sets get name, theme, year, `num_parts`, **age only when Rebrickable returns `age_range`**, and full part/minifig lists when the API succeeds; per-token failures reported without aborting other tokens (same partial-success pattern as today). Manual age entry on set detail when the API has no age.
 - Requires `REBRICKABLE_API_KEY`; clear error if missing.
-- Frontend: Import page copy explains that CSV adds instances and fetches set data (no images). Optional: de-emphasize or hide “Sync all” until Phase 14+ (endpoint unchanged).
+- Frontend: Import page copy explains that CSV adds instances and fetches set data (no images). **Sync all** remains on Import (**Phase 14a** baseline); fancier scoped sync is **Phase 14b**.
 - Tests: mocked multi-endpoint Rebrickable sequence per token; assert inventory row counts; assert no image BLOBs/URLs written when policy is “no images on import.”
 
 **Exit criteria**
@@ -255,28 +255,54 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 ## Phase 13 — Manual add set wizard
 
-**Goal:** User can add a set by number only; branch on whether `set_num` already exists; support manual catalog + parts entry. **Part alias editing** is Phase **11B**, not this phase.
+**Goal:** User can add a set by number only; branch on whether `set_num` already exists; support manual catalog entry and (via API or set detail) initial inventory. **Part alias editing** is Phase **11B**, not this phase.
 
-**Deliverables**
+**Deliverables (original spec)**
 
 - **Add set wizard (frontend):**
   1. Modal/page with single required field: **LEGO set number**.
-  2. If `set_num` **exists**: inform user they are creating a **new instance**; load shared catalog + template inventory from DB; create instance (investigated false); navigate to detail for instance-level edits.
-  3. If `set_num` **new**: step 2 — set metadata (name, theme, year, `num_parts`, age) and **parts list** (part number, color, quantity); optional “Fetch from Rebrickable” button to prefill without images; step 3 — confirm and create catalog + first owned instance + instance inventory lines.
-- APIs: `POST /owned-sets`, `GET /owned-sets/add-preview` with branching semantics (see [api-design.md](./api-design.md)).
-- **Collection invariant:** deleting the last instance for a `set_num` deletes catalog + inventory for that set (existing rule); no orphan `catalog_sets` without `owned_sets`.
-- Tests: wizard flows (mocked API); new set with only `set_num` then expand metadata.
+  2. If `set_num` **exists**: inform user they are creating a **new instance**; load shared catalog + template inventory from DB; create instance (`investigated` false); navigate to detail for instance-level edits.
+  3. If `set_num` **new**: set metadata (name, theme, year, `num_parts`, age); optional parts list UI and optional **Fetch from Rebrickable** button in wizard; formal confirm-only step optional.
 
-**Status (partial):** `AddSetWizard`, `POST /owned-sets`, and `GET /owned-sets/add-preview` are implemented; remaining work is optional Rebrickable prefill on new sets and any wizard polish called out in issues.
+**Implementation status — core complete**
 
-**Exit criteria**
+- **`GET /owned-sets/add-preview`**, **`POST /owned-sets`**, and **`AddSetWizard`** (modal from owned-sets list, `/add` route, Import page link): **implemented** (see [`backend/tests/test_manual_add_api.py`](../backend/tests/test_manual_add_api.py); wizard Vitest in `frontend/src/pages/AddSetPage.test.tsx`).
+- **Existing catalog branch:** Messaging, read-only catalog summary + suggested label + template parts preview table; POST with `set_num` + optional `label` only.
+- **New catalog branch:** User can submit optional **`catalog`** + **`age`** + **`label`**; creates `source=user` catalog and first owned instance; instance inventory cloned from template (possibly empty).
 
-- User can add a brand-new set number with manual parts without CSV.
-- User can add Copy #2 of an existing set number in two clicks after the number step.
+**Deferred / optional (wizard polish)**
 
-## Phase 14+ (later) — Sync UX and polish
+- **Part lines in wizard:** `POST /owned-sets` accepts `parts[]` for net-new catalogs, but **`AddSetWizard` does not render a part-row editor** today — users add inventory via **PartLineModal** on set detail, **`POST /owned-sets` with JSON**, CSV import (**Phase 12**), or Rebrickable sync (**Phase 14a** baseline).
+- **“Fetch from Rebrickable”** inside wizard for brand-new sets: not wired; **Phase 12** import is the preferred path when Rebrickable data is desired without manual parts entry.
+- **Dedicated third confirm step:** not implemented (two steps + Submit is acceptable).
 
-**Out of scope for Phases 9–13.** May include: sync all / selected / current set UI, refresh policies, conflict resolution when Rebrickable data changes after manual edits, progress/cancel, and optional image backfill from URLs. Existing `POST /imports/rebrickable/sync` stays available; behavior documented in [api-design.md](./api-design.md).
+**Collection invariant**
+
+- Deleting the last instance for a `set_num` deletes catalog + inventory for that set (existing rule); no orphan `catalog_sets` without `owned_sets`.
+
+**Exit criteria (adjusted to shipped behavior)**
+
+- User can create a **new** `set_num` from the wizard with optional catalog metadata; first inventory lines can be added **on detail** (or CSV / sync / raw API `parts`).
+- User can create **another copy** of an existing `set_num` via wizard after entering the number (preview → Add), or use **Make a copy** on the list.
+- Automated tests cover **`add-preview` + `POST`** branching; frontend covers wizard happy path(s) with mocks.
+
+---
+
+## Phase 14 — Sync UX and polish (split)
+
+### Phase 14a — Bulk sync baseline (**done**)
+
+- **`POST /imports/rebrickable/sync`** unchanged; **Import** page exposes **Sync all owned sets** (empty body syncs entire collection).
+- Request body **`{ "owned_set_ids": […] }`** is supported server-side for **scoped** sync; **no frontend UI** exposes selection yet.
+
+### Phase 14b — Deferred backlog
+
+- UX to pick **subset** of owned instances / current-set sync from detail.
+- **Progress**, **cancel**, and long-running-job messaging beyond a simple spinner on Import.
+- **Conflict / refresh policies** when Rebrickable data differs from manual edits (document and enforce UX).
+- **Optional image backfill**: HTTP-fetch CDN URLs into BLOBs.
+
+See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch) reduces need for wizard-only Rebrickable prefill for common flows.
 
 ## Dependency graph (high level)
 
@@ -303,7 +329,7 @@ flowchart LR
     phase6 --> phase7
     phase7 --> phase8
   end
-  subgraph post [Post-MVP Phases 9-13]
+  subgraph post ["Post-MVP Phases 9-13 (+ 14a sync)"]
     phase9[Phase9_InstanceInventory]
     phase10[Phase10_ImagesInDB]
     phase11A[Phase11A_PartModal]
@@ -320,7 +346,7 @@ flowchart LR
   phase4a --> phase12
 ```
 
-**Note:** Phase 12 (CSV fetch) depends on Phase 4A (client) and Phase 9 (instance rows). Phases 11A–11B depend on Phase 10 (part image BLOBs). Phase 10 can proceed after Phase 9 so missing/part uploads target BLOB columns.
+**Note:** Phase 12 (CSV fetch) depends on Phase 4A (client) and Phase 9 (instance rows). Phases 11A–11B depend on Phase 10 (part image BLOBs). Phase 10 can proceed after Phase 9 so missing/part uploads target BLOB columns. Phase **12** overlaps with wizard Rebrickable prefill; prefer CSV when full catalog/inventory from Rebrickable is desired in one flow.
 
 ## Related documents
 

@@ -49,7 +49,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 - `PUT` / `DELETE` missing image → part BLOB; `GET /media/missing/{id}` and `GET /parts/{id}/image`: 404 when absent; content-type for JPEG/PNG fixtures.
 - `PUT` / `GET` / `DELETE` `/parts/{id}/image` and `/catalog-sets/{id}/image`: BLOB round-trip, size/MIME validation (`test_image_blob_api.py`).
 
-### Post-MVP (Phases 9–13)
+### Post-MVP (Phases 9–13) and sync baseline (**14a**)
 
 Still **no live Rebrickable** in CI.
 
@@ -57,10 +57,12 @@ Still **no live Rebrickable** in CI.
 |-------|--------|--------|
 | **9** | implemented | `PATCH .../inventory-lines/{instance_line_id}` isolation across two instances; `quantity_missing` validation (`test_instance_inventory_api.py`). |
 | **10** | implemented | BLOB round-trip; 5 MB limit; JPEG/PNG only; part image visible on two sets (`test_image_blob_api.py`). |
-| **11A** | planned | `POST set-parts` returns `part_id`; `PATCH`/`DELETE set-parts`; detail `aliases`; image on add (mock `PUT`); `PartLineModal` Vitest. |
-| **11B** | planned | `PATCH /parts/{id}/aliases` symmetry; search by alias across class. |
-| **12** | planned | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
-| **13** | partial | `POST /owned-sets` / `add-preview` branches; wizard UI (`AddSetWizard` largely done). |
+| **11A** | implemented | `POST set-parts` returns `part_id`; `PATCH`/`DELETE set-parts`; detail `aliases`; image on add (mock `PUT`); `PartLineModal` Vitest. |
+| **11B** | implemented | `PATCH /parts/{id}/aliases` symmetry; search by alias across class. |
+| **12** | implemented | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
+| **13** | mostly implemented | `POST /owned-sets` / `GET add-preview` branches; **`test_manual_add_api.py`**; wizard Vitest (`AddSetWizard` paths); **no** Vitest coverage for a hypothetical future **wizard** multi-row **parts** UI (detail **PartLineModal** + API **`parts`** is the current path). |
+| **14a** | minimal | `POST /imports/rebrickable/sync` + Import-page “sync all” behavior; no UI tests required for optional `owned_set_ids` body. |
+| **14b** | deferred | Subset sync UI, progress/cancel, conflict policy, CDN → BLOB backfill — see [development-plan.md](./development-plan.md). |
 
 ### Search
 
@@ -81,7 +83,7 @@ Still **no live Rebrickable** in CI.
 | **Search** | Debounce (if any), submit triggers correct API, displays multiple instances per `set_num` when applicable. |
 | **Missing UI** | Changing missing quantity calls PATCH; upload calls PUT missing image endpoint; preview uses `part_image_url` / `missing_image_url`. |
 | **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`. |
-| **Import** | File picker posts to CSV endpoint; success message reflects instances created. |
+| **Import** | File picker posts to CSV endpoint; success message reflects instances created; **Sync all** triggers sync endpoint (spinner / outcome messaging as implemented). |
 
 **Mocking:** MSW (Mock Service Worker) or fetch mocks to return canned JSON aligned with [api-design.md](./api-design.md).
 

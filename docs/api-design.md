@@ -47,16 +47,21 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 }
 ```
 
-### Rebrickable sync — synchronous (MVP)
+### Rebrickable sync — synchronous
 
 **`POST /imports/rebrickable/sync`**
 
-MVP uses a **synchronous** request that completes the full sync for the selected scope before returning **`200`**. This avoids background job infrastructure at the cost of longer request duration for large collections.
+The app uses a **synchronous** request that completes the sync for the selected scope before returning **`200`**. This avoids background job infrastructure at the cost of longer request duration for large collections.
+
+| Phase | What is shipped |
+|-------|-----------------|
+| **14a (baseline)** | **Import** page: **Sync all owned sets** calls this endpoint with **no body** (full collection). Optional JSON body `{ "owned_set_ids": […] }` scopes sync to those instances **(API only today; no UI picker)**. |
+| **14b (backlog)** | Subset sync UX from list/detail, progress/cancel, conflict policy with manual edits, optional CDN → BLOB image backfill. |
 
 | Tradeoff | Mitigation |
 |----------|------------|
-| Long HTTP request | Sequential per-set processing; frontend shows spinner + cancel is browser-only (server continues unless implement stop flag post-MVP). |
-| Timeouts | Document recommended max owned sets per operation; paginate sync by passing explicit `owned_set_ids`. |
+| Long HTTP request | Sequential per-set processing; Import page shows a spinner while the request runs (browser “cancel” only stops the tab request; server may continue until process policies change in **14b**). |
+| Timeouts | Document recommended max owned sets per operation; programmatic clients may pass explicit `owned_set_ids`. |
 
 **`POST /imports/rebrickable/sync` body:**
 
@@ -112,7 +117,7 @@ Omit `owned_set_ids` or pass `null` to sync **all** owned sets (distinct `catalo
       "label": "eBay May 2026",
       "display_label": "eBay May 2026",
       "copy_index": 1,
-      "age": "6+",
+      "age": 6,
       "num_parts": 27,
       "missing_count": 2
     }
@@ -484,9 +489,9 @@ See [Images (SQLite BLOBs — Phase 10)](#images-sqlite-blobs--phase-10) above.
 
 ---
 
-## Planned API additions (Phases 11A–13, not yet implemented)
+## Post-MVP endpoints — reference (Phases 11A–13 implemented on `main`)
 
-Contracts below are **targets** for remaining post-MVP work.
+Contracts below match **shipped** behavior unless a bullet explicitly marks a gap (e.g. wizard UI vs API).
 
 ### Inventory part modal (Phase 11A)
 
@@ -575,36 +580,47 @@ Response **`200`:**
 
 ### Manual add set (Phase 13)
 
-**`GET /owned-sets/add-preview?set_num=...`** — preview catalog existence, suggested label, template parts (partially implemented).
+**`GET /owned-sets/add-preview?set_num=…`** — **`200`**
 
-**`POST /owned-sets`**:
+Returns branching data for the **Add set** wizard (`AddSetWizard`) and for API clients.
 
-**Body (step 1 — set number only):**
+| Field | Meaning |
+|-------|--------|
+| `set_num` | Normalized trimmed set number. |
+| `catalog_exists` | `true` if a `catalog_sets` row already exists for this number. |
+| `set_name`, `theme_name`, `year`, `num_parts`, `age`, `image_url` | Populated when **`catalog_exists`** (shared catalog + first non-null `owned_sets.age` among instances for age). |
+| `existing_copy_count` | Number of `owned_sets` for that catalog set. |
+| `suggested_label` | e.g. `Copy #n` for the next instance. |
+| `set_parts` | Template set-part lines (`part_num`, `part_name`, `color_name`, `quantity`) when catalog exists; empty when `catalog_exists` is false. |
+
+**`POST /owned-sets`** — create catalog + first instance **or** add another instance only.
+
+| Case | Body | Server |
+|------|------|--------|
+| **Catalog exists** | **`set_num`** and optional **`label`** only. Sending `catalog` or `parts` → **400** (“omit catalog and parts”). | New `owned_sets` row; **`clone_instance_inventory`** from template. |
+| **New catalog** | **`set_num`**; optional **`label`**, **`age`**, **`catalog`** (`name`, `theme_name`, `year`, `num_parts`), **`parts`** (array of `part_num`, optional `part_name`/`color_id`/`color_name`, `quantity` > 0). | Creates **`source=user`** catalog, optional lines from `parts`, first instance. |
+
+The **wizard UI** uses **`add-preview`** then **`POST`**; for **net-new** catalogs it sends optional **`catalog`** + **`age`** + **`label`** but **does not** collect **`parts[]`**—users add inventory via **PartLineModal** on detail, **CSV** (Phase **12**), **sync** (**14a**), or a direct **`POST /owned-sets`** JSON body with `parts`.
+
+**Example — new copy only**
 
 ```json
-{ "set_num": "6024-1" }
+{ "set_num": "6024-1", "label": "Copy #2" }
 ```
 
-**Behavior:**
-
-- If `set_num` exists: **`201`** new instance; response includes `owned_set_id`, `catalog_set_id`, message that this is a new copy; inventory cloned from template.
-- If new: **`422`** or **`400`** with `detail` requiring metadata/parts **or** accept full body in one request:
+**Example — first instance of a new set_num (API client)**
 
 ```json
 {
   "set_num": "99999-1",
-  "catalog": { "name": "...", "theme_name": "...", "year": 2020, "num_parts": 100 },
-  "parts": [
-    { "part_num": "3024", "color_id": 0, "quantity": 2 }
-  ]
+  "catalog": { "name": "…", "theme_name": "…", "year": 2020, "num_parts": 100 },
+  "parts": [{ "part_num": "3024", "color_id": 0, "quantity": 2 }]
 }
 ```
 
-Part alias editing: see [Part aliases (Phase 11B)](#part-aliases-phase-11b) above (not part of the wizard contract).
+Part alias editing: [Part aliases (Phase 11B)](#part-aliases-phase-11b) (not part of the wizard contract).
 
-### Sync (unchanged in 9–13)
-
-**`POST /imports/rebrickable/sync`** — no contract change in Phases 9–13; bulk sync UI deferred to Phase 14+.
+See also [Rebrickable sync — synchronous](#rebrickable-sync--synchronous) for **Phase 14a / 14b** (Import **Sync all**, optional `owned_set_ids`).
 
 ## CORS
 
