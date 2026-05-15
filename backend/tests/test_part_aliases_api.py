@@ -78,7 +78,7 @@ def test_search_finds_part_by_user_alias_after_patch(api_client, db_session) -> 
     )
     assert response.status_code == 200
     assert len(response.json()["parts"]) == 1
-    assert response.json()["parts"][0]["part_num"] == "3024"
+    assert response.json()["parts"][0]["lines"][0]["display_part_num"] == "3024"
 
 
 def test_patch_part_aliases_not_found(api_client) -> None:

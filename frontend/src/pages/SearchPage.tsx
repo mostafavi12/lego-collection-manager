@@ -1,7 +1,7 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { searchCatalog } from "../api/client";
+import { mediaUrl, searchCatalog } from "../api/client";
 import type { SearchResponse } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 
@@ -100,15 +100,41 @@ export function SearchPage() {
                 <p className="empty-hint">No matching parts in owned inventories.</p>
               ) : (
                 <ul className="result-list result-list--parts">
-                  {results.parts.map((row) => (
-                    <li key={row.part_num}>
-                      {row.image_url && (
-                        <img src={row.image_url} alt="" className="result-list__thumb" />
+                  {results.parts.map((part) => (
+                    <li key={part.part_num} className="result-list__part-hit">
+                      {part.image_url && (
+                        <img
+                          src={mediaUrl(part.image_url) ?? part.image_url}
+                          alt=""
+                          className="result-list__thumb"
+                        />
                       )}
-                      <span>
-                        <strong>{row.part_num}</strong>
-                        {row.name ? ` — ${row.name}` : ""}
-                      </span>
+                      <div className="result-list__part-body">
+                        {part.name && (
+                          <p className="result-list__part-name">{part.name}</p>
+                        )}
+                        <ul className="result-list__part-lines">
+                          {part.lines.map((line) => (
+                            <li key={line.display_part_num}>
+                              <strong>{line.display_part_num}</strong>
+                              <span className="result-list__part-dash"> - </span>
+                              {line.sets.length === 0 ? (
+                                <span className="empty-hint">No sets in collection</span>
+                              ) : (
+                                line.sets.map((occ, i) => (
+                                  <Fragment key={`${line.display_part_num}-${occ.owned_set_id}-${occ.set_num}`}>
+                                    {i > 0 ? ", " : null}
+                                    <Link to={`/sets/${occ.owned_set_id}`}>
+                                      {occ.set_num}
+                                    </Link>
+                                    <span> ({occ.quantity})</span>
+                                  </Fragment>
+                                ))
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </li>
                   ))}
                 </ul>

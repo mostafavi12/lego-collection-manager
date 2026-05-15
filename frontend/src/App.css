@@ -693,11 +693,43 @@
   font-weight: 400;
 }
 
-.result-list--parts li {
+.result-list--parts > li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.65rem;
   padding: 0.5rem 0;
+}
+
+.result-list__part-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-list__part-name {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.result-list__part-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.result-list__part-lines > li {
+  border-bottom: none;
+  padding: 0.2rem 0;
+}
+
+.result-list__part-body a {
+  display: inline;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.result-list__part-body a:hover {
+  color: var(--color-accent);
 }
 
 .result-list__thumb {
