@@ -187,9 +187,6 @@ export function OwnedSetDetailPage() {
             {detail.display_label} — {catalog.set_num}
             {catalog.name ? ` (${catalog.name})` : ""}
           </h1>
-          <p className="detail-header__meta">
-            Copy #{detail.copy_index} · Instance #{detail.id}
-          </p>
         </div>
       </header>
 
@@ -215,16 +212,6 @@ export function OwnedSetDetailPage() {
             />
             Investigated
           </label>
-          <label className="form-field">
-            Age (shared across copies)
-            <input
-              type="number"
-              min={0}
-              value={form.age}
-              disabled={saving}
-              onChange={(e) => setForm({ ...form, age: e.target.value })}
-            />
-          </label>
           <label className="form-field form-field--wide">
             Notes
             <textarea
@@ -236,7 +223,7 @@ export function OwnedSetDetailPage() {
           </label>
         </div>
 
-        <h2>Catalog (shared except set number)</h2>
+        <h2>Catalog</h2>
         <div className="instance-form__grid">
           <label className="form-field">
             Set number (this copy only)
@@ -264,6 +251,16 @@ export function OwnedSetDetailPage() {
               onChange={(e) =>
                 setForm({ ...form, catalogTheme: e.target.value })
               }
+            />
+          </label>
+          <label className="form-field">
+            Age
+            <input
+              type="number"
+              min={0}
+              value={form.age}
+              disabled={saving}
+              onChange={(e) => setForm({ ...form, age: e.target.value })}
             />
           </label>
           <label className="form-field">
@@ -437,7 +434,7 @@ export function OwnedSetDetailPage() {
       {showDeleteConfirm && (
         <Modal title="Delete this instance?" onClose={() => setShowDeleteConfirm(false)}>
           <p>
-            This removes owned instance #{detail.id} and its missing-part data.
+            This removes {detail.display_label} and its missing-part data.
             If it is the last copy of this catalog set, catalog and inventory data
             are removed too.
           </p>
