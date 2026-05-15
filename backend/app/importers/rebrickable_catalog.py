@@ -38,6 +38,10 @@ from app.rebrickable.dto import (
 SOURCE = "rebrickable"
 
 
+def _stored_image_url(url: str | None, *, persist_image_urls: bool) -> str | None:
+    return url if persist_image_urls else None
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -78,7 +82,13 @@ def upsert_color(session: Session, dto: ColorDTO, *, fetched_at: datetime) -> Co
     return color
 
 
-def upsert_part_counting(session: Session, dto: PartDTO, *, fetched_at: datetime) -> tuple[Part, bool]:
+def upsert_part_counting(
+    session: Session,
+    dto: PartDTO,
+    *,
+    fetched_at: datetime,
+    persist_image_urls: bool = True,
+) -> tuple[Part, bool]:
     """Return (part, True if newly created)."""
     part = session.scalar(select(Part).where(Part.part_num == dto.part_num))
     created = part is None
@@ -86,7 +96,7 @@ def upsert_part_counting(session: Session, dto: PartDTO, *, fetched_at: datetime
         part = Part(
             part_num=dto.part_num,
             name=dto.name,
-            image_url=dto.image_url,
+            image_url=_stored_image_url(dto.image_url, persist_image_urls=persist_image_urls),
             source=SOURCE,
             source_ref=dto.part_num,
             fetched_at=fetched_at,
@@ -94,7 +104,8 @@ def upsert_part_counting(session: Session, dto: PartDTO, *, fetched_at: datetime
         session.add(part)
     else:
         part.name = dto.name
-        part.image_url = dto.image_url
+        if persist_image_urls:
+            part.image_url = dto.image_url
         part.fetched_at = fetched_at
 
     session.flush()
@@ -122,6 +133,7 @@ def upsert_catalog_set(
     *,
     theme_id: int | None,
     fetched_at: datetime,
+    persist_image_urls: bool = True,
 ) -> CatalogSet:
     catalog_set = session.scalar(select(CatalogSet).where(CatalogSet.set_num == dto.set_num))
     if catalog_set is None:
@@ -131,7 +143,7 @@ def upsert_catalog_set(
             year=dto.year,
             theme_id=theme_id,
             num_parts=dto.num_parts,
-            image_url=dto.image_url,
+            image_url=_stored_image_url(dto.image_url, persist_image_urls=persist_image_urls),
             source=SOURCE,
             source_ref=dto.set_num,
             fetched_at=fetched_at,
@@ -142,7 +154,8 @@ def upsert_catalog_set(
         catalog_set.year = dto.year
         catalog_set.theme_id = theme_id
         catalog_set.num_parts = dto.num_parts
-        catalog_set.image_url = dto.image_url
+        if persist_image_urls:
+            catalog_set.image_url = dto.image_url
         catalog_set.source = SOURCE
         catalog_set.source_ref = dto.set_num
         catalog_set.fetched_at = fetched_at
@@ -155,6 +168,7 @@ def upsert_catalog_minifig(
     dto: SetMinifigLineDTO,
     *,
     fetched_at: datetime,
+    persist_image_urls: bool = True,
 ) -> CatalogMinifig:
     minifig = session.scalar(
         select(CatalogMinifig).where(CatalogMinifig.minifig_num == dto.minifig_num)
@@ -163,14 +177,15 @@ def upsert_catalog_minifig(
         minifig = CatalogMinifig(
             minifig_num=dto.minifig_num,
             name=dto.name,
-            image_url=dto.image_url,
+            image_url=_stored_image_url(dto.image_url, persist_image_urls=persist_image_urls),
             source=SOURCE,
             fetched_at=fetched_at,
         )
         session.add(minifig)
     else:
         minifig.name = dto.name
-        minifig.image_url = dto.image_url
+        if persist_image_urls:
+            minifig.image_url = dto.image_url
         minifig.fetched_at = fetched_at
     session.flush()
     return minifig
@@ -182,16 +197,24 @@ def replace_set_part_inventory(
     lines: list[SetPartLineDTO],
     *,
     fetched_at: datetime,
+    persist_image_urls: bool = True,
 ) -> tuple[int, int]:
     """Upsert set part lines; return (parts_upserted, lines_written)."""
     parts_upserted = 0
     lines_written = 0
     new_keys: set[tuple[int, int]] = set()
 
+    line_image = lambda url: _stored_image_url(url, persist_image_urls=persist_image_urls)
+
     for line in lines:
         if not include_set_part_line(line):
             continue
-        part, created = upsert_part_counting(session, line.part, fetched_at=fetched_at)
+        part, created = upsert_part_counting(
+            session,
+            line.part,
+            fetched_at=fetched_at,
+            persist_image_urls=persist_image_urls,
+        )
         if created:
             parts_upserted += 1
         color = upsert_color(session, line.color, fetched_at=fetched_at)
@@ -207,6 +230,7 @@ def replace_set_part_inventory(
             )
         )
         source_ref = str(line.inventory_id) if line.inventory_id is not None else None
+        stored_line_image = line_image(line.image_url)
         if existing is None:
             session.add(
                 SetPartInventoryLine(
@@ -214,7 +238,7 @@ def replace_set_part_inventory(
                     part_id=part.id,
                     color_id=color.id,
                     quantity=line.quantity,
-                    image_url=line.image_url,
+                    image_url=stored_line_image,
                     source=SOURCE,
                     source_ref=source_ref,
                     fetched_at=fetched_at,
@@ -222,7 +246,8 @@ def replace_set_part_inventory(
             )
         else:
             existing.quantity = line.quantity
-            existing.image_url = line.image_url
+            if persist_image_urls:
+                existing.image_url = line.image_url
             existing.source_ref = source_ref
             existing.fetched_at = fetched_at
         lines_written += 1
@@ -282,15 +307,23 @@ def replace_minifig_part_inventory(
     lines: list[MinifigPartLineDTO],
     *,
     fetched_at: datetime,
+    persist_image_urls: bool = True,
 ) -> tuple[int, int]:
     parts_upserted = 0
     lines_written = 0
     new_keys: set[tuple[int, int]] = set()
 
+    line_image = lambda url: _stored_image_url(url, persist_image_urls=persist_image_urls)
+
     for line in lines:
         if not include_minifig_part_line(line):
             continue
-        part, created = upsert_part_counting(session, line.part, fetched_at=fetched_at)
+        part, created = upsert_part_counting(
+            session,
+            line.part,
+            fetched_at=fetched_at,
+            persist_image_urls=persist_image_urls,
+        )
         if created:
             parts_upserted += 1
         color = upsert_color(session, line.color, fetched_at=fetched_at)
@@ -304,6 +337,7 @@ def replace_minifig_part_inventory(
                 MinifigPartInventoryLine.color_id == color.id,
             )
         )
+        stored_line_image = line_image(line.image_url)
         if existing is None:
             session.add(
                 MinifigPartInventoryLine(
@@ -311,14 +345,15 @@ def replace_minifig_part_inventory(
                     part_id=part.id,
                     color_id=color.id,
                     quantity=line.quantity,
-                    image_url=line.image_url,
+                    image_url=stored_line_image,
                     source=SOURCE,
                     fetched_at=fetched_at,
                 )
             )
         else:
             existing.quantity = line.quantity
-            existing.image_url = line.image_url
+            if persist_image_urls:
+                existing.image_url = line.image_url
             existing.fetched_at = fetched_at
         lines_written += 1
 

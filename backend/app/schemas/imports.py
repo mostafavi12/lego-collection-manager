@@ -7,9 +7,17 @@ class CsvTokenError(BaseModel):
     message: str
 
 
+class CsvImportSetFailure(BaseModel):
+    token_index: int
+    set_num: str
+    message: str
+
+
 class CsvImportResponse(BaseModel):
     instances_created: int
     catalog_stubs_created: int
+    sets_fetched: int = 0
+    sets_failed: list[CsvImportSetFailure] = Field(default_factory=list)
     errors: list[CsvTokenError]
 
 

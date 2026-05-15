@@ -207,9 +207,17 @@ export interface OwnedSetCreateResponse extends OwnedSetListItem {
   catalog_created: boolean;
 }
 
+export interface CsvImportSetFailure {
+  token_index: number;
+  set_num: string;
+  message: string;
+}
+
 export interface CsvImportResponse {
   instances_created: number;
   catalog_stubs_created: number;
+  sets_fetched: number;
+  sets_failed: CsvImportSetFailure[];
   errors: { token_index: number; raw: string; message: string }[];
 }
 

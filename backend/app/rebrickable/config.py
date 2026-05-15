@@ -18,6 +18,7 @@ class RebrickableSettings:
     base_url: str
     timeout_seconds: float
     max_retries: int
+    min_request_interval_seconds: float
 
 
 def load_rebrickable_settings() -> RebrickableSettings:
@@ -33,10 +34,14 @@ def load_rebrickable_settings() -> RebrickableSettings:
 
     timeout = float(os.environ.get("REBRICKABLE_TIMEOUT_SECONDS", "30"))
     max_retries = int(os.environ.get("REBRICKABLE_MAX_RETRIES", "3"))
+    min_interval = float(
+        os.environ.get("REBRICKABLE_MIN_REQUEST_INTERVAL_SECONDS", "1.0")
+    )
 
     return RebrickableSettings(
         api_key=api_key,
         base_url=base_url,
         timeout_seconds=timeout,
         max_retries=max_retries,
+        min_request_interval_seconds=max(0.0, min_interval),
     )

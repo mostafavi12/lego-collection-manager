@@ -51,6 +51,7 @@ class RebrickableClient:
         else:
             self._http = http_client
             self._http.headers.setdefault("Authorization", auth_header)
+        self._last_request_at: float | None = None
 
     def close(self) -> None:
         if self._owns_client:
@@ -111,15 +112,25 @@ class RebrickableClient:
             next_url = payload.get("next")
             page_path = str(next_url) if next_url else None
 
+    def _throttle(self) -> None:
+        interval = self._settings.min_request_interval_seconds
+        if interval <= 0 or self._last_request_at is None:
+            return
+        elapsed = time.monotonic() - self._last_request_at
+        if elapsed < interval:
+            time.sleep(interval - elapsed)
+
     def _request(self, method: str, path_or_url: str) -> httpx.Response:
         last_response: httpx.Response | None = None
         absolute = path_or_url.startswith("http")
 
         for attempt in range(self._settings.max_retries + 1):
+            self._throttle()
             if absolute:
                 response = self._http.request(method, path_or_url)
             else:
                 response = self._http.request(method, path_or_url)
+            self._last_request_at = time.monotonic()
 
             if response.status_code < 400:
                 return response

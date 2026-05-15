@@ -58,8 +58,8 @@ export function ImportPage() {
           <Link to="/" state={{ openAddSet: true }}>
             add one set manually
           </Link>
-          , then sync catalog data from
-          Rebrickable.
+          . CSV import fetches catalog and inventory from Rebrickable (no
+          images).
         </p>
       </header>
 
@@ -71,8 +71,10 @@ export function ImportPage() {
       <article className="import-card">
         <h2>CSV import</h2>
         <p>
-          Upload a plain text file with comma-separated LEGO set numbers (no header).
-          Each token creates a <strong>new</strong> owned instance.
+          Upload a plain text file with comma-separated LEGO set numbers (no
+          header). Each token creates a <strong>new</strong> owned instance and
+          loads set metadata and parts from Rebrickable when the API key is
+          configured. Images are not downloaded.
         </p>
         <form onSubmit={(e) => void onCsvSubmit(e)}>
           <input ref={fileRef} type="file" accept=".csv,.txt,text/plain" />
@@ -88,10 +90,27 @@ export function ImportPage() {
           <div className="import-result" role="status">
             <p>
               Created <strong>{csvResult.instances_created}</strong> instance
-              {csvResult.instances_created === 1 ? "" : "s"} (
-              {csvResult.catalog_stubs_created} new catalog stub
-              {csvResult.catalog_stubs_created === 1 ? "" : "s"}).
+              {csvResult.instances_created === 1 ? "" : "s"}; fetched{" "}
+              <strong>{csvResult.sets_fetched}</strong> from Rebrickable
+              {csvResult.catalog_stubs_created > 0 && (
+                <>
+                  {" "}
+                  ({csvResult.catalog_stubs_created} catalog stub
+                  {csvResult.catalog_stubs_created === 1 ? "" : "s"} when fetch
+                  failed)
+                </>
+              )}
+              .
             </p>
+            {csvResult.sets_failed.length > 0 && (
+              <ul className="import-errors">
+                {csvResult.sets_failed.map((fail) => (
+                  <li key={`${fail.token_index}-${fail.set_num}`}>
+                    Token {fail.token_index} ({fail.set_num}): {fail.message}
+                  </li>
+                ))}
+              </ul>
+            )}
             {csvResult.errors.length > 0 && (
               <ul className="import-errors">
                 {csvResult.errors.map((err) => (
@@ -106,15 +125,16 @@ export function ImportPage() {
         )}
       </article>
 
-      <article className="import-card">
-        <h2>Rebrickable sync</h2>
+      <article className="import-card import-card--secondary">
+        <h2>Rebrickable sync (optional)</h2>
         <p>
-          Fetches set metadata and inventory for all owned sets. Requires{" "}
+          Re-fetch catalog data for sets you already own. Useful after manual
+          edits or if a CSV token failed. Requires{" "}
           <code>REBRICKABLE_API_KEY</code> on the server.
         </p>
         <button
           type="button"
-          className="btn btn--primary"
+          className="btn btn--secondary"
           disabled={loading === "sync"}
           onClick={() => void onSync()}
         >

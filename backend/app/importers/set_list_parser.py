@@ -39,14 +39,19 @@ def validate_set_num(token: str) -> str | None:
     return None
 
 
-def parse_set_list(content: str) -> tuple[list[str], list[ParseError]]:
+def parse_set_list_entries(content: str) -> tuple[list[tuple[int, str]], list[ParseError]]:
     tokens = tokenize_set_list(content)
-    valid: list[str] = []
+    valid: list[tuple[int, str]] = []
     errors: list[ParseError] = []
     for index, raw in enumerate(tokens):
         msg = validate_set_num(raw)
         if msg:
             errors.append(ParseError(token_index=index, raw=raw, message=msg))
         else:
-            valid.append(raw.strip())
+            valid.append((index, raw.strip()))
     return valid, errors
+
+
+def parse_set_list(content: str) -> tuple[list[str], list[ParseError]]:
+    valid_entries, errors = parse_set_list_entries(content)
+    return [set_num for _, set_num in valid_entries], errors

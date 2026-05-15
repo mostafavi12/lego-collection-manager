@@ -12,6 +12,7 @@ from app.importers.rebrickable_sync_service import (
 from app.rebrickable.exceptions import RebrickableConfigError
 from app.schemas.imports import (
     CsvImportResponse,
+    CsvImportSetFailure,
     CsvTokenError,
     RebrickableSetSyncFailure,
     RebrickableSyncRequest,
@@ -36,10 +37,24 @@ async def import_csv(
     except UnicodeDecodeError as exc:
         raise HTTPException(status_code=400, detail="File must be UTF-8") from exc
 
+    try:
+        ensure_api_key_configured()
+    except RebrickableConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     result = import_set_list(db, content)
     return CsvImportResponse(
         instances_created=result.instances_created,
         catalog_stubs_created=result.catalog_stubs_created,
+        sets_fetched=result.sets_fetched,
+        sets_failed=[
+            CsvImportSetFailure(
+                token_index=f.token_index,
+                set_num=f.set_num,
+                message=f.message,
+            )
+            for f in result.sets_failed
+        ],
         errors=[
             CsvTokenError(
                 token_index=e.token_index,

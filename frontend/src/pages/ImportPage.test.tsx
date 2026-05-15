@@ -15,7 +15,9 @@ describe("ImportPage", () => {
       ok: true,
       json: async () => ({
         instances_created: 2,
-        catalog_stubs_created: 1,
+        catalog_stubs_created: 0,
+        sets_fetched: 2,
+        sets_failed: [],
         errors: [],
       }),
     } as Response);

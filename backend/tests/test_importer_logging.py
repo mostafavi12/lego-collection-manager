@@ -16,7 +16,15 @@ def test_csv_import_logs_without_secrets(
 ) -> None:
     caplog.set_level(logging.INFO, logger="app.importers.csv_import_service")
 
-    import_set_list(db_session, "6024-1, secret-token-should-not-appear")
+    client = FakeRebrickableClient(
+        sets={"6024-1": _sample_set()},
+        themes={67: ThemeDTO(external_id=67, name="Town")},
+    )
+    import_set_list(
+        db_session,
+        "6024-1, secret-token-should-not-appear@invalid",
+        client=client,
+    )
 
     assert "secret-token-should-not-appear" not in caplog.text
     assert "CSV import finished" in caplog.text

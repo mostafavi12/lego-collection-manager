@@ -75,7 +75,7 @@ def sync_catalog_for_set_nums(
     for set_num in set_nums:
         try:
             with session.begin_nested():
-                parts, lines = _sync_one_set(session, client, set_num)
+                parts, lines = sync_one_catalog_set(session, client, set_num)
             result.sets_synced += 1
             result.parts_upserted += parts
             result.inventory_lines_written += lines
@@ -135,10 +135,12 @@ def sync_rebrickable(
         return sync_catalog_for_set_nums(session, rb_client, set_nums)
 
 
-def _sync_one_set(
+def sync_one_catalog_set(
     session: Session,
     client: RebrickableReader,
     set_num: str,
+    *,
+    persist_image_urls: bool = True,
 ) -> tuple[int, int]:
     fetched_at = utc_now()
     set_dto = client.get_set(set_num)
@@ -150,7 +152,11 @@ def _sync_one_set(
         theme_id = theme.id
 
     catalog_set = upsert_catalog_set(
-        session, set_dto, theme_id=theme_id, fetched_at=fetched_at
+        session,
+        set_dto,
+        theme_id=theme_id,
+        fetched_at=fetched_at,
+        persist_image_urls=persist_image_urls,
     )
 
     if set_dto.age is not None:
@@ -164,7 +170,11 @@ def _sync_one_set(
 
     set_parts = list(client.iter_set_parts(set_num))
     p, lines = replace_set_part_inventory(
-        session, catalog_set.id, set_parts, fetched_at=fetched_at
+        session,
+        catalog_set.id,
+        set_parts,
+        fetched_at=fetched_at,
+        persist_image_urls=persist_image_urls,
     )
     parts_upserted += p
     inventory_lines += lines
@@ -177,7 +187,10 @@ def _sync_one_set(
     )
     for minifig_line in set_minifigs:
         catalog_minifig = upsert_catalog_minifig(
-            session, minifig_line, fetched_at=fetched_at
+            session,
+            minifig_line,
+            fetched_at=fetched_at,
+            persist_image_urls=persist_image_urls,
         )
         session.add(
             SetMinifigInventoryLine(
@@ -196,6 +209,7 @@ def _sync_one_set(
             catalog_minifig.id,
             minifig_parts,
             fetched_at=fetched_at,
+            persist_image_urls=persist_image_urls,
         )
         parts_upserted += p
         inventory_lines += lines

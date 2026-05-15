@@ -23,6 +23,7 @@ def test_retries_on_429_then_succeeds() -> None:
         base_url=BASE,
         timeout_seconds=5.0,
         max_retries=2,
+        min_request_interval_seconds=0.0,
     )
     http = httpx.Client(transport=httpx.MockTransport(handler), base_url=BASE)
 
@@ -44,6 +45,7 @@ def test_raises_after_exhausting_retries(monkeypatch: pytest.MonkeyPatch) -> Non
         base_url=BASE,
         timeout_seconds=5.0,
         max_retries=1,
+        min_request_interval_seconds=0.0,
     )
     http = httpx.Client(transport=httpx.MockTransport(handler), base_url=BASE)
 

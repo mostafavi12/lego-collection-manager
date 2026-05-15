@@ -15,6 +15,7 @@ def _settings() -> RebrickableSettings:
         base_url=BASE,
         timeout_seconds=5.0,
         max_retries=0,
+        min_request_interval_seconds=0.0,
     )
 
 
