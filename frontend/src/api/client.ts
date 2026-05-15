@@ -9,6 +9,7 @@ import type {
   ImageUploadResponse,
   InstanceInventoryLineResponse,
   InstanceInventoryLineUpdate,
+  UpdateSetPartLineBody,
   MissingImageResponse,
   MissingUpsertResponse,
   OwnedSetDetailResponse,
@@ -189,6 +190,27 @@ export function addSetPartLine(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  });
+}
+
+export function updateSetPartLine(
+  ownedSetId: number,
+  instanceLineId: number,
+  body: UpdateSetPartLineBody,
+): Promise<InstanceInventoryLineResponse> {
+  return request(`/owned-sets/${ownedSetId}/set-parts/${instanceLineId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteSetPartLine(
+  ownedSetId: number,
+  instanceLineId: number,
+): Promise<void> {
+  return request(`/owned-sets/${ownedSetId}/set-parts/${instanceLineId}`, {
+    method: "DELETE",
   });
 }
 

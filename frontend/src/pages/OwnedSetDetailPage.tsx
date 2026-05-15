@@ -1,15 +1,19 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { deleteOwnedSet, getOwnedSet, updateOwnedSet } from "../api/client";
-import type { OwnedSetDetailResponse } from "../api/types";
+import {
+  deleteOwnedSet,
+  getOwnedSet,
+  mediaUrl,
+  updateOwnedSet,
+} from "../api/client";
+import type { OwnedSetDetailResponse, SetPartLineDetail } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { Modal } from "../components/Modal";
 import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
 import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
 import { MissingLineEditor } from "../components/MissingLineEditor";
-import { AddPartLineDialog } from "../components/AddPartLineDialog";
-import { PartImageEditor } from "../components/PartImageEditor";
+import { PartLineModal } from "../components/PartLineModal";
 
 interface InstanceForm {
   label: string;
@@ -48,7 +52,9 @@ export function OwnedSetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showAddPart, setShowAddPart] = useState(false);
+  const [partModal, setPartModal] = useState<
+    { mode: "create" } | { mode: "edit"; line: SetPartLineDetail } | null
+  >(null);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(ownedSetId)) {
@@ -315,7 +321,7 @@ export function OwnedSetDetailPage() {
             type="button"
             className="btn btn--small btn--primary inventory-section__add"
             aria-label="Add part"
-            onClick={() => setShowAddPart(true)}
+            onClick={() => setPartModal({ mode: "create" })}
           >
             +
           </button>
@@ -326,46 +332,60 @@ export function OwnedSetDetailPage() {
             <thead>
               <tr>
                 <th>Part</th>
+                <th>Aliases</th>
                 <th>Color</th>
                 <th>Qty</th>
                 <th>Missing</th>
               </tr>
             </thead>
             <tbody>
-              {inventory.set_parts.map((line) => (
-                <tr key={line.instance_line_id}>
-                  <td>
-                    <div className="part-cell">
-                      <PartImageEditor
-                        partId={line.part_id}
-                        partNum={line.part_num}
-                        imageUrl={line.part_image_url ?? line.image_url}
+              {inventory.set_parts.map((line) => {
+                const thumb = mediaUrl(line.part_image_url ?? line.image_url);
+                return (
+                  <tr
+                    key={line.instance_line_id}
+                    className="data-table__row--clickable"
+                    onClick={() => setPartModal({ mode: "edit", line })}
+                  >
+                    <td>
+                      <div className="part-cell">
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt=""
+                            className="part-cell__img"
+                          />
+                        ) : null}
+                        <span>
+                          <strong>{line.part_num}</strong>
+                          {line.part_name ? ` — ${line.part_name}` : ""}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="part-aliases-cell">
+                      {line.aliases.length > 0
+                        ? line.aliases.join(", ")
+                        : "—"}
+                    </td>
+                    <td>{line.color_name}</td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <InstanceQuantityEditor
+                        ownedSetId={detail.id}
+                        line={line}
                         onUpdated={() => void load()}
                       />
-                      <span>
-                        <strong>{line.part_num}</strong>
-                        {line.part_name ? ` — ${line.part_name}` : ""}
-                      </span>
-                    </div>
-                  </td>
-                  <td>{line.color_name}</td>
-                  <td>
-                    <InstanceQuantityEditor
-                      ownedSetId={detail.id}
-                      line={line}
-                      onUpdated={() => void load()}
-                    />
-                  </td>
-                  <td>
-                    <MissingLineEditor
-                      ownedSetId={detail.id}
-                      line={line}
-                      inventoryKind="set_part"
-                      onUpdated={() => void load()}
-                    />
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <MissingLineEditor
+                        ownedSetId={detail.id}
+                        line={line}
+                        inventoryKind="set_part"
+                        onUpdated={() => void load()}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -423,11 +443,13 @@ export function OwnedSetDetailPage() {
         </section>
       )}
 
-      {showAddPart && (
-        <AddPartLineDialog
+      {partModal && (
+        <PartLineModal
+          mode={partModal.mode}
           ownedSetId={detail.id}
-          onClose={() => setShowAddPart(false)}
-          onAdded={() => void load()}
+          line={partModal.mode === "edit" ? partModal.line : undefined}
+          onClose={() => setPartModal(null)}
+          onSaved={() => void load()}
         />
       )}
 
