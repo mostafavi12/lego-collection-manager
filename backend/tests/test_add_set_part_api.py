@@ -28,6 +28,8 @@ def test_add_set_part_to_instance(api_client, db_session) -> None:
     body = response.json()
     assert body["quantity"] == 2
     assert body["quantity_missing"] == 0
+    assert "part_id" in body
+    assert "catalog_line_id" in body
 
     detail = api_client.get(f"/api/owned-sets/{owned.id}").json()
     assert len(detail["inventory"]["set_parts"]) == 1
