@@ -118,12 +118,14 @@ Except for the per-instance **label** (user-only), set-level metadata may come f
 | Theme | `themes` + `catalog_sets.theme_id` | Set + theme APIs | `catalog_theme_name` (creates/links theme when none) |
 | Year | `catalog_sets.year` | Set API | `catalog_year` |
 | Part count | `catalog_sets.num_parts` | Set API | `catalog_num_parts` |
-| Age | `owned_sets.age` (shared per `catalog_set_id`) | Set API (`age_range` → integer) | `age` |
+| Age | `owned_sets.age` (shared per `catalog_set_id`) | Set API **`age_range` only when present** (parsed to integer, e.g. `6+` → `6`). **Often absent** on older sets and many API payloads — sync/import **never overwrites** a user-entered age with NULL. | **`age`** on set detail (`PATCH`): user enters minimum age manually (box, LEGO product page, etc.) |
 | Box image URL | `catalog_sets.image_url` | Set API | Not editable in MVP UI |
 
 **User-only instance fields** (not populated from Rebrickable): `label`, `notes`, `investigated`.
 
-**Re-sync behavior:** each successful Rebrickable sync **upserts** catalog fields from the API. When the API returns `age_range`, sync updates **all** owned instances for that catalog set. Manual values for those catalog fields may be **overwritten** on a later sync.
+**Re-sync behavior:** each successful Rebrickable sync **upserts** catalog fields from the API. When the API returns **`age_range`**, sync copies the parsed integer to **all** owned instances for that catalog set; when **`age_range` is missing**, existing `owned_sets.age` values are left unchanged — so locally entered ages are safe. Sync may still overwrite name, theme, year, parts list, etc. from Rebrickable on each successful run.
+
+**Other data sources for age:** not integrated in MVP. Optional later: dedicated APIs (e.g. BrickLink/Brickset) or scraping — each has licensing and reliability trade-offs; manual entry covers the gap today.
 
 ## User-provided images (Phase 10+)
 

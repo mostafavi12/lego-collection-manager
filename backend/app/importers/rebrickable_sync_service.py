@@ -75,7 +75,7 @@ def sync_catalog_for_set_nums(
     for set_num in set_nums:
         try:
             with session.begin_nested():
-                parts, lines = sync_one_catalog_set(session, client, set_num)
+                parts, lines, _age = sync_one_catalog_set(session, client, set_num)
             result.sets_synced += 1
             result.parts_upserted += parts
             result.inventory_lines_written += lines
@@ -141,9 +141,10 @@ def sync_one_catalog_set(
     set_num: str,
     *,
     persist_image_urls: bool = True,
-) -> tuple[int, int]:
+) -> tuple[int, int, int | None]:
     fetched_at = utc_now()
     set_dto = client.get_set(set_num)
+    recommended_age = set_dto.age
 
     theme_id = None
     if set_dto.theme_external_id is not None:
@@ -159,11 +160,11 @@ def sync_one_catalog_set(
         persist_image_urls=persist_image_urls,
     )
 
-    if set_dto.age is not None:
+    if recommended_age is not None:
         for owned in session.scalars(
             select(OwnedSet).where(OwnedSet.catalog_set_id == catalog_set.id)
         ).all():
-            owned.age = set_dto.age
+            owned.age = recommended_age
 
     parts_upserted = 0
     inventory_lines = 0
@@ -216,7 +217,7 @@ def sync_one_catalog_set(
 
     ensure_instance_inventory_for_catalog(session, catalog_set.id)
 
-    return parts_upserted, inventory_lines
+    return parts_upserted, inventory_lines, recommended_age
 
 
 def _format_api_error(exc: RebrickableAPIError) -> str:

@@ -19,6 +19,7 @@ from app.importers.set_list_parser import ParseError, parse_set_list_entries
 from app.rebrickable.client import RebrickableClient
 from app.rebrickable.exceptions import RebrickableAPIError
 from app.services.instance_inventory import clone_instance_inventory
+from app.services.owned_sets_service import _apply_shared_age
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +93,9 @@ def import_set_list(
         nonlocal instances_created, catalog_stubs_created, sets_fetched
 
         try:
+            recommended_age: int | None = None
             with session.begin_nested():
-                sync_one_catalog_set(
+                _parts, _lines, recommended_age = sync_one_catalog_set(
                     session,
                     rb_client,
                     set_num,
@@ -105,6 +107,8 @@ def import_set_list(
             if catalog_set is None:
                 raise RuntimeError(f"catalog missing after sync for {set_num}")
             _create_owned_instance(session, catalog_set)
+            if recommended_age is not None:
+                _apply_shared_age(session, catalog_set.id, recommended_age)
             instances_created += 1
             sets_fetched += 1
             logger.info("CSV import token_ok set_num=%s", set_num)

@@ -74,7 +74,9 @@ export function ImportPage() {
           Upload a plain text file with comma-separated LEGO set numbers (no
           header). Each token creates a <strong>new</strong> owned instance and
           loads set metadata and parts from Rebrickable when the API key is
-          configured. Images are not downloaded.
+          configured. Images are not downloaded. Recommended{" "}
+          <strong>age</strong> is often missing from Rebrickable — set it on the
+          set detail page after import if you want it.
         </p>
         <form onSubmit={(e) => void onCsvSubmit(e)}>
           <input ref={fileRef} type="file" accept=".csv,.txt,text/plain" />

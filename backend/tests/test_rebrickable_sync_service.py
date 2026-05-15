@@ -75,6 +75,7 @@ def _sample_set() -> CatalogSetDTO:
         theme_external_id=67,
         num_parts=24,
         image_url="https://cdn.rebrickable.com/media/sets/6024-1.jpg",
+        age=6,
     )
 
 

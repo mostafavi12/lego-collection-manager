@@ -242,7 +242,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 **Deliverables**
 
 - `POST /imports/csv`: after each valid token, call Rebrickable (set metadata, set parts, minifigs, minifig BOMs) using the Phase 4A client; upsert catalog + template inventory; create instance rows from template (Phase 9). **Do not** HTTP-fetch `part_img_url` / set image URLs into files or BLOBs.
-- Replace **stub-only** catalog creation: new sets get name, theme, year, `num_parts`, age, and full part/minifig lists when the API succeeds; per-token failures reported without aborting other tokens (same partial-success pattern as today).
+- Replace **stub-only** catalog creation: new sets get name, theme, year, `num_parts`, **age only when Rebrickable returns `age_range`**, and full part/minifig lists when the API succeeds; per-token failures reported without aborting other tokens (same partial-success pattern as today). Manual age entry on set detail when the API has no age.
 - Requires `REBRICKABLE_API_KEY`; clear error if missing.
 - Frontend: Import page copy explains that CSV adds instances and fetches set data (no images). Optional: de-emphasize or hide “Sync all” until Phase 14+ (endpoint unchanged).
 - Tests: mocked multi-endpoint Rebrickable sequence per token; assert inventory row counts; assert no image BLOBs/URLs written when policy is “no images on import.”

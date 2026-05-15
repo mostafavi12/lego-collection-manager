@@ -266,14 +266,21 @@ export function OwnedSetDetailPage() {
             />
           </label>
           <label className="form-field">
-            Age
+            Recommended age (years)
             <input
               type="number"
               min={0}
+              aria-label="Recommended age"
+              placeholder="e.g. 8"
               value={form.age}
               disabled={saving}
               onChange={(e) => setForm({ ...form, age: e.target.value })}
             />
+            <span className="form-hint">
+              Rebrickable often omits this field. Enter the minimum age from the
+              box or LEGO.com when you care to track it. Applies to all copies
+              of this set number.
+            </span>
           </label>
           <label className="form-field">
             Parts

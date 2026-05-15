@@ -85,7 +85,7 @@ Represents **one physical copy** the user owns of a catalog set. **Many rows** m
 | `catalog_set_id` | INTEGER FK → `catalog_sets.id` NOT NULL | **Not unique** — multiple instances per set number. |
 | `investigated` | BOOLEAN NOT NULL DEFAULT 0 | `false` for new CSV imports and UI duplicates until user marks investigated. |
 | `label` | TEXT NULL | Optional user label to distinguish copies (e.g. “Copy #2”, “eBay lot — incomplete”). When NULL, the UI shows a default of `Copy #n` where `n` is the 1-based copy index among rows sharing this `catalog_set_id` (ordered by `created_at`, then `id`). |
-| `age` | INTEGER NULL | Recommended age as a **number** (e.g. `6` from Rebrickable `6+`). User may edit on detail; when saved, the same value is written to **all** owned-set instances sharing this `catalog_set_id` (see [product-requirements.md](./product-requirements.md)). UI shows `?` when NULL. |
+| `age` | INTEGER NULL | Recommended minimum age as a **number** (e.g. `6` parsed from Rebrickable `6+` when the API exposes `age_range`). Rebrickable **often omits** age — then the user fills it on set detail (`PATCH`). When saved, the same value is written to **all** owned-set instances sharing this `catalog_set_id`. UI shows `?` when NULL. |
 | `created_at` | TIMESTAMP NOT NULL | When this instance was first recorded. |
 | `notes` | TEXT NULL | Optional free-text note. |
 

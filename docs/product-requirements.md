@@ -27,7 +27,7 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 | **Owned set (instance)** | One **physical copy** the user owns of a catalog set. The same `set_num` may appear as **many** owned-set rows (complete, incomplete, or not yet investigated). |
 | **Investigated** | A boolean on each owned-set instance: the user has manually checked that copy against its imported inventory (typical after buying second-hand). Uninvestigated copies remain flagged until the user marks them investigated. |
 | **Instance label** | Optional text on an owned-set row to distinguish copies. When unset, the UI displays **`Copy #n`** where `n` is the copy index for that `set_num` (1-based among instances, oldest first). |
-| **Instance age** | Integer on each owned-set row (e.g. `6` from Rebrickable `6+`). Shown as `?` when unset. Editing age on one instance updates **all** instances of the same catalog set. |
+| **Instance age** | Integer on each owned-set row (recommended minimum age). Parsed from Rebrickable `age_range` when present; **often omitted** by the API — user fills it manually on detail. Shown as `?` when unset. Editing age on one instance updates **all** instances of the same catalog set. |
 | **Part** | A LEGO element type identified primarily by a part number; may have **aliases** (alternate identifiers). |
 | **Color** | A color identifier and display name as provided by the importer (used on inventory lines). |
 | **Set inventory line** | A row linking a catalog set to a part in a given color with quantity and optional image URL. Rebrickable spare and alternate rows are ignored on import. **Stickered** and **plain** variants are distinct lines when the source uses distinct part identities. |
@@ -162,7 +162,7 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 
 **Provenance:** every field in the table above (and `set_num`) may be filled from **Rebrickable** (or left empty after CSV import) **or** entered/edited by the user on set detail—except **`label`**, which is user-only per instance. See [data-sources.md — Catalog metadata (dual source)](./data-sources.md#catalog-metadata-dual-source). Re-running Rebrickable sync refreshes catalog fields from the API and may overwrite prior manual values.
 
-Rebrickable sync may populate age as `6+` → store **`6`** (integer). CSV import does **not** rename existing instance labels; duplicate custom labels are allowed.
+Rebrickable may populate age when **`age_range`** appears on the set response (`6+` → store **`6`**). When Rebrickable has no age, the user enters it on the set detail form. Successful sync/import **never clears** existing age solely because `age_range` is missing — only explicit user PATCH clears or changes age. CSV import does **not** rename existing instance labels; duplicate custom labels are allowed.
 
 ## 11. Post-MVP collection semantics (Phases 9–13)
 
@@ -176,7 +176,7 @@ The database does not store LEGO sets the user does not own. Every `catalog_sets
 
 When importing or enriching from Rebrickable (CSV import in Phase 12, optional prefill in manual add, and existing sync endpoint):
 
-- **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs.
+- **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs. **Age** is applied only when Rebrickable exposes `age_range`; otherwise the user sets it on set detail.
 - **Do not fetch:** image bytes from Rebrickable CDN URLs (no local cache folders, no automatic BLOB population from URLs in these flows).
 
 User-uploaded images are stored in SQLite (Phase 10).

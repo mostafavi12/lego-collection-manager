@@ -86,6 +86,31 @@ def test_csv_import_second_token_creates_second_instance(db_session) -> None:
     assert db_session.scalar(select(func.count()).select_from(OwnedSet)) == 2
 
 
+def test_csv_import_sets_age_on_new_instance(db_session) -> None:
+    result = import_set_list(
+        db_session, "6024-1", client=_client_for_6024()
+    )
+    db_session.commit()
+
+    assert result.sets_fetched == 1
+    owned = db_session.scalar(select(OwnedSet))
+    assert owned is not None
+    assert owned.age == 6
+
+
+def test_csv_import_second_instance_gets_age(db_session) -> None:
+    client = _client_for_6024()
+    import_set_list(db_session, "6024-1", client=client)
+    db_session.commit()
+
+    result = import_set_list(db_session, "6024-1", client=client)
+    db_session.commit()
+
+    assert result.instances_created == 1
+    ages = db_session.scalars(select(OwnedSet.age).order_by(OwnedSet.id)).all()
+    assert ages == [6, 6]
+
+
 def test_csv_import_two_set_nums_in_one_file(db_session) -> None:
     client = FakeRebrickableClient(
         sets={

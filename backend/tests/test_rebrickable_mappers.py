@@ -17,6 +17,7 @@ def test_map_set() -> None:
     assert dto.theme_external_id == 67
     assert dto.num_parts == 24
     assert dto.image_url.endswith("6024-1.jpg")
+    assert dto.age == 6
 
 
 def test_map_set_part_result() -> None:
