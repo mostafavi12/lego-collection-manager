@@ -56,6 +56,8 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 ## Frontend (Vitest + React Testing Library)
 
+**Tooling:** `npm test` / `npm run test:watch` in `frontend/`. Setup and conventions: [frontend-testing.md](./frontend-testing.md).
+
 | Area | Cases |
 |------|--------|
 | **Owned sets list** | Renders rows from mocked API; shows `investigated` state and `label`; filter param; pagination; duplicate action calls `POST .../duplicate`. |
@@ -78,14 +80,14 @@ Keep fixtures **small** and composable; regenerate from captured responses only 
 
 ## Local smoke test (development)
 
-For a sequential local check (backend install, `pytest`, `alembic upgrade head`, API health/CSV probe, frontend build), run [`./scripts/smoke.sh`](../scripts/smoke.sh). See [smoke-test.md](./smoke-test.md) and the [**smoke**](../.cursor/agents/smoke.md) agent.
+For a sequential local check (backend install, `pytest`, `alembic upgrade head`, API health/CSV probe, frontend `npm test` + build), run [`./scripts/smoke.sh`](../scripts/smoke.sh). See [smoke-test.md](./smoke-test.md) and the [**smoke**](../.cursor/agents/smoke.md) agent.
 
 ## Continuous integration
 
 The default pipeline is documented in [ci.md](./ci.md): on every **push** and **pull request**, GitHub Actions runs **backend `pytest`** and a **frontend `npm run build`** (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
 
 - No secrets in CI; Rebrickable and other upstream HTTP remain **mocked** in tests.
-- When Vitest is wired for the frontend, extend the workflow (and [ci.md](./ci.md)) with `npm test` or `vitest run` as agreed in this document.
+- Frontend job runs `npm test` then `npm run build` (see [ci.md](./ci.md)).
 
 ## Definition of done (per change)
 

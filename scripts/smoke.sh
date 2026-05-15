@@ -75,10 +75,17 @@ else
   echo "node_modules present; skipping install (set FORCE_SMOKE_NPM=1 to reinstall)"
 fi
 
-# --- Step 6: Frontend production build ---
-step 6 "Run frontend npm run build"
+# --- Step 6: Frontend unit tests ---
+step 6 "Run frontend npm test"
+if ! npm test; then
+  fail 6 "npm test failed (see output above)"
+fi
+echo "frontend tests OK"
+
+# --- Step 7: Frontend production build ---
+step 7 "Run frontend npm run build"
 if ! npm run build; then
-  fail 6 "npm run build failed (see output above)"
+  fail 7 "npm run build failed (see output above)"
 fi
 echo "frontend build OK"
 

@@ -23,7 +23,8 @@ Requirements: `python3`, `npm`, network for `pip` / `npm` on a clean machine.
 | 3 | Fresh `backend/data/smoke.db`; `alembic upgrade head` with `DATABASE_URL` pointing at it |
 | 4 | Probe `GET /health` and `POST /api/imports/csv` via FastAPI `TestClient` ([`scripts/smoke_app_probe.py`](../scripts/smoke_app_probe.py)). If the CSV route is not registered (older branch), step 4 **skips** the import probe only. |
 | 5 | `npm ci` in `frontend/` when `node_modules` is missing (or always when `FORCE_SMOKE_NPM=1`) |
-| 6 | `npm run build` in `frontend/` |
+| 6 | `npm test` in `frontend/` (Vitest unit tests) |
+| 7 | `npm run build` in `frontend/` |
 
 On failure the script exits non-zero and prints which step failed. **Fix the failure before re-running**; do not patch around a red step without understanding it.
 
@@ -41,4 +42,5 @@ To run the same flow from chat, invoke the [**smoke**](../.cursor/agents/smoke.m
 
 - [ci.md](./ci.md) — GitHub Actions (pytest + frontend build; no live server)
 - [testing-strategy.md](./testing-strategy.md) — full automated test plan
+- [frontend-testing.md](./frontend-testing.md) — Vitest workflow during UI development
 - [pre-submit agent](../.cursor/agents/pre-submit.md) — pre-PR gate

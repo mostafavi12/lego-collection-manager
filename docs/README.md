@@ -10,6 +10,7 @@ This folder holds the **authoritative product and technical contracts** for the 
 | [data-sources.md](./data-sources.md) | CSV format, Rebrickable usage, mapping and provenance |
 | [development-plan.md](./development-plan.md) | Phased delivery from skeleton to hardening |
 | [testing-strategy.md](./testing-strategy.md) | pytest / Vitest expectations, fixtures, no live APIs |
+| [frontend-testing.md](./frontend-testing.md) | Vitest commands, layout, mocking, dev workflow |
 | [smoke-test.md](./smoke-test.md) | Local dev smoke test (`./scripts/smoke.sh`) |
 | [ci.md](./ci.md) | GitHub Actions: push/PR checks (backend tests, frontend build) |
 

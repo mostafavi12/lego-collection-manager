@@ -16,7 +16,7 @@ Repo-wide policy: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc
 ## Focus areas (see `docs/testing-strategy.md` for detail)
 
 - **Backend (pytest):** CSV parser, mocked importer, models/constraints, FastAPI `TestClient` routes, search SQL, missing-item rules.
-- **Frontend:** Vitest + Testing Library when wired — owned sets list, set detail, search, missing flows per `docs/testing-strategy.md`.
+- **Frontend:** Vitest + Testing Library — owned sets list, set detail, search, missing flows per `docs/testing-strategy.md`; workflow in [`docs/frontend-testing.md`](../../docs/frontend-testing.md).
 
 ## Cross-cutting rules
 
@@ -26,7 +26,7 @@ Repo-wide policy: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc
 ## Verification
 
 - Backend: `cd backend && pytest`.
-- Frontend: run the `test` script from `frontend/package.json` once Vitest is configured.
+- Frontend: `cd frontend && npm test` (see [`docs/frontend-testing.md`](../../docs/frontend-testing.md)).
 - **Local smoke (dev):** [`./scripts/smoke.sh`](../../scripts/smoke.sh) or the [**smoke**](./smoke.md) agent — install, pytest, migrate, API probe, frontend build ([`docs/smoke-test.md`](../../docs/smoke-test.md)).
 
 ## Collaboration

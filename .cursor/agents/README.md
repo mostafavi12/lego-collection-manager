@@ -6,7 +6,7 @@ Contributor roles for this repository. Each brief links to authoritative specs u
 |-------|----------|
 | [architect.md](./architect.md) | Cross-cutting design, spec alignment, phased delivery |
 | [backend.md](./backend.md) | FastAPI routes, SQLAlchemy, Alembic |
-| [frontend.md](./frontend.md) | React + Vite UI |
+| [frontend.md](./frontend.md) | React + Vite UI + Vitest tests in the same change |
 | [data-import.md](./data-import.md) | CSV text import, Rebrickable client |
 | [docs.md](./docs.md) | README, `docs/`, `.env.example` |
 | [qa.md](./qa.md) | Writing/updating automated tests |
