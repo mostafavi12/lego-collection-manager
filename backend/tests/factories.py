@@ -11,12 +11,14 @@ from app.db.models import (
     MissingItem,
     MinifigPartInventoryLine,
     OwnedSet,
+    OwnedSetInventoryLine,
     Part,
     PartAlias,
     SetMinifigInventoryLine,
     SetPartInventoryLine,
     Theme,
 )
+from app.services.instance_inventory import clone_instance_inventory
 
 
 def utc_now() -> datetime:
@@ -61,6 +63,7 @@ def add_owned_set(
     *,
     investigated: bool = False,
     label: str | None = None,
+    with_inventory: bool = True,
 ) -> OwnedSet:
     owned_set = OwnedSet(
         catalog_set_id=catalog_set.id,
@@ -70,6 +73,8 @@ def add_owned_set(
     )
     session.add(owned_set)
     session.flush()
+    if with_inventory:
+        clone_instance_inventory(session, owned_set.id)
     return owned_set
 
 
@@ -140,6 +145,40 @@ def add_catalog_stub(
     return catalog_set
 
 
+def add_instance_line_for_set_part(
+    session: Session,
+    *,
+    owned_set: OwnedSet,
+    catalog_line: SetPartInventoryLine,
+    quantity: int | None = None,
+    quantity_missing: int = 0,
+) -> OwnedSetInventoryLine:
+    instance = _get_instance_line_for_set_part(session, owned_set.id, catalog_line.id)
+    if instance is None:
+        clone_instance_inventory(session, owned_set.id)
+        instance = _get_instance_line_for_set_part(session, owned_set.id, catalog_line.id)
+    assert instance is not None
+    instance.quantity = quantity if quantity is not None else catalog_line.quantity
+    instance.quantity_missing = quantity_missing
+    session.flush()
+    return instance
+
+
+def _get_instance_line_for_set_part(
+    session: Session,
+    owned_set_id: int,
+    catalog_line_id: int,
+) -> OwnedSetInventoryLine | None:
+    from sqlalchemy import select
+
+    return session.scalar(
+        select(OwnedSetInventoryLine).where(
+            OwnedSetInventoryLine.owned_set_id == owned_set_id,
+            OwnedSetInventoryLine.set_part_inventory_line_id == catalog_line_id,
+        )
+    )
+
+
 def add_missing_item_for_set_line(
     session: Session,
     *,
@@ -148,11 +187,15 @@ def add_missing_item_for_set_line(
     quantity_missing: int = 1,
     image_path: str | None = "/data/uploads/1.jpg",
 ) -> MissingItem:
+    instance = add_instance_line_for_set_part(
+        session,
+        owned_set=owned_set,
+        catalog_line=line,
+        quantity_missing=quantity_missing,
+    )
     item = MissingItem(
         owned_set_id=owned_set.id,
-        set_part_inventory_line_id=line.id,
-        minifig_part_inventory_line_id=None,
-        quantity_missing=quantity_missing,
+        owned_set_inventory_line_id=instance.id,
         image_path=image_path,
         created_at=utc_now(),
         updated_at=utc_now(),

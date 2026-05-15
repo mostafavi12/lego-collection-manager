@@ -231,11 +231,9 @@ SQLite full-text (FTS5) is **optional post-MVP**; MVP may use `LIKE` with normal
 
 ---
 
-## Planned schema changes (Phases 9–12, not yet implemented)
+## Post-MVP schema (Phases 9+)
 
-These tables/columns describe the **target** design for post-MVP work. MVP columns above remain until migrated phase by phase.
-
-### Instance inventory (Phase 9)
+### Instance inventory (Phase 9 — implemented)
 
 Catalog inventory lines stay on `catalog_sets` as the **template** (from Rebrickable or manual entry). New table (name TBD, e.g. `owned_set_inventory_lines`):
 
@@ -248,9 +246,9 @@ Catalog inventory lines stay on `catalog_sets` as the **template** (from Rebrick
 | `quantity` | INTEGER NOT NULL | Expected/owned qty for **this instance**; > 0. |
 | `quantity_missing` | INTEGER NOT NULL DEFAULT 0 | 0 ≤ value ≤ `quantity`. |
 
-Creating an instance (CSV, duplicate, manual add) **copies** template lines into instance rows. `missing_items` may be folded into `quantity_missing` or kept for photo linkage until Phase 10 — implementers choose one model and document in migration notes.
+Creating an instance (CSV, duplicate, manual add) **copies** template lines into instance rows. `missing_items` references `owned_set_inventory_line_id` (photo only); `quantity_missing` lives on the instance line.
 
-### Images in SQLite (Phase 10)
+### Images in SQLite (Phase 10 — planned)
 
 | Table | New columns | Notes |
 |-------|-------------|--------|

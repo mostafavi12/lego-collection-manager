@@ -84,6 +84,9 @@ class OwnedSet(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     catalog_set: Mapped[CatalogSet] = relationship(back_populates="owned_sets")
+    inventory_lines: Mapped[list[OwnedSetInventoryLine]] = relationship(
+        back_populates="owned_set", cascade="all, delete-orphan"
+    )
     missing_items: Mapped[list[MissingItem]] = relationship(
         back_populates="owned_set", cascade="all, delete-orphan"
     )
@@ -178,7 +181,7 @@ class SetPartInventoryLine(Base):
     catalog_set: Mapped[CatalogSet] = relationship(back_populates="set_part_inventory_lines")
     part: Mapped[Part] = relationship(back_populates="set_part_inventory_lines")
     color: Mapped[Color] = relationship(back_populates="set_part_inventory_lines")
-    missing_items: Mapped[list[MissingItem]] = relationship(
+    instance_inventory_lines: Mapped[list[OwnedSetInventoryLine]] = relationship(
         back_populates="set_part_inventory_line"
     )
 
@@ -263,34 +266,39 @@ class MinifigPartInventoryLine(Base):
     )
     part: Mapped[Part] = relationship(back_populates="minifig_part_inventory_lines")
     color: Mapped[Color] = relationship(back_populates="minifig_part_inventory_lines")
-    missing_items: Mapped[list[MissingItem]] = relationship(
+    instance_inventory_lines: Mapped[list[OwnedSetInventoryLine]] = relationship(
         back_populates="minifig_part_inventory_line"
     )
 
 
-class MissingItem(Base):
-    __tablename__ = "missing_items"
+class OwnedSetInventoryLine(Base):
+    __tablename__ = "owned_set_inventory_lines"
     __table_args__ = (
         CheckConstraint(
             "(set_part_inventory_line_id IS NOT NULL AND minifig_part_inventory_line_id IS NULL) "
             "OR (set_part_inventory_line_id IS NULL AND minifig_part_inventory_line_id IS NOT NULL)",
-            name="ck_missing_items_one_line_ref",
+            name="ck_owned_set_inventory_lines_one_line_ref",
         ),
-        CheckConstraint("quantity_missing > 0", name="ck_missing_items_quantity_missing"),
+        CheckConstraint("quantity > 0", name="ck_owned_set_inventory_lines_quantity"),
+        CheckConstraint(
+            "quantity_missing >= 0 AND quantity_missing <= quantity",
+            name="ck_owned_set_inventory_lines_missing",
+        ),
         Index(
-            "uq_missing_items_owned_set_part_line",
+            "uq_owned_set_inventory_lines_owned_set_part",
             "owned_set_id",
             "set_part_inventory_line_id",
             unique=True,
             sqlite_where=text("set_part_inventory_line_id IS NOT NULL"),
         ),
         Index(
-            "uq_missing_items_owned_minifig_part_line",
+            "uq_owned_set_inventory_lines_owned_minifig_part",
             "owned_set_id",
             "minifig_part_inventory_line_id",
             unique=True,
             sqlite_where=text("minifig_part_inventory_line_id IS NOT NULL"),
         ),
+        Index("ix_owned_set_inventory_lines_owned_set_id", "owned_set_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -298,12 +306,53 @@ class MissingItem(Base):
         Integer, ForeignKey("owned_sets.id", ondelete="CASCADE"), nullable=False
     )
     set_part_inventory_line_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("set_part_inventory_lines.id"), nullable=True
+        Integer,
+        ForeignKey("set_part_inventory_lines.id", ondelete="CASCADE"),
+        nullable=True,
     )
     minifig_part_inventory_line_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("minifig_part_inventory_lines.id"), nullable=True
+        Integer,
+        ForeignKey("minifig_part_inventory_lines.id", ondelete="CASCADE"),
+        nullable=True,
     )
-    quantity_missing: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity_missing: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+
+    owned_set: Mapped[OwnedSet] = relationship(back_populates="inventory_lines")
+    set_part_inventory_line: Mapped[SetPartInventoryLine | None] = relationship(
+        back_populates="instance_inventory_lines"
+    )
+    minifig_part_inventory_line: Mapped[MinifigPartInventoryLine | None] = relationship(
+        back_populates="instance_inventory_lines"
+    )
+    missing_item: Mapped[MissingItem | None] = relationship(
+        back_populates="owned_set_inventory_line",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+
+class MissingItem(Base):
+    __tablename__ = "missing_items"
+    __table_args__ = (
+        Index(
+            "uq_missing_items_owned_set_inventory_line",
+            "owned_set_inventory_line_id",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owned_set_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("owned_sets.id", ondelete="CASCADE"), nullable=False
+    )
+    owned_set_inventory_line_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("owned_set_inventory_lines.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
@@ -313,9 +362,6 @@ class MissingItem(Base):
     )
 
     owned_set: Mapped[OwnedSet] = relationship(back_populates="missing_items")
-    set_part_inventory_line: Mapped[SetPartInventoryLine | None] = relationship(
-        back_populates="missing_items"
-    )
-    minifig_part_inventory_line: Mapped[MinifigPartInventoryLine | None] = relationship(
-        back_populates="missing_items"
+    owned_set_inventory_line: Mapped[OwnedSetInventoryLine] = relationship(
+        back_populates="missing_item"
     )

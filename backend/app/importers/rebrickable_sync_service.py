@@ -12,6 +12,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db.models import CatalogSet, OwnedSet, SetMinifigInventoryLine
+from app.services.instance_inventory import ensure_instance_inventory_for_catalog
 from app.importers.rebrickable_catalog import (
     SOURCE,
     replace_minifig_part_inventory,
@@ -198,6 +199,8 @@ def _sync_one_set(
         )
         parts_upserted += p
         inventory_lines += lines
+
+    ensure_instance_inventory_for_catalog(session, catalog_set.id)
 
     return parts_upserted, inventory_lines
 

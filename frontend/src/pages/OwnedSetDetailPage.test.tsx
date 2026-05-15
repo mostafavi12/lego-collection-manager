@@ -66,7 +66,7 @@ describe("OwnedSetDetailPage", () => {
     await user.clear(qtyInput);
     await user.type(qtyInput, "2");
     const saveButtons = screen.getAllByRole("button", { name: /^save$/i });
-    await user.click(saveButtons[0]!);
+    await user.click(saveButtons[1]!);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(

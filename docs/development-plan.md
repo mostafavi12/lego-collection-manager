@@ -162,7 +162,7 @@ Phases **1–8** delivered the original MVP (including Rebrickable sync endpoint
 
 Implement **one phase at a time**; update [database-schema.md](./database-schema.md), [api-design.md](./api-design.md), and tests before marking a phase complete.
 
-## Phase 9 — Instance inventory and editing
+## Phase 9 — Instance inventory and editing — **complete**
 
 **Goal:** Quantities and missing counts are **per owned-set instance**, not shared on catalog inventory lines.
 

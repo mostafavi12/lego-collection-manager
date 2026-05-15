@@ -53,8 +53,20 @@ export interface CatalogBlock {
   num_parts: number | null;
 }
 
+export interface InstanceInventoryLineUpdate {
+  quantity?: number;
+  quantity_missing?: number;
+}
+
+export interface InstanceInventoryLineResponse {
+  instance_line_id: number;
+  quantity: number;
+  quantity_missing: number;
+}
+
 export interface SetPartLineDetail {
-  line_id: number;
+  instance_line_id: number;
+  catalog_line_id: number;
   part_num: string;
   part_name: string | null;
   color_id: number;
@@ -69,7 +81,8 @@ export interface SetPartLineDetail {
 }
 
 export interface MinifigPartLineDetail {
-  line_id: number;
+  instance_line_id: number;
+  catalog_line_id: number;
   part_num: string;
   part_name: string | null;
   color_id: number;

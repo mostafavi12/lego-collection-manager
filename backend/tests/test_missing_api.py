@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.db.models import MissingItem
+from app.db.models import MissingItem, OwnedSetInventoryLine
 from tests.factories import (
     add_catalog_set,
     add_color,
@@ -31,12 +31,12 @@ def upload_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _seed_line(db_session, *, quantity: int = 4):
     catalog = add_catalog_set(db_session, set_num="6024-1")
-    owned = add_owned_set(db_session, catalog)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session)
     line = add_set_part_inventory_line(
         db_session, catalog_set=catalog, part=part, color=color, quantity=quantity
     )
+    owned = add_owned_set(db_session, catalog)
     db_session.commit()
     return owned, line
 
@@ -54,7 +54,9 @@ def test_patch_missing_creates(api_client, db_session, upload_root) -> None:
 
     missing = db_session.get(MissingItem, body["missing_item_id"])
     assert missing is not None
-    assert missing.quantity_missing == 2
+    instance = db_session.get(OwnedSetInventoryLine, missing.owned_set_inventory_line_id)
+    assert instance is not None
+    assert instance.quantity_missing == 2
 
 
 def test_patch_missing_quantity_exceeds_inventory(api_client, db_session, upload_root) -> None:
@@ -141,7 +143,9 @@ def test_delete_image_keeps_missing_row(api_client, db_session, upload_root) -> 
 
     missing = db_session.get(MissingItem, missing_id)
     assert missing is not None
-    assert missing.quantity_missing == 2
+    instance = db_session.get(OwnedSetInventoryLine, missing.owned_set_inventory_line_id)
+    assert instance is not None
+    assert instance.quantity_missing == 2
     assert missing.image_path is None
 
 

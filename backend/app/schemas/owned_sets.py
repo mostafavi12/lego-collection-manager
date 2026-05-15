@@ -68,7 +68,8 @@ class CatalogBlock(BaseModel):
 
 
 class SetPartLineDetail(BaseModel):
-    line_id: int
+    instance_line_id: int
+    catalog_line_id: int
     part_num: str
     part_name: str | None
     color_id: int
@@ -83,7 +84,8 @@ class SetPartLineDetail(BaseModel):
 
 
 class MinifigPartLineDetail(BaseModel):
-    line_id: int
+    instance_line_id: int
+    catalog_line_id: int
     part_num: str
     part_name: str | None
     color_id: int

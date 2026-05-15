@@ -61,7 +61,8 @@ export const ownedSetDetailFixture: OwnedSetDetailResponse = {
   inventory: {
     set_parts: [
       {
-        line_id: 10,
+        instance_line_id: 100,
+        catalog_line_id: 10,
         part_num: "3024",
         part_name: "Plate 1 x 1",
         color_id: 0,
