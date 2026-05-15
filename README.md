@@ -73,3 +73,5 @@ Example owned set numbers for CSV import experiments live in [`data/sample_sets.
 ## Documentation
 
 Product and technical specs are in [`docs/`](docs/). Use [`docs/README.md`](docs/README.md) as an index of each specification file.
+
+Before committing or opening a PR, use the [**pre-submit** agent](.cursor/agents/pre-submit.md) to check doc consistency and run CI/smoke tests.

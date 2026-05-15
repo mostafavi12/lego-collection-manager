@@ -27,3 +27,7 @@ Repo-wide policy: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc
 
 - Backend: `cd backend && pytest`.
 - Frontend: run the `test` script from `frontend/package.json` once Vitest is configured.
+
+## Collaboration
+
+- The [**pre-submit**](./pre-submit.md) agent runs the full test gate and maps results to PRD acceptance criteria before the user submits a change; coordinate when new behavior needs tests or fixtures.

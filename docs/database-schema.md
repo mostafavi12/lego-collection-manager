@@ -1,21 +1,24 @@
 # Database schema — LEGO Collection Manager (MVP)
 
-SQLite is the **single source of truth** for catalog and collection data. Schema follows **normalized** tables with clear separation between **global catalog** (Rebrickable-sourced LEGO data) and **user collection** (ownership and missing parts). All importable rows carry **source metadata**.
+SQLite is the **single source of truth** for catalog and collection data. Schema follows **normalized** tables with clear separation between **global catalog** (Rebrickable-sourced LEGO data) and **user collection** (owned instances, investigation state, missing parts, and local missing-part photos). All importable rows carry **source metadata**.
 
 ## Environment
 
 | Variable | Purpose |
 |----------|---------|
 | `DATABASE_URL` | SQLAlchemy URL; MVP default `sqlite:///./data/lego.db` (path relative to backend working directory). |
+| `UPLOAD_ROOT` | Filesystem directory for missing-part images; default `./data/uploads` (see [data-sources.md](./data-sources.md)). |
 
 Migrations: **Alembic** tracks revisions; application startup fails fast if the DB is not at head (per [development-plan.md](./development-plan.md)).
 
 ## Design principles
 
 1. **Catalog vs collection:** Catalog tables mirror importer entities; collection tables reference catalog by foreign key.
-2. **No duplicate catalog primaries:** Upserts keyed by natural keys (`set_num`, `part_num`, `color_id` from API, etc.).
-3. **Inventory fidelity:** Spare, alternate, stickered vs plain, and distinct Rebrickable part numbers are preserved on line tables—**no collapsing** of lines in MVP.
-4. **Missing parts** belong to an **owned set** and reference a **specific inventory line** (set-level part row or minifig BOM row) for traceability in the UI.
+2. **Many instances per set number:** Multiple `owned_sets` rows may reference the same `catalog_sets.id` (several physical copies, complete or not).
+3. **No duplicate catalog primaries:** Upserts keyed by natural keys (`set_num`, `part_num`, `color_id` from API, etc.).
+4. **Inventory fidelity:** Spare, alternate, stickered vs plain, and distinct Rebrickable part numbers are preserved on line tables—**no collapsing** of lines in MVP.
+5. **Missing parts** belong to an **owned-set instance** and reference a **specific inventory line** (set-level part row or minifig BOM row) for traceability in the UI.
+6. **Local missing-part photos:** At most one image file per `missing_items` row, path stored in DB, bytes on disk under `UPLOAD_ROOT`.
 
 ## Entity-relationship overview
 
@@ -64,18 +67,24 @@ erDiagram
 | `source_ref` | TEXT NOT NULL | Typically same as `set_num`. |
 | `fetched_at` | TIMESTAMP NOT NULL | UTC. |
 
-**CSV import:** may insert **minimal stub** rows (`set_num`, `source` = `csv_import`, `source_ref` = `set_num`, `fetched_at`, other fields NULL) so `owned_sets` can reference `catalog_set_id` before the first Rebrickable sync; sync then upserts full metadata and inventories (`source` becomes `rebrickable` or remains hybrid per implementation, but must satisfy provenance rules in [data-sources.md](./data-sources.md)).
+**CSV import:** may insert **minimal stub** rows (`set_num`, `source` = `csv_import`, `source_ref` = `set_num`, `fetched_at`, other fields NULL) so `owned_sets` can reference `catalog_set_id` before the first Rebrickable sync; sync then upserts full metadata and inventories.
 
 ### `owned_sets`
 
-Represents the user owning one catalog set (MVP: **at most one row per `catalog_set_id`**).
+Represents **one physical copy** the user owns of a catalog set. **Many rows** may share the same `catalog_set_id`.
 
 | Column | Type | Notes |
 |--------|------|--------|
-| `id` | INTEGER PK | |
-| `catalog_set_id` | INTEGER FK → `catalog_sets.id` NOT NULL UNIQUE | |
-| `created_at` | TIMESTAMP NOT NULL | When ownership first recorded. |
-| `notes` | TEXT NULL | Optional user note (post-MVP UX optional). |
+| `id` | INTEGER PK | Surrogate key; exposed in API and UI. |
+| `catalog_set_id` | INTEGER FK → `catalog_sets.id` NOT NULL | **Not unique** — multiple instances per set number. |
+| `investigated` | BOOLEAN NOT NULL DEFAULT 0 | `false` for new CSV imports and UI duplicates until user marks investigated. |
+| `label` | TEXT NULL | Optional user label to distinguish copies (e.g. “complete”, “missing minifigs”). |
+| `created_at` | TIMESTAMP NOT NULL | When this instance was first recorded. |
+| `notes` | TEXT NULL | Optional free-text note. |
+
+**Index:** `(catalog_set_id)` for listing all copies of a set number.
+
+**Duplicate instance (UI/API):** `POST /owned-sets/{id}/duplicate` inserts a new row with the same `catalog_set_id`, `investigated` = `false`, `label` and `notes` = NULL, and **no** `missing_items`. The source row is unchanged. Provenance of “copied from” is optional in the API response only (no extra column required in MVP).
 
 ### `parts`
 
@@ -177,7 +186,7 @@ BOM: parts belonging to a minifig design.
 
 ### `missing_items`
 
-Per **owned set**, references **one** inventory line.
+Per **owned-set instance**, references **one** inventory line. Optional **local** photo for offline use.
 
 | Column | Type | Notes |
 |--------|------|--------|
@@ -186,10 +195,13 @@ Per **owned set**, references **one** inventory line.
 | `set_part_inventory_line_id` | INTEGER FK → `set_part_inventory_lines.id` NULL | |
 | `minifig_part_inventory_line_id` | INTEGER FK → `minifig_part_inventory_lines.id` NULL | |
 | `quantity_missing` | INTEGER NOT NULL | > 0; ≤ referenced line `quantity` (enforced in app or trigger). |
+| `image_path` | TEXT NULL | Relative path under `UPLOAD_ROOT`; **at most one** image per row; NULL if none. |
 | `created_at` | TIMESTAMP NOT NULL | |
 | `updated_at` | TIMESTAMP NOT NULL | |
 | **CHECK** | | Exactly one of (`set_part_inventory_line_id`, `minifig_part_inventory_line_id`) is NOT NULL. |
-| **UNIQUE** | | For a given line, one active missing row: `UNIQUE(owned_set_id, set_part_inventory_line_id)` where line id non-null; separate partial unique on minifig line (SQLite may require application-level enforcement or composite key strategy—implementation may merge into a single `inventory_line_kind` + `inventory_line_id` pattern if partial uniques are awkward). |
+| **UNIQUE** | | One active missing row per owned instance + line (same strategy as before; see implementation note below). |
+
+**File naming (implementation):** e.g. `missing/{missing_item_id}.{ext}` under `UPLOAD_ROOT`; replacing upload deletes previous file.
 
 **Implementation note:** If SQLite uniqueness with NULLs becomes painful, replace the two nullable FKs with `inventory_line_type` (`set_part` \| `minifig_part`) + `inventory_line_id` INTEGER + application validation.
 
@@ -203,13 +215,15 @@ Per **owned set**, references **one** inventory line.
 | `set_part_inventory_lines` | `(catalog_set_id)` | Set detail parts query. |
 | `set_minifig_inventory_lines` | `(catalog_set_id)` | Set detail minifigs. |
 | `minifig_part_inventory_lines` | `(catalog_minifig_id)` | Expand minifig BOM. |
-| `owned_sets` | `(catalog_set_id)` | Join owned → catalog. |
+| `owned_sets` | `(catalog_set_id)` | Join owned → catalog; count copies per set. |
+| `owned_sets` | `(investigated)` | Optional filter uninvestigated instances. |
 
 SQLite full-text (FTS5) is **optional post-MVP**; MVP may use `LIKE` with normalized uppercase column `part_num_norm` / `alias_norm` populated on write for simpler indexing.
 
 ## Deletion and orphan rules
 
-- Deleting an `owned_set` deletes its `missing_items` (CASCADE).
+- Deleting an `owned_set` deletes its `missing_items` (CASCADE) and **removes associated image files** from disk.
+- Deleting a `missing_items` row removes its image file if present.
 - Catalog rows are generally **not** deleted on failed sync; importer updates in place. Optional future “prune sets no longer owned” job is out of MVP scope.
 
 ## Related documents

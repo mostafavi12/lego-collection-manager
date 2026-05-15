@@ -9,22 +9,27 @@ This document defines **file** and **network** inputs: formats, environment vari
 | Aspect | Rule |
 |--------|------|
 | **Encoding** | UTF-8 only. |
-| **Delimiter** | Comma (`,`). |
-| **Header row** | Optional. When present, the header must name the set column `set_num` (case-insensitive). |
-| **Minimum column** | One column containing Rebrickable-compatible **set numbers** (`set_num`). |
-| **Optional columns (post-MVP)** | `quantity`, `notes`, `purchase_date`, etc. are **not** required for MVP; if present, parsers may ignore them until specified in a later PRD revision. |
+| **Structure** | A **plain text** file: Rebrickable-compatible **set numbers** separated by **commas**. There is **no header row** and **no column layout** (not a spreadsheet schema). |
+| **Separators** | Comma (`,`). Tokens may also be separated by **whitespace** and **newlines**; the parser normalizes by splitting on commas and whitespace runs, then trimming each token. |
+| **Example** | `6024-1,10281-1,21309-1` or multi-line: `6024-1, 10281-1\n21309-1` |
+| **Minimum content** | At least one non-empty set number token per successful import. |
 
 ### Normalization
 
-- Trim leading and trailing whitespace on every field.
-- Empty `set_num` after trim → row error, skip row.
+- Trim leading and trailing whitespace on every token.
+- Empty token after trim → token error, skip token.
 - **Case:** store and match using the canonical string returned by Rebrickable after first successful sync when possible; until sync, preserve user input trimmed.
-- **Variants:** Rebrickable uses set numbers such as `6024-1`. User CSV values must be resolvable to the same `set_num` the API expects; if the API returns 404 for a row, surface that as a **sync-time** error for that set (see import API).
+- **Variants:** Rebrickable uses set numbers such as `6024-1`. User values must be resolvable to the same `set_num` the API expects; if the API returns 404 for a row, surface that as a **sync-time** error for that owned instance’s catalog set (see import API).
 
 ### Semantics
 
-- Each non-duplicate row defines **ownership** of that catalog set (see `owned_sets` in [database-schema.md](./database-schema.md)).
-- Re-importing the same file must not create duplicate owned-set rows for the same `set_num`.
+- **One token → one owned-set instance:** each valid set number in the file creates a **new** row in `owned_sets`, linked to the shared `catalog_sets` row for that `set_num` (creating a **stub** catalog row when needed). Repeating the same `set_num` in one file or across imports creates **multiple instances** (see [product-requirements.md](./product-requirements.md)).
+- Import is **additive** only: it never removes existing owned instances.
+- Re-uploading an identical file will create **duplicate instances**; the app does not deduplicate across imports.
+
+### Investigation default
+
+New owned-set instances created from **CSV import** or **`POST /owned-sets/{id}/duplicate`** have `investigated = false` until the user marks them investigated in the UI or API.
 
 ## Rebrickable API
 
@@ -73,7 +78,7 @@ General rules (details in [database-schema.md](./database-schema.md)):
 
 | Rebrickable concept | Storage rule |
 |---------------------|--------------|
-| `set_num` | Primary business key for `catalog_sets`; FK target for `owned_sets`. |
+| `set_num` | Primary business key for `catalog_sets`; many `owned_sets` may reference one `catalog_set_id`. |
 | `part` / `part_num` | Upsert `parts`; store `name`, `part_img_url` or equivalent as returned. |
 | `color_id` | Upsert `colors`; FK on inventory lines. |
 | Quantity, `is_spare`, `is_alternate` | Store on the appropriate inventory line table; include in uniqueness so spare vs non-spare lines do not collide. |
@@ -90,6 +95,20 @@ Every upserted row that originates from Rebrickable should set at least:
 - `fetched_at` = UTC timestamp of successful write
 
 Optional later: payload hash for change detection.
+
+## Local files (missing-part images)
+
+| Variable | Purpose |
+|----------|---------|
+| `UPLOAD_ROOT` | Directory for user-uploaded missing-part images (default e.g. `./data/uploads` relative to backend working directory). |
+
+Rules:
+
+- **One image per `missing_items` row** (replace on re-upload).
+- Accepted formats: **JPEG** and **PNG** (MVP); max size per [api-design.md](./api-design.md).
+- Files are stored on disk with a stable name derived from `missing_items.id` (see [database-schema.md](./database-schema.md)); database holds relative path only.
+- Deleting a missing item or its image removes the file from disk.
+- Images are **not** sent to Rebrickable; they exist for local UI and future offline reports.
 
 ## Testing constraint
 

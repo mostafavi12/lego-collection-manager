@@ -4,7 +4,7 @@ This folder holds the **authoritative product and technical contracts** for the 
 
 | Document | Role |
 |----------|------|
-| [product-requirements.md](./product-requirements.md) | Problem, user, scope, acceptance criteria, glossary |
+| [product-requirements.md](./product-requirements.md) | Problem, user, scope, acceptance criteria, glossary (multi-instance ownership, duplicate instance, investigation flag, local missing-part photos) |
 | [api-design.md](./api-design.md) | REST JSON routes, payloads, errors, pagination |
 | [database-schema.md](./database-schema.md) | SQLite tables, keys, indexes, invariants |
 | [data-sources.md](./data-sources.md) | CSV format, Rebrickable usage, mapping and provenance |
@@ -14,4 +14,4 @@ This folder holds the **authoritative product and technical contracts** for the 
 
 Repository-wide **engineering defaults** (preferred stack, “no live API in tests”, etc.) live in [`.cursor/rules/project-rules.mdc`](../.cursor/rules/project-rules.mdc).
 
-Cursor **agent briefs** under [`.cursor/agents/`](../.cursor/agents/) describe *contributor roles* (what to optimize for, where to look first). They **link** here; they do **not** replace these specifications.
+Cursor **agent briefs** under [`.cursor/agents/`](../.cursor/agents/) describe *contributor roles* (what to optimize for, where to look first). They **link** here; they do **not** replace these specifications. Before you commit or open a PR, use the [**pre-submit**](../.cursor/agents/pre-submit.md) agent to review doc consistency and run CI/smoke checks.

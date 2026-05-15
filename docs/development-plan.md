@@ -8,8 +8,8 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - Python **3.12+** project layout under `backend/` (FastAPI application factory, dependency injection for DB session).
 - `frontend/` scaffold: **React**, **TypeScript**, **Vite**, router, API client base URL from env.
-- `backend/.env.example`: `DATABASE_URL`, `REBRICKABLE_API_KEY`, `VITE_API_BASE_URL`, CORS-related vars as needed.
-- `.gitignore` excludes `.env`, SQLite files under `data/` if desired, and virtualenvs.
+- `backend/.env.example`: `DATABASE_URL`, `REBRICKABLE_API_KEY`, `UPLOAD_ROOT`, `VITE_API_BASE_URL`, CORS-related vars as needed.
+- `.gitignore` excludes `.env`, SQLite files under `data/` if desired, upload directory contents, and virtualenvs.
 
 **Exit criteria**
 
@@ -20,27 +20,28 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 **Deliverables**
 
-- SQLAlchemy models matching [database-schema.md](./database-schema.md).
+- SQLAlchemy models matching [database-schema.md](./database-schema.md) (including `owned_sets.investigated`, `owned_sets.label`, non-unique `catalog_set_id`, `missing_items.image_path`).
 - Alembic initialized; initial migration creates all MVP tables and indexes.
 - Configurable `DATABASE_URL` with default SQLite path documented in `backend/.env.example`.
 
 **Exit criteria**
 
 - Fresh DB migrates to head without manual SQL.
-- Model-level constraints match the schema doc (FKs, uniqueness where specified).
+- Model-level constraints match the schema doc (FKs; **no** unique constraint on `owned_sets.catalog_set_id`).
 
 ## Phase 3 — CSV pipeline
 
 **Deliverables**
 
-- CSV parser module (delimiter, header detection, UTF-8) per [data-sources.md](./data-sources.md).
-- Service that creates/updates **stub** `catalog_sets` and `owned_sets` rows idempotently.
-- `POST /imports/csv` per [api-design.md](./api-design.md).
+- Text parser per [data-sources.md](./data-sources.md): comma- and whitespace-separated set numbers, **no header**, UTF-8.
+- Service that creates **stub** `catalog_sets` when needed and **inserts one new** `owned_sets` row per valid token (`investigated` = false).
+- `POST /imports/csv` per [api-design.md](./api-design.md) (additive semantics).
 
 **Exit criteria**
 
-- Duplicate `set_num` in one file does not create duplicate `owned_sets`.
-- Row-level errors reported without aborting the whole file (unless zero valid rows).
+- Duplicate `set_num` in one file creates **multiple** `owned_sets` rows.
+- Token-level errors reported without aborting valid tokens (unless zero valid tokens).
+- Second upload of the same file creates **additional** instances (documented behavior).
 
 ## Phase 4 — Rebrickable client and sync
 
@@ -48,57 +49,63 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - HTTP client module (timeouts, retries/backoff for `429`/`5xx` as minimal courtesy).
 - Mappers from JSON responses to ORM objects (sets, themes, colors, parts, aliases, all inventory line types).
-- Orchestration service: for each owned set, fetch set metadata, parts, minifigs, then each minifig’s BOM; upsert with **source metadata**.
+- Orchestration service: for each owned set (by distinct `set_num` or per `owned_set_id` scope in API), fetch set metadata, parts, minifigs, then each minifig’s BOM; upsert with **source metadata**.
 - `POST /imports/rebrickable/sync` synchronous implementation per [api-design.md](./api-design.md).
 
 **Exit criteria**
 
-- Second sync run updates `fetched_at` and replaces inventory for that set without duplicate line rows (natural keys respected).
+- Second sync run updates `fetched_at` and replaces inventory for that catalog set without duplicate line rows (natural keys respected).
 - Missing API key returns `400` with clear message.
 
 ## Phase 5 — Read APIs
 
 **Deliverables**
 
-- `GET /owned-sets` with pagination and `catalog_sync_state` / `missing_count` fields.
-- `GET /owned-sets/{id}` returning catalog block plus nested inventories and per-line `missing_quantity` aggregation.
-- `GET /search` per [api-design.md](./api-design.md).
+- `GET /owned-sets` with pagination, optional `investigated` filter, `catalog_sync_state` / `missing_count` / `label` fields.
+- `GET /owned-sets/{id}` returning instance metadata, catalog block, nested inventories, per-line `missing_quantity` / `missing_item_id` / `missing_image_url`.
+- `PATCH /owned-sets/{id}` for `investigated` and `label`.
+- `POST /owned-sets/{id}/duplicate` — new instance, `investigated` false, no missing rows copied.
+- `GET /search` per [api-design.md](./api-design.md) (multiple instances per `set_num` in set results).
 
 **Exit criteria**
 
 - `404` for unknown owned set id.
+- Duplicate returns `201` with new `id`; source instance unchanged; new row has `investigated` false and `missing_count` 0.
 - Search rejects empty `q` with `400`.
 
-## Phase 6 — Missing parts API
+## Phase 6 — Missing parts API and local images
 
 **Deliverables**
 
 - `PATCH /owned-sets/{id}/missing` implementing upsert/clear rules and quantity validation.
+- `PUT` / `DELETE` missing-part image endpoints; `GET /media/missing/{missing_item_id}`; files under `UPLOAD_ROOT`.
 
 **Exit criteria**
 
 - Cannot persist `quantity_missing` greater than the referenced inventory line’s `quantity`.
-- Clearing with `quantity_missing: 0` removes the missing row.
+- Clearing with `quantity_missing: 0` removes the missing row and any image file.
+- Upload replaces prior file; delete image leaves missing quantity unchanged.
 
 ## Phase 7 — Frontend MVP UI
 
 **Deliverables**
 
-- **Owned sets list** page with pagination.
-- **Set detail** page: metadata, tables for set parts and minifigs (with expandable BOM or flat nested section), badges for spare/alternate.
+- **Owned sets list** page with pagination, investigation badge, optional filter, labels for duplicate `set_num`.
+- **Set detail** page: metadata, investigation toggle, label edit, **add another copy**, inventory tables, **missing** panel with quantity controls and **per-line photo upload/preview**.
+- **Owned sets list:** **add another copy** action per row.
 - **Search** UI (single field; tabs or toggle for set vs part optional).
-- **Import** UI: file picker for CSV; button to trigger Rebrickable sync (global or per selection as time permits—document chosen UX).
+- **Import** UI: file picker for comma-separated set list; button to trigger Rebrickable sync.
 
 **Exit criteria**
 
-- End-to-end manual flow: CSV → sync → browse → search → mark missing → verify persistence after reload.
+- End-to-end manual flow: CSV (additive) → sync → duplicate an owned set from UI → new uninvestigated copy → mark missing + upload photo → reload shows persisted state and local image.
 
 ## Phase 8 — Hardening and documentation
 
 **Deliverables**
 
 - Structured logging for importer (no secrets).
-- README sections: prerequisites, how to run backend/frontend, how to run migrations, where the SQLite file lives.
+- README sections: prerequisites, how to run backend/frontend, how to run migrations, where the SQLite file and upload directory live.
 - GitHub Actions CI on push/PR: backend `pytest` and frontend `npm run build` (see [ci.md](./ci.md), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)); extend with Vitest when configured.
 
 **Exit criteria**

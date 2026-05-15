@@ -8,14 +8,14 @@ You own **CSV parsing**, the **Rebrickable HTTP client** (documented API only), 
 - [`docs/data-sources.md`](../../docs/data-sources.md) — CSV format, env vars, endpoint set, mapping and provenance rules.
 - [`docs/database-schema.md`](../../docs/database-schema.md) — tables, natural keys, stub `catalog_sets` behavior.
 - [`docs/api-design.md`](../../docs/api-design.md) — `POST /imports/csv`, `POST /imports/rebrickable/sync`, error and summary shapes.
-- [`docs/product-requirements.md`](../../docs/product-requirements.md) — import idempotency and user-visible outcomes.
+- [`docs/product-requirements.md`](../../docs/product-requirements.md) — additive CSV import, multiple instances per set number, investigation default.
 - [`docs/testing-strategy.md`](../../docs/testing-strategy.md) — fixtures, mocks, no live HTTP.
 
 Repo-wide defaults: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc).
 
 ## Scope
 
-- Parser and validation for owned-set identifiers (sample rows in `data/sample_sets.csv` for experiments).
+- Parser for comma-separated set-number text files (no header; see `docs/data-sources.md`).
 - Importer: timeouts, pagination/`next`, rate-limit courtesy, upserts keyed as in `docs/database-schema.md`.
 - Preserve **source metadata** and inventory line fidelity per `docs/data-sources.md` / `docs/database-schema.md`.
 

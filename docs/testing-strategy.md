@@ -8,17 +8,20 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 |-----------|-------------|
 | **Deterministic** | Fixed clocks where `fetched_at` matters; no network. |
 | **Isolated DB** | Use file SQLite `:memory:` or `tmp_path` per test session/module as appropriate; migrations applied in fixture. |
+| **Isolated uploads** | Point `UPLOAD_ROOT` at `tmp_path` per test; assert files created/removed with missing rows. |
 | **Contract fidelity** | Mocked Rebrickable payloads match **v3 JSON shapes** from official docs (trim fixtures to required keys only). |
 | **Fast feedback** | Unit tests run without browser unless explicitly UI/integration. |
 
 ## Backend (pytest)
 
-### CSV parsing
+### CSV / text parsing
 
-- Happy path: header + rows, mixed valid/invalid.
-- No header mode (if supported) or wrong header.
-- UTF-8 edge cases (BOM optional handling decision documented in parser).
-- Deduplication and idempotency assertions on `owned_sets` / stub `catalog_sets`.
+- Happy path: comma-separated tokens on one line and across newlines.
+- No header: file is not interpreted as columnar CSV.
+- UTF-8 edge cases (BOM optional handling documented in parser).
+- Same `set_num` twice in one file → **two** `owned_sets` rows.
+- Second import of same content → **additional** rows (additive).
+- Malformed/empty tokens → errors array; valid tokens still processed.
 
 ### Importer mapping
 
@@ -28,15 +31,20 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 ### Database models
 
-- Constraint tests: uniqueness (`set_num`, `part_num`), FK integrity, CHECK behavior for `missing_items` line reference (if enforced in SQLite) or application-level validator tests.
+- Constraint tests: uniqueness on catalog keys (`set_num`, `part_num`); **multiple** `owned_sets` per `catalog_set_id` allowed.
+- FK integrity; CHECK behavior for `missing_items` line reference (if enforced in SQLite) or application-level validator tests.
+- `investigated` defaults false on CSV-created and duplicated instances.
 
 ### API endpoints (FastAPI `TestClient`)
 
-- `POST /imports/csv`: multipart upload, size limit, partial errors shape.
+- `POST /imports/csv`: multipart upload, size limit, token errors shape, `instances_created` count.
 - `POST /imports/rebrickable/sync`: success summary; per-set failure; missing API key.
-- `GET /owned-sets`, `GET /owned-sets/{id}`: pagination, 404, nested `missing_quantity` aggregation correctness.
-- `GET /search`: 400 on empty `q`; part vs set modes; only-owned filter for parts.
-- `PATCH .../missing`: validation against inventory quantity; clear with zero.
+- `GET /owned-sets`: pagination, `investigated` filter, multiple rows same `set_num`.
+- `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation and label; nested `missing_image_url` when file present.
+- `POST /owned-sets/{id}/duplicate`: `201` with new id; `investigated` false; no `missing_items` on new instance; source missing rows unchanged; `404` for unknown source.
+- `GET /search`: 400 on empty `q`; set mode returns distinct `owned_set_id` per instance.
+- `PATCH .../missing`: validation against inventory quantity; clear with zero removes row and image file.
+- `PUT` / `DELETE` missing image; `GET /media/missing/{id}`: 404 when absent; content-type for JPEG/PNG fixtures.
 
 ### Search
 
@@ -44,16 +52,17 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 ### Missing item tracking
 
-- Create owned set + inventory lines + missing rows; verify PATCH upsert/clear and that detail endpoint reflects aggregates.
+- Create owned instances + inventory + missing rows; verify PATCH upsert/clear, image lifecycle, and detail endpoint aggregates.
 
 ## Frontend (Vitest + React Testing Library)
 
 | Area | Cases |
 |------|--------|
-| **Owned sets list** | Renders rows from mocked API; pagination controls adjust query params or client state. |
-| **Set detail** | Renders catalog header; inventory tables; minifig nested parts; spare/alternate labels. |
-| **Search** | Debounce (if any), submit triggers correct API, displays split results for `type=all`. |
-| **Missing UI** | Changing missing quantity calls PATCH with correct payload; optimistic or refetch behavior covered. |
+| **Owned sets list** | Renders rows from mocked API; shows `investigated` state and `label`; filter param; pagination; duplicate action calls `POST .../duplicate`. |
+| **Set detail** | Renders catalog header; investigation toggle; duplicate action; inventory tables; minifig nested parts; spare/alternate labels. |
+| **Search** | Debounce (if any), submit triggers correct API, displays multiple instances per `set_num` when applicable. |
+| **Missing UI** | Changing missing quantity calls PATCH; upload calls PUT image endpoint; preview uses `missing_image_url`. |
+| **Import** | File picker posts to CSV endpoint; success message reflects instances created. |
 
 **Mocking:** MSW (Mock Service Worker) or fetch mocks to return canned JSON aligned with [api-design.md](./api-design.md).
 
@@ -61,8 +70,9 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 | Location | Contents |
 |----------|----------|
-| `tests/fixtures/csv/` | `minimal.csv`, `with_duplicates.csv`, `with_errors.csv`. |
+| `tests/fixtures/csv/` | `comma_separated.txt`, `duplicate_set_nums.txt`, `with_invalid_tokens.txt`, `multiline.txt`. |
 | `tests/fixtures/rebrickable/` | `set_6024.json`, `parts_page1.json`, `parts_page2.json`, `minifigs.json`, `minifig_parts.json`, etc. |
+| `tests/fixtures/images/` | Small valid JPEG/PNG for upload tests. |
 
 Keep fixtures **small** and composable; regenerate from captured responses only after stripping private data (none expected for Rebrickable public metadata).
 
