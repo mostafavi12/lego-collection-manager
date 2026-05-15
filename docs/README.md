@@ -15,4 +15,4 @@ This folder holds the **authoritative product and technical contracts** for the 
 
 Repository-wide **engineering defaults** (preferred stack, “no live API in tests”, etc.) live in [`.cursor/rules/project-rules.mdc`](../.cursor/rules/project-rules.mdc).
 
-Cursor **agent briefs** under [`.cursor/agents/`](../.cursor/agents/) describe *contributor roles* (what to optimize for, where to look first). They **link** here; they do **not** replace these specifications. Before you commit or open a PR, use the [**pre-submit**](../.cursor/agents/pre-submit.md) agent to review doc consistency and run CI/smoke checks.
+Cursor **agent briefs** under [`.cursor/agents/`](../.cursor/agents/) describe *contributor roles* (what to optimize for, where to look first). They **link** here; they do **not** replace these specifications. During development, use the [**smoke**](../.cursor/agents/smoke.md) agent or [`./scripts/smoke.sh`](../scripts/smoke.sh). Before you commit or open a PR, use the [**pre-submit**](../.cursor/agents/pre-submit.md) agent to review doc consistency and run CI/acceptance checks.

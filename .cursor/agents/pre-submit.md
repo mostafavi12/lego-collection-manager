@@ -10,6 +10,8 @@ Invoke this agent when:
 - Changing **backend** or **frontend** application code, migrations, or tests
 - Preparing any change the user wants to **submit** (commit / PR)
 
+**During development**, use the [**smoke**](./smoke.md) agent or [`./scripts/smoke.sh`](../../scripts/smoke.sh) for a fast local health check. **Before PR/commit**, use this pre-submit agent for spec consistency and acceptance mapping.
+
 ## Authoritative inputs
 
 - [`docs/README.md`](../../docs/README.md) — spec index

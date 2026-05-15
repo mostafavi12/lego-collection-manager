@@ -29,6 +29,8 @@ cd frontend && npm ci && npm run build
 
 The backend install matches the README **fallback** (`requirements-dev.txt`); use `pip install -e ".[dev]"` locally when you want editable installs and packaging checks.
 
+For a **sequential local smoke test** (CI steps plus `alembic upgrade head` and an API health/CSV probe), run [`./scripts/smoke.sh`](../scripts/smoke.sh) from the repository root. See [smoke-test.md](./smoke-test.md). CI does not run this script; it is for development only.
+
 ## Secrets and network
 
 - **No API keys** are required for these jobs. Tests must not call live external APIs (see [`.cursor/rules/project-rules.mdc`](../.cursor/rules/project-rules.mdc) and [`testing-strategy.md`](./testing-strategy.md)).
@@ -41,5 +43,6 @@ In the GitHub repository **Settings → Branches**, you can require the **CI** w
 ## Related documents
 
 - [README.md](./README.md) — index of all specification files in `docs/`
+- [smoke-test.md](./smoke-test.md) — local dev smoke test (not run in GitHub Actions)
 - [testing-strategy.md](./testing-strategy.md)
 - [development-plan.md](./development-plan.md)
