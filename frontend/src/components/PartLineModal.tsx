@@ -4,10 +4,15 @@ import {
   addSetPartLine,
   deletePartImage,
   deleteSetPartLine,
+  patchPartAliases,
   updateSetPartLine,
   uploadPartImage,
 } from "../api/client";
 import type { SetPartLineDetail } from "../api/types";
+import {
+  AliasChipEditor,
+  normalizePartAliases,
+} from "./AliasChipEditor";
 import { AsyncMessage } from "./AsyncMessage";
 import { ImageBlobEditor } from "./ImageBlobEditor";
 import { Modal } from "./Modal";
@@ -38,11 +43,23 @@ export function PartLineModal({
   const [quantity, setQuantity] = useState(
     line != null ? String(line.quantity) : "1",
   );
+  const [aliases, setAliases] = useState<string[]>(line?.aliases ?? []);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (isEdit && line) {
+      setPartNum(line.part_num);
+      setPartName(line.part_name ?? "");
+      setColorId(String(line.color_id));
+      setColorName(line.color_name);
+      setQuantity(String(line.quantity));
+      setAliases(line.aliases);
+    }
+  }, [isEdit, line]);
 
   useEffect(() => {
     if (pendingImage == null) {
@@ -56,6 +73,11 @@ export function PartLineModal({
 
   function onPendingFileSelected(file: File | undefined) {
     setPendingImage(file ?? null);
+  }
+
+  async function saveAliases(partId: number, canonicalPartNum: string) {
+    const normalized = normalizePartAliases(canonicalPartNum, aliases);
+    await patchPartAliases(partId, { aliases: normalized });
   }
 
   async function onSubmit(event: FormEvent) {
@@ -77,6 +99,17 @@ export function PartLineModal({
           color_name: colorName.trim() || null,
           quantity: parsedQty,
         });
+        try {
+          await saveAliases(line.part_id, line.part_num);
+        } catch (aliasErr) {
+          setError(
+            aliasErr instanceof Error
+              ? `${aliasErr.message} (line was updated; retry aliases)`
+              : "Alias update failed (line was updated)",
+          );
+          onSaved();
+          return;
+        }
       } else {
         const trimmedPart = partNum.trim();
         if (!trimmedPart) {
@@ -91,6 +124,17 @@ export function PartLineModal({
           color_name: colorName.trim() || null,
           quantity: parsedQty,
         });
+        try {
+          await saveAliases(created.part_id, trimmedPart);
+        } catch (aliasErr) {
+          setError(
+            aliasErr instanceof Error
+              ? `${aliasErr.message} (part was added; retry aliases from edit)`
+              : "Alias update failed (part was added)",
+          );
+          onSaved();
+          return;
+        }
         if (pendingImage) {
           try {
             await uploadPartImage(created.part_id, pendingImage);
@@ -134,6 +178,7 @@ export function PartLineModal({
 
   const title = isEdit ? "Edit part" : "Add part";
   const imageUrl = line?.part_image_url ?? line?.image_url ?? null;
+  const canonicalPartNum = isEdit ? (line?.part_num ?? "") : partNum.trim();
 
   return (
     <Modal title={title} onClose={onClose}>
@@ -218,6 +263,13 @@ export function PartLineModal({
               />
             </label>
           </div>
+
+          <AliasChipEditor
+            partNum={canonicalPartNum}
+            aliases={aliases}
+            onChange={setAliases}
+            disabled={loading || !canonicalPartNum}
+          />
 
           <div className="part-line-modal__image">
             <p className="form-hint">Part image (shared across all sets)</p>

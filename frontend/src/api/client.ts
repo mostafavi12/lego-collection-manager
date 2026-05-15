@@ -17,6 +17,8 @@ import type {
   OwnedSetListItem,
   OwnedSetListResponse,
   OwnedSetUpdateBody,
+  PartAliasesReplaceBody,
+  PartAliasesResponse,
   RebrickableSyncResponse,
   SearchResponse,
 } from "./types";
@@ -296,4 +298,15 @@ export function uploadPartImage(
 
 export function deletePartImage(partId: number): Promise<ImageDeleteResponse> {
   return request(`/parts/${partId}/image`, { method: "DELETE" });
+}
+
+export function patchPartAliases(
+  partId: number,
+  body: PartAliasesReplaceBody,
+): Promise<PartAliasesResponse> {
+  return request(`/parts/${partId}/aliases`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }

@@ -103,6 +103,14 @@ describe("OwnedSetDetailPage", () => {
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({
+          part_id: 42,
+          part_num: "3024",
+          aliases: ["3024b"],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ownedSetDetailFixture,
       } as Response);
     vi.stubGlobal("fetch", fetchMock);
@@ -126,6 +134,10 @@ describe("OwnedSetDetailPage", () => {
           method: "PATCH",
           body: expect.stringContaining('"quantity":5'),
         }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/parts/42/aliases"),
+        expect.objectContaining({ method: "PATCH" }),
       );
     });
   });
