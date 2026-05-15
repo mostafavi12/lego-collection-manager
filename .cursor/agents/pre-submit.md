@@ -73,7 +73,7 @@ Use existing `.venv` if present: `source backend/.venv/bin/activate` before `pyt
 cd frontend && npm ci && npm run build
 ```
 
-If `frontend/package.json` defines `"test"`, also run `npm test` / `vitest run` and treat failures as blocking.
+Run `npm test` in `frontend/` and treat failures as blocking (see [`docs/frontend-testing.md`](../../docs/frontend-testing.md)).
 
 ### 4. Smoke and acceptance probes
 

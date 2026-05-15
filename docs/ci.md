@@ -5,6 +5,7 @@ GitHub Actions runs on **every push** and **every pull request** (all branches).
 | Check | Command (same as CI) | Working directory |
 |-------|----------------------|-------------------|
 | Backend tests | `pip install -r requirements-dev.txt` then `pytest` | `backend/` |
+| Frontend unit tests | `npm ci` then `npm test` | `frontend/` |
 | Frontend production build | `npm ci` then `npm run build` | `frontend/` |
 
 The backend job installs from [`backend/requirements-dev.txt`](../backend/requirements-dev.txt) so CI does not need a **PEP 517** editable build (`hatchling`); `pytest` still resolves the `app` package via [`backend/pyproject.toml`](../backend/pyproject.toml) (`tool.pytest.ini_options.pythonpath = ["."]`). For local development, `pip install -e ".[dev]"` from the root README remains the preferred path when it works.
@@ -24,7 +25,7 @@ cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install 
 ```
 
 ```bash
-cd frontend && npm ci && npm run build
+cd frontend && npm ci && npm test && npm run build
 ```
 
 The backend install matches the README **fallback** (`requirements-dev.txt`); use `pip install -e ".[dev]"` locally when you want editable installs and packaging checks.
@@ -44,5 +45,6 @@ In the GitHub repository **Settings → Branches**, you can require the **CI** w
 
 - [README.md](./README.md) — index of all specification files in `docs/`
 - [smoke-test.md](./smoke-test.md) — local dev smoke test (not run in GitHub Actions)
+- [frontend-testing.md](./frontend-testing.md) — Vitest unit tests during UI work
 - [testing-strategy.md](./testing-strategy.md)
 - [development-plan.md](./development-plan.md)

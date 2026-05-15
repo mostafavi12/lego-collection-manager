@@ -59,6 +59,7 @@ npm run dev
 Then open the URL printed by Vite (typically [http://127.0.0.1:5173](http://127.0.0.1:5173)).
 
 ```bash
+npm test        # Vitest unit tests (see docs/frontend-testing.md)
 npm run build   # production build
 ```
 

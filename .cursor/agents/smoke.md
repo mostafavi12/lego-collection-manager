@@ -27,7 +27,8 @@ Run **one step at a time** from the repository root. After each step, if it fail
 | 3 | `mkdir -p backend/data`, `rm -f backend/data/smoke.db`, `cd backend && DATABASE_URL=sqlite:///$(pwd)/data/smoke.db alembic upgrade head` |
 | 4 | `DATABASE_URL=sqlite:///<abs-path-to-backend>/data/smoke.db python scripts/smoke_app_probe.py` |
 | 5 | `cd frontend` — `npm ci` if `node_modules` missing or `FORCE_SMOKE_NPM=1` |
-| 6 | `cd frontend && npm run build` |
+| 6 | `cd frontend && npm test` |
+| 7 | `cd frontend && npm run build` |
 
 **Preferred:** run the full script once:
 
