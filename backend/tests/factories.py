@@ -5,10 +5,15 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    CatalogMinifig,
     CatalogSet,
     Color,
+    MissingItem,
+    MinifigPartInventoryLine,
     OwnedSet,
     Part,
+    PartAlias,
+    SetMinifigInventoryLine,
     SetPartInventoryLine,
     Theme,
 )
@@ -112,3 +117,94 @@ def add_set_part_inventory_line(
     session.add(line)
     session.flush()
     return line
+
+
+def add_catalog_stub(
+    session: Session,
+    *,
+    set_num: str = "9999-1",
+) -> CatalogSet:
+    catalog_set = CatalogSet(
+        set_num=set_num,
+        name=None,
+        year=None,
+        theme_id=None,
+        num_parts=None,
+        image_url=None,
+        source="csv_import",
+        source_ref=set_num,
+        fetched_at=utc_now(),
+    )
+    session.add(catalog_set)
+    session.flush()
+    return catalog_set
+
+
+def add_missing_item_for_set_line(
+    session: Session,
+    *,
+    owned_set: OwnedSet,
+    line: SetPartInventoryLine,
+    quantity_missing: int = 1,
+    image_path: str | None = "/data/uploads/1.jpg",
+) -> MissingItem:
+    item = MissingItem(
+        owned_set_id=owned_set.id,
+        set_part_inventory_line_id=line.id,
+        minifig_part_inventory_line_id=None,
+        quantity_missing=quantity_missing,
+        image_path=image_path,
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    session.add(item)
+    session.flush()
+    return item
+
+
+def add_part_alias(session: Session, part: Part, alias: str) -> PartAlias:
+    row = PartAlias(part_id=part.id, alias=alias, source="rebrickable")
+    session.add(row)
+    session.flush()
+    return row
+
+
+def add_minifig_with_parts(
+    session: Session,
+    *,
+    catalog_set: CatalogSet,
+    minifig_num: str = "cop01",
+) -> tuple[CatalogMinifig, SetMinifigInventoryLine, MinifigPartInventoryLine]:
+    minifig = CatalogMinifig(
+        minifig_num=minifig_num,
+        name="Officer",
+        image_url=None,
+        source="rebrickable",
+        fetched_at=utc_now(),
+    )
+    session.add(minifig)
+    session.flush()
+    mf_line = SetMinifigInventoryLine(
+        catalog_set_id=catalog_set.id,
+        catalog_minifig_id=minifig.id,
+        quantity=1,
+        source="rebrickable",
+        fetched_at=utc_now(),
+    )
+    session.add(mf_line)
+    session.flush()
+    part = add_part(session, part_num="973")
+    color = add_color(session, external_id=99, name="Yellow")
+    bom_line = MinifigPartInventoryLine(
+        catalog_minifig_id=minifig.id,
+        part_id=part.id,
+        color_id=color.id,
+        quantity=1,
+        is_spare=False,
+        image_url=None,
+        source="rebrickable",
+        fetched_at=utc_now(),
+    )
+    session.add(bom_line)
+    session.flush()
+    return minifig, mf_line, bom_line

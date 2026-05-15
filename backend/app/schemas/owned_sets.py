@@ -1,0 +1,87 @@
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class OwnedSetListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    set_num: str
+    name: str | None
+    year: int | None
+    theme_name: str | None
+    image_url: str | None
+    catalog_sync_state: str
+    investigated: bool
+    label: str | None
+    missing_count: int
+
+
+class OwnedSetListResponse(BaseModel):
+    items: list[OwnedSetListItem]
+    total: int
+
+
+class OwnedSetUpdateRequest(BaseModel):
+    investigated: bool | None = None
+    label: str | None = None
+
+
+class OwnedSetDuplicateResponse(OwnedSetListItem):
+    duplicated_from_owned_set_id: int
+
+
+class CatalogBlock(BaseModel):
+    set_num: str
+    name: str | None
+    year: int | None
+    theme_name: str | None
+    image_url: str | None
+    num_parts: int | None
+
+
+class SetPartLineDetail(BaseModel):
+    line_id: int
+    part_num: str
+    part_name: str | None
+    color_id: int
+    color_name: str
+    quantity: int
+    is_spare: bool
+    is_alternate: bool
+    image_url: str | None
+    missing_quantity: int
+    missing_item_id: int | None
+    missing_image_url: str | None
+
+
+class MinifigPartLineDetail(BaseModel):
+    line_id: int
+    part_num: str
+    part_name: str | None
+    color_id: int
+    color_name: str
+    quantity: int
+    missing_quantity: int
+    missing_item_id: int | None
+    missing_image_url: str | None
+
+
+class MinifigInventoryBlock(BaseModel):
+    line_id: int
+    minifig_num: str
+    name: str | None
+    quantity: int
+    parts: list[MinifigPartLineDetail]
+
+
+class InventoryBlock(BaseModel):
+    set_parts: list[SetPartLineDetail]
+    minifigs: list[MinifigInventoryBlock]
+
+
+class OwnedSetDetailResponse(BaseModel):
+    id: int
+    investigated: bool
+    label: str | None
+    catalog: CatalogBlock
+    inventory: InventoryBlock
