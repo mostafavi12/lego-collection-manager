@@ -1,4 +1,4 @@
-"""Upsert catalog set-part lines and attach them to owned-set instances."""
+"""Upsert catalog set-part lines and attach rows to physical set copies (``owned_sets``)."""
 
 from __future__ import annotations
 
@@ -136,7 +136,7 @@ def add_set_part_to_owned_set(
 ) -> OwnedSetInventoryLine:
     owned_set = session.get(OwnedSet, owned_set_id)
     if owned_set is None:
-        raise InventoryPartsError("Owned set not found", status_code=404)
+        raise InventoryPartsError("Set copy not found", status_code=404)
 
     catalog_line = upsert_set_part_catalog_line(
         session,

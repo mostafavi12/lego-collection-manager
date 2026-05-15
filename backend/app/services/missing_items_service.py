@@ -60,7 +60,7 @@ def upsert_missing(
 ) -> MissingUpsertResponse:
     owned_set = session.get(OwnedSet, owned_set_id)
     if owned_set is None:
-        raise MissingItemError("Owned set not found", status_code=404)
+        raise MissingItemError("Set copy not found", status_code=404)
 
     _validate_catalog_line_for_owned_set(session, owned_set, body)
 
@@ -207,12 +207,12 @@ def _validate_catalog_line_for_owned_set(
     if body.set_part_inventory_line_id is not None:
         line = session.get(SetPartInventoryLine, body.set_part_inventory_line_id)
         if line is None or line.catalog_set_id != owned_set.catalog_set_id:
-            raise MissingItemError("Inventory line does not belong to this owned set")
+            raise MissingItemError("Inventory line does not belong to this set copy")
         return
 
     line = session.get(MinifigPartInventoryLine, body.minifig_part_inventory_line_id)
     if line is None:
-        raise MissingItemError("Inventory line does not belong to this owned set")
+        raise MissingItemError("Inventory line does not belong to this set copy")
 
     in_set = session.scalar(
         select(SetMinifigInventoryLine.id).where(
@@ -221,4 +221,4 @@ def _validate_catalog_line_for_owned_set(
         )
     )
     if in_set is None:
-        raise MissingItemError("Inventory line does not belong to this owned set")
+        raise MissingItemError("Inventory line does not belong to this set copy")

@@ -19,7 +19,7 @@ import { Modal } from "./Modal";
 
 interface PartLineModalProps {
   mode: "create" | "edit";
-  ownedSetId: number;
+  setCopyId: number;
   line?: SetPartLineDetail;
   onClose: () => void;
   onSaved: () => void;
@@ -27,7 +27,7 @@ interface PartLineModalProps {
 
 export function PartLineModal({
   mode,
-  ownedSetId,
+  setCopyId,
   line,
   onClose,
   onSaved,
@@ -93,7 +93,7 @@ export function PartLineModal({
 
     try {
       if (isEdit && line) {
-        await updateSetPartLine(ownedSetId, line.instance_line_id, {
+        await updateSetPartLine(setCopyId, line.instance_line_id, {
           part_name: partName.trim() || null,
           color_id: Number.parseInt(colorId, 10) || 0,
           color_name: colorName.trim() || null,
@@ -117,7 +117,7 @@ export function PartLineModal({
           setLoading(false);
           return;
         }
-        const created = await addSetPartLine(ownedSetId, {
+        const created = await addSetPartLine(setCopyId, {
           part_num: trimmedPart,
           part_name: partName.trim() || null,
           color_id: Number.parseInt(colorId, 10) || 0,
@@ -165,7 +165,7 @@ export function PartLineModal({
     setLoading(true);
     setError(null);
     try {
-      await deleteSetPartLine(ownedSetId, line.instance_line_id);
+      await deleteSetPartLine(setCopyId, line.instance_line_id);
       onSaved();
       onClose();
     } catch (err) {

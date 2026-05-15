@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
-import { ownedSetListFixture } from "./test/fixtures";
+import { setCopyListFixture } from "./test/fixtures";
 
 describe("App", () => {
   afterEach(() => {
@@ -14,7 +14,7 @@ describe("App", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ownedSetListFixture,
+        json: async () => setCopyListFixture,
       } as Response),
     );
 
@@ -24,7 +24,7 @@ describe("App", () => {
       screen.getByRole("link", { name: /lego collection manager/i }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: /owned sets/i }),
+      await screen.findByRole("heading", { name: /your sets/i }),
     ).toBeInTheDocument();
   });
 });

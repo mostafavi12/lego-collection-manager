@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config.image_settings import get_max_image_bytes
 from app.db.deps import get_db
+from app.db.models import CatalogSet
 from app.schemas.missing import (
     MissingImageResponse,
     MissingUpsertRequest,
@@ -18,6 +20,7 @@ from app.schemas.manual_add import (
     OwnedSetAddPreviewResponse,
     OwnedSetCreateRequest,
     OwnedSetCreateResponse,
+    OwnedSetRebrickableDraftResponse,
 )
 from app.schemas.owned_sets import (
     DuplicatePreviewResponse,
@@ -29,7 +32,15 @@ from app.schemas.owned_sets import (
     OwnedSetListResponse,
     OwnedSetUpdateRequest,
 )
-from app.services.manual_add_service import create_owned_set_manual, get_add_preview
+from app.importers.rebrickable_sync_service import ensure_api_key_configured
+from app.rebrickable.client import RebrickableClient
+from app.rebrickable.exceptions import RebrickableAPIError, RebrickableConfigError
+from app.services.manual_add_rebrickable_draft import fetch_manual_add_rebrickable_draft
+from app.services.manual_add_service import (
+    create_owned_set_manual,
+    get_add_preview,
+    normalize_set_num,
+)
 from app.services.missing_items_service import (
     MissingItemError,
     delete_missing_image,
@@ -81,6 +92,39 @@ def get_owned_set_add_preview(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+@router.get("/add-rebrickable-draft", response_model=OwnedSetRebrickableDraftResponse)
+def get_manual_add_rebrickable_draft(
+    set_num: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+) -> OwnedSetRebrickableDraftResponse:
+    """Return catalog metadata + non-spare/non-alternate set part lines for wizard prefill."""
+    try:
+        normalized = normalize_set_num(set_num)
+    except OwnedSetServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    existing = db.scalar(select(CatalogSet).where(CatalogSet.set_num == normalized))
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This set number is already in your catalog; use Add set preview to add another copy.",
+        )
+
+    try:
+        ensure_api_key_configured()
+    except RebrickableConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        with RebrickableClient() as client:
+            return fetch_manual_add_rebrickable_draft(client, normalized)
+    except RebrickableAPIError as exc:
+        message = str(exc)
+        if exc.status_code == 404:
+            message = "Set not found in Rebrickable"
+        raise HTTPException(status_code=502, detail=message) from exc
+
+
 @router.post("", response_model=OwnedSetCreateResponse, status_code=201)
 def post_owned_set(
     body: OwnedSetCreateRequest,
@@ -99,7 +143,7 @@ def get_owned_set(
 ) -> OwnedSetDetailResponse:
     detail = get_owned_set_detail(db, owned_set_id)
     if detail is None:
-        raise HTTPException(status_code=404, detail="Owned set not found")
+        raise HTTPException(status_code=404, detail="Set copy not found")
     return detail
 
 
@@ -221,7 +265,7 @@ def patch_owned_set(
     except OwnedSetServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     if updated is None:
-        raise HTTPException(status_code=404, detail="Owned set not found")
+        raise HTTPException(status_code=404, detail="Set copy not found")
     return updated
 
 
@@ -232,7 +276,7 @@ def delete_owned_set_route(
 ) -> OwnedSetDeleteResponse:
     deleted = delete_owned_set(db, owned_set_id)
     if deleted is None:
-        raise HTTPException(status_code=404, detail="Owned set not found")
+        raise HTTPException(status_code=404, detail="Set copy not found")
     return deleted
 
 
@@ -246,7 +290,7 @@ def get_duplicate_preview_route(
 ) -> DuplicatePreviewResponse:
     preview = get_duplicate_preview(db, owned_set_id)
     if preview is None:
-        raise HTTPException(status_code=404, detail="Owned set not found")
+        raise HTTPException(status_code=404, detail="Set copy not found")
     return preview
 
 
@@ -259,7 +303,7 @@ def post_duplicate_owned_set(
     label = body.label if body is not None else None
     duplicated = duplicate_owned_set(db, owned_set_id, label=label)
     if duplicated is None:
-        raise HTTPException(status_code=404, detail="Owned set not found")
+        raise HTTPException(status_code=404, detail="Set copy not found")
     return duplicated
 
 

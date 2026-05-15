@@ -85,7 +85,7 @@ Run only what exists today; mark others **NOT IMPLEMENTED** in the report (do no
 | Health | `uvicorn app.main:app --host 127.0.0.1 --port 8000` + `GET /health` | `{"status":"ok"}` when backend touched |
 | OpenAPI | `GET /openapi.json` or `/docs` | Loads when routes added/changed |
 | CSV import | `POST /imports/csv` with fixture from `tests/fixtures/csv/` | Matches `api-design.md` response shape when implemented |
-| Duplicate instance | `POST /owned-sets/{id}/duplicate` | `201`, `investigated: false`, no missing rows on new id when implemented |
+| Duplicate copy (`Make a copy`) | `POST /owned-sets/{id}/duplicate` | `201`, `investigated: false`, no missing rows on new id when implemented |
 | Rebrickable sync | `POST /imports/rebrickable/sync` with **mocked** tests only in CI; manual smoke only if user provides key | Never require live API in automated gate |
 
 Use **FastAPI TestClient** / existing pytest tests as the preferred acceptance path over manual curl when tests exist.

@@ -6,13 +6,13 @@ import type { MinifigPartLineDetail, SetPartLineDetail } from "../api/types";
 type InventoryLine = SetPartLineDetail | MinifigPartLineDetail;
 
 interface InstanceQuantityEditorProps {
-  ownedSetId: number;
+  setCopyId: number;
   line: InventoryLine;
   onUpdated: () => void;
 }
 
 export function InstanceQuantityEditor({
-  ownedSetId,
+  setCopyId,
   line,
   onUpdated,
 }: InstanceQuantityEditorProps) {
@@ -33,7 +33,7 @@ export function InstanceQuantityEditor({
     setBusy(true);
     setError(null);
     try {
-      await patchInstanceInventoryLine(ownedSetId, line.instance_line_id, {
+      await patchInstanceInventoryLine(setCopyId, line.instance_line_id, {
         quantity: parsed,
       });
       onUpdated();
@@ -47,14 +47,14 @@ export function InstanceQuantityEditor({
   return (
     <div className="qty-editor">
       <label className="qty-editor__field">
-        <span className="sr-only">Owned quantity for {line.part_num}</span>
+        <span className="sr-only">Quantity in this copy for {line.part_num}</span>
         <input
           type="number"
           min={1}
           value={qty}
           disabled={busy}
           onChange={(e) => setQty(e.target.value)}
-          aria-label={`Owned quantity for ${line.part_num}`}
+          aria-label={`Quantity in this copy for ${line.part_num}`}
         />
       </label>
       <button

@@ -1,10 +1,10 @@
 import type {
-  OwnedSetDetailResponse,
-  OwnedSetListResponse,
   SearchResponse,
+  SetCopyDetailResponse,
+  SetCopyListResponse,
 } from "../api/types";
 
-export const ownedSetListFixture: OwnedSetListResponse = {
+export const setCopyListFixture: SetCopyListResponse = {
   total: 2,
   items: [
     {
@@ -42,7 +42,7 @@ export const ownedSetListFixture: OwnedSetListResponse = {
   ],
 };
 
-export const ownedSetDetailFixture: OwnedSetDetailResponse = {
+export const setCopyDetailFixture: SetCopyDetailResponse = {
   id: 1,
   investigated: false,
   label: "copy A",

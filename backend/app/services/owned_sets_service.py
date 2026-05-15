@@ -1,4 +1,4 @@
-"""Read and update owned-set instances."""
+"""List, read, mutate, duplicate, or delete user's physical set copies (`owned_sets`)."""
 
 from __future__ import annotations
 

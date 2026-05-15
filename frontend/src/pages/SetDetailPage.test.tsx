@@ -3,20 +3,20 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { OwnedSetDetailPage } from "./OwnedSetDetailPage";
-import { ownedSetDetailFixture } from "../test/fixtures";
+import { SetDetailPage } from "./SetDetailPage";
+import { setCopyDetailFixture } from "../test/fixtures";
 
 function renderDetail() {
   return render(
     <MemoryRouter initialEntries={["/sets/1"]}>
       <Routes>
-        <Route path="/sets/:id" element={<OwnedSetDetailPage />} />
+        <Route path="/sets/:id" element={<SetDetailPage />} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
-describe("OwnedSetDetailPage", () => {
+describe("SetDetailPage", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -27,7 +27,7 @@ describe("OwnedSetDetailPage", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       } as Response),
     );
 
@@ -44,7 +44,7 @@ describe("OwnedSetDetailPage", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       } as Response),
     );
 
@@ -65,7 +65,7 @@ describe("OwnedSetDetailPage", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       } as Response),
     );
 
@@ -89,7 +89,7 @@ describe("OwnedSetDetailPage", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -111,7 +111,7 @@ describe("OwnedSetDetailPage", () => {
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       } as Response);
     vi.stubGlobal("fetch", fetchMock);
 
@@ -147,7 +147,7 @@ describe("OwnedSetDetailPage", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -159,7 +159,7 @@ describe("OwnedSetDetailPage", () => {
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       } as Response);
     vi.stubGlobal("fetch", fetchMock);
 
@@ -191,14 +191,14 @@ describe("OwnedSetDetailPage", () => {
       "fetch",
       vi.fn().mockImplementation(async () => ({
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       })) as typeof fetch,
     );
 
     const user = userEvent.setup();
     renderDetail();
 
-    await screen.findByText("Instance details");
+    await screen.findByText("Copy details");
     const setNumInput = (await screen.findAllByDisplayValue("6024-1"))[0]!;
     await user.clear(setNumInput);
     await user.type(setNumInput, "8888-1");
@@ -217,7 +217,7 @@ describe("OwnedSetDetailPage", () => {
     expect(setNumInput).toHaveValue("6024-1");
   });
 
-  it("deletes instance after confirmation", async () => {
+  it("deletes copy after confirmation", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "DELETE") {
         return {
@@ -227,7 +227,7 @@ describe("OwnedSetDetailPage", () => {
       }
       return {
         ok: true,
-        json: async () => ownedSetDetailFixture,
+        json: async () => setCopyDetailFixture,
       } as Response;
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -235,15 +235,15 @@ describe("OwnedSetDetailPage", () => {
     const user = userEvent.setup();
     renderDetail();
 
-    await screen.findByText("Instance details");
-    const deleteInstanceButton = (
-      await screen.findAllByRole("button", { name: /delete instance/i })
+    await screen.findByText("Copy details");
+    const deleteCopyButton = (
+      await screen.findAllByRole("button", { name: /delete this copy/i })
     )[0]!;
-    await user.click(deleteInstanceButton);
+    await user.click(deleteCopyButton);
 
     const dialog = await screen.findByRole("dialog");
     expect(
-      within(dialog).getByRole("heading", { name: /delete this instance\?/i }),
+      within(dialog).getByRole("heading", { name: /delete this copy\?/i }),
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 

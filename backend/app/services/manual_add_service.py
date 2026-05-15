@@ -1,4 +1,4 @@
-"""Create owned-set instances manually (new catalog or additional copy)."""
+"""Create a new physical set copy manually (new shared catalog or additional copy)."""
 
 from __future__ import annotations
 

@@ -1,26 +1,27 @@
 import type {
   AddSetPartLineBody,
+  AddSetPreviewResponse,
   CsvImportResponse,
   DuplicatePreviewResponse,
-  OwnedSetAddPreviewResponse,
-  OwnedSetCreateBody,
-  OwnedSetCreateResponse,
   ImageDeleteResponse,
   ImageUploadResponse,
   InstanceInventoryLineResponse,
   InstanceInventoryLineUpdate,
-  UpdateSetPartLineBody,
   MissingImageResponse,
   MissingUpsertResponse,
-  OwnedSetDetailResponse,
-  OwnedSetDuplicateResponse,
-  OwnedSetListItem,
-  OwnedSetListResponse,
-  OwnedSetUpdateBody,
   PartAliasesReplaceBody,
   PartAliasesResponse,
+  RebrickableSetDraftResponse,
   RebrickableSyncResponse,
   SearchResponse,
+  SetCopyCreateBody,
+  SetCopyCreateResponse,
+  SetCopyDetailResponse,
+  SetCopyDuplicateResponse,
+  SetCopyListItem,
+  SetCopyListResponse,
+  SetCopyUpdateBody,
+  UpdateSetPartLineBody,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -81,14 +82,21 @@ export function mediaUrl(path: string | null): string | null {
 
 export function fetchAddSetPreview(
   setNum: string,
-): Promise<OwnedSetAddPreviewResponse> {
+): Promise<AddSetPreviewResponse> {
   const params = new URLSearchParams({ set_num: setNum.trim() });
   return request(`/owned-sets/add-preview?${params}`);
 }
 
-export function createOwnedSet(
-  body: OwnedSetCreateBody,
-): Promise<OwnedSetCreateResponse> {
+export function fetchManualAddRebrickableDraft(
+  setNum: string,
+): Promise<RebrickableSetDraftResponse> {
+  const params = new URLSearchParams({ set_num: setNum.trim() });
+  return request(`/owned-sets/add-rebrickable-draft?${params}`);
+}
+
+export function createSetCopy(
+  body: SetCopyCreateBody,
+): Promise<SetCopyCreateResponse> {
   return request("/owned-sets", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -96,11 +104,11 @@ export function createOwnedSet(
   });
 }
 
-export function listOwnedSets(params: {
+export function listSetCopies(params: {
   limit?: number;
   offset?: number;
   investigated?: boolean;
-}): Promise<OwnedSetListResponse> {
+}): Promise<SetCopyListResponse> {
   const search = new URLSearchParams();
   if (params.limit != null) {
     search.set("limit", String(params.limit));
@@ -115,14 +123,14 @@ export function listOwnedSets(params: {
   return request(`/owned-sets${qs ? `?${qs}` : ""}`);
 }
 
-export function getOwnedSet(id: number): Promise<OwnedSetDetailResponse> {
+export function getSetCopy(id: number): Promise<SetCopyDetailResponse> {
   return request(`/owned-sets/${id}`);
 }
 
-export function updateOwnedSet(
+export function updateSetCopy(
   id: number,
-  body: OwnedSetUpdateBody,
-): Promise<OwnedSetListItem> {
+  body: SetCopyUpdateBody,
+): Promise<SetCopyListItem> {
   return request(`/owned-sets/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -136,10 +144,10 @@ export function fetchDuplicatePreview(
   return request(`/owned-sets/${id}/duplicate-preview`);
 }
 
-export function duplicateOwnedSet(
+export function duplicateSetCopy(
   id: number,
   label: string,
-): Promise<OwnedSetDuplicateResponse> {
+): Promise<SetCopyDuplicateResponse> {
   return request(`/owned-sets/${id}/duplicate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -147,7 +155,9 @@ export function duplicateOwnedSet(
   });
 }
 
-export function deleteOwnedSet(id: number): Promise<{ deleted: boolean; id: number }> {
+export function deleteSetCopy(
+  id: number,
+): Promise<{ deleted: boolean; id: number }> {
   return request(`/owned-sets/${id}`, { method: "DELETE" });
 }
 
@@ -173,22 +183,22 @@ export function importCsv(file: File): Promise<CsvImportResponse> {
 }
 
 export function syncRebrickable(
-  ownedSetIds?: number[],
+  setCopyIds?: number[],
 ): Promise<RebrickableSyncResponse> {
   return request("/imports/rebrickable/sync", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(
-      ownedSetIds?.length ? { owned_set_ids: ownedSetIds } : {},
+      setCopyIds?.length ? { owned_set_ids: setCopyIds } : {},
     ),
   });
 }
 
 export function addSetPartLine(
-  ownedSetId: number,
+  setCopyId: number,
   body: AddSetPartLineBody,
 ): Promise<InstanceInventoryLineResponse> {
-  return request(`/owned-sets/${ownedSetId}/set-parts`, {
+  return request(`/owned-sets/${setCopyId}/set-parts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -196,11 +206,11 @@ export function addSetPartLine(
 }
 
 export function updateSetPartLine(
-  ownedSetId: number,
+  setCopyId: number,
   instanceLineId: number,
   body: UpdateSetPartLineBody,
 ): Promise<InstanceInventoryLineResponse> {
-  return request(`/owned-sets/${ownedSetId}/set-parts/${instanceLineId}`, {
+  return request(`/owned-sets/${setCopyId}/set-parts/${instanceLineId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -208,21 +218,21 @@ export function updateSetPartLine(
 }
 
 export function deleteSetPartLine(
-  ownedSetId: number,
+  setCopyId: number,
   instanceLineId: number,
 ): Promise<void> {
-  return request(`/owned-sets/${ownedSetId}/set-parts/${instanceLineId}`, {
+  return request(`/owned-sets/${setCopyId}/set-parts/${instanceLineId}`, {
     method: "DELETE",
   });
 }
 
 export function patchInstanceInventoryLine(
-  ownedSetId: number,
+  setCopyId: number,
   instanceLineId: number,
   body: InstanceInventoryLineUpdate,
 ): Promise<InstanceInventoryLineResponse> {
   return request(
-    `/owned-sets/${ownedSetId}/inventory-lines/${instanceLineId}`,
+    `/owned-sets/${setCopyId}/inventory-lines/${instanceLineId}`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -232,12 +242,12 @@ export function patchInstanceInventoryLine(
 }
 
 export function patchMissing(
-  ownedSetId: number,
+  setCopyId: number,
   body:
     | { set_part_inventory_line_id: number; quantity_missing: number }
     | { minifig_part_inventory_line_id: number; quantity_missing: number },
 ): Promise<MissingUpsertResponse> {
-  return request(`/owned-sets/${ownedSetId}/missing`, {
+  return request(`/owned-sets/${setCopyId}/missing`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -245,26 +255,25 @@ export function patchMissing(
 }
 
 export function uploadMissingImage(
-  ownedSetId: number,
+  setCopyId: number,
   missingItemId: number,
   file: File,
 ): Promise<MissingImageResponse> {
   const form = new FormData();
   form.append("file", file);
-  return request(
-    `/owned-sets/${ownedSetId}/missing/${missingItemId}/image`,
-    { method: "PUT", body: form },
-  );
+  return request(`/owned-sets/${setCopyId}/missing/${missingItemId}/image`, {
+    method: "PUT",
+    body: form,
+  });
 }
 
 export function deleteMissingImage(
-  ownedSetId: number,
+  setCopyId: number,
   missingItemId: number,
 ): Promise<MissingImageResponse> {
-  return request(
-    `/owned-sets/${ownedSetId}/missing/${missingItemId}/image`,
-    { method: "DELETE" },
-  );
+  return request(`/owned-sets/${setCopyId}/missing/${missingItemId}/image`, {
+    method: "DELETE",
+  });
 }
 
 function uploadImageBlob(

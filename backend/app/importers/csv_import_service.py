@@ -1,4 +1,4 @@
-"""Create owned-set instances from parsed set numbers with Rebrickable catalog fetch."""
+"""Create physical set copies (`owned_sets`) from parsed set numbers with Rebrickable fetch."""
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
-"""Manual add owned set API."""
+"""Manual add set (POST /owned-sets) API tests."""
+
+from unittest.mock import MagicMock, patch
 
 from tests.factories import add_catalog_set, add_color, add_owned_set, add_part, add_set_part_inventory_line
 
@@ -120,3 +122,81 @@ def test_create_copy_rejects_catalog_body(api_client, db_session) -> None:
         json={"set_num": "6024-1", "catalog": {"name": "Nope"}},
     )
     assert response.status_code == 400
+
+
+def test_rebrickable_draft_409_when_catalog_exists(api_client, db_session) -> None:
+    catalog = add_catalog_set(db_session, set_num="6024-1")
+    add_owned_set(db_session, catalog)
+    db_session.commit()
+
+    response = api_client.get(
+        "/api/owned-sets/add-rebrickable-draft",
+        params={"set_num": "6024-1"},
+    )
+    assert response.status_code == 409
+
+
+def test_rebrickable_draft_requires_api_key(api_client, monkeypatch) -> None:
+    monkeypatch.delenv("REBRICKABLE_API_KEY", raising=False)
+    response = api_client.get(
+        "/api/owned-sets/add-rebrickable-draft",
+        params={"set_num": "8888-1"},
+    )
+    assert response.status_code == 400
+    assert "REBRICKABLE_API_KEY" in response.json()["detail"]
+
+
+def test_rebrickable_draft_ok(api_client, monkeypatch) -> None:
+    monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")
+
+    from app.schemas.manual_add import (
+        ManualAddCatalogInput,
+        ManualAddPartInput,
+        OwnedSetRebrickableDraftResponse,
+    )
+
+    fake_draft = OwnedSetRebrickableDraftResponse(
+        set_num="8888-1",
+        catalog=ManualAddCatalogInput(
+            name="From API",
+            theme_name=None,
+            year=2000,
+            num_parts=1,
+        ),
+        age=None,
+        parts=[
+            ManualAddPartInput(
+                part_num="3001",
+                part_name=None,
+                color_id=15,
+                color_name="Red",
+                quantity=3,
+            )
+        ],
+    )
+
+    dummy_cm = MagicMock()
+    dummy_cm.__enter__.return_value = MagicMock()
+
+    with (
+        patch("app.api.routes.owned_sets.RebrickableClient", return_value=dummy_cm),
+        patch(
+            "app.api.routes.owned_sets.fetch_manual_add_rebrickable_draft",
+            return_value=fake_draft,
+        ),
+    ):
+        response = api_client.get(
+            "/api/owned-sets/add-rebrickable-draft",
+            params={"set_num": "8888-1"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["set_num"] == "8888-1"
+    assert body["catalog"]["name"] == "From API"
+    assert body["catalog"]["year"] == 2000
+    assert len(body["parts"]) == 1
+    assert body["parts"][0]["part_num"] == "3001"
+    assert body["parts"][0]["quantity"] == 3
+    assert body["parts"][0]["color_id"] == 15
+

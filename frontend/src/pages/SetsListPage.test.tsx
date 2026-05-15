@@ -3,18 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { OwnedSetsPage } from "./OwnedSetsPage";
-import { ownedSetListFixture } from "../test/fixtures";
+import { SetsListPage } from "./SetsListPage";
+import { setCopyListFixture } from "../test/fixtures";
 
 function renderPage() {
   return render(
     <MemoryRouter>
-      <OwnedSetsPage />
+      <SetsListPage />
     </MemoryRouter>,
   );
 }
 
-describe("OwnedSetsPage", () => {
+describe("SetsListPage", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -24,7 +24,7 @@ describe("OwnedSetsPage", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ownedSetListFixture,
+        json: async () => setCopyListFixture,
       } as Response),
     );
 
@@ -39,7 +39,7 @@ describe("OwnedSetsPage", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ownedSetListFixture,
+        json: async () => setCopyListFixture,
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -55,7 +55,7 @@ describe("OwnedSetsPage", () => {
         ok: true,
         status: 201,
         json: async () => ({
-          ...ownedSetListFixture.items[0],
+          ...setCopyListFixture.items[0],
           id: 9,
           label: "Copy #3",
           display_label: "Copy #3",

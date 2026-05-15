@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PartLineModal } from "./PartLineModal";
-import { ownedSetDetailFixture } from "../test/fixtures";
+import { setCopyDetailFixture } from "../test/fixtures";
 
-const line = ownedSetDetailFixture.inventory.set_parts[0]!;
+const line = setCopyDetailFixture.inventory.set_parts[0]!;
 
 describe("PartLineModal", () => {
   afterEach(() => {
@@ -17,7 +17,7 @@ describe("PartLineModal", () => {
     render(
       <PartLineModal
         mode="edit"
-        ownedSetId={1}
+        setCopyId={1}
         line={line}
         onClose={vi.fn()}
         onSaved={vi.fn()}
@@ -56,7 +56,7 @@ describe("PartLineModal", () => {
     render(
       <PartLineModal
         mode="edit"
-        ownedSetId={1}
+        setCopyId={1}
         line={line}
         onClose={vi.fn()}
         onSaved={onSaved}
@@ -126,7 +126,7 @@ describe("PartLineModal", () => {
     render(
       <PartLineModal
         mode="create"
-        ownedSetId={1}
+        setCopyId={1}
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />,

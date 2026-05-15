@@ -136,16 +136,49 @@
   margin-top: 1rem;
 }
 
-.add-set-wizard__parts h3 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
+.add-set-wizard__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0 1rem;
 }
 
-.modal {
-  max-width: 36rem;
-  width: calc(100% - 2rem);
-  max-height: calc(100vh - 2rem);
-  overflow: auto;
+.add-set-wizard__part-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.add-set-wizard__part-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: flex-end;
+}
+
+.add-set-wizard__part-fields > .form-field {
+  flex: 1 1 7rem;
+  margin-bottom: 0;
+  min-width: min(100%, 6rem);
+}
+
+.add-set-wizard__part-fields > .add-set-wizard__part-remove-cell {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+}
+
+.add-set-wizard__part-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.modal.modal--wide {
+  max-width: 44rem;
 }
 
 .toolbar__field {

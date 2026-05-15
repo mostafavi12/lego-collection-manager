@@ -1,4 +1,4 @@
-"""Search owned sets and parts in the local catalog."""
+"""Search the user's collection (set copies) and parts appearing in their inventories."""
 
 from __future__ import annotations
 

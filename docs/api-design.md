@@ -7,7 +7,7 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 | Topic | Choice |
 |-------|--------|
 | **Format** | `Content-Type: application/json` for bodies; UTF-8. |
-| **Naming** | Plural nouns for collections (`owned-sets`). |
+| **Naming** | Plural path segment **`/owned-sets`** = **set copies** in the collection; JSON may still use `owned_set_*` field names. |
 | **IDs** | Integer primary keys exposed as `id` unless noted. |
 | **Timestamps** | ISO 8601 UTC strings in JSON. |
 | **Pagination** | `limit` (default 50, max 200) + `offset` (default 0) on list endpoints. |
@@ -33,7 +33,7 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 
 - **Body:** `multipart/form-data` with field `file` (plain text per [data-sources.md](./data-sources.md): comma-separated set numbers, no header).
 - **Max size:** 1 MB (MVP default; configurable server-side).
-- **Behavior:** For each valid set-number **token**, ensure a `catalog_sets` stub exists, then insert a **new** `owned_sets` row (`investigated` = `false`). **Every token creates a new instance**, including duplicate `set_num` values in the file or already present in the collection.
+- **Behavior:** For each valid set-number **token**, ensure a `catalog_sets` stub exists, then insert a **new** `owned_sets` row (`investigated` = `false`). **Every token creates a new physical copy**, including duplicate `set_num` values in the file or already present in the collection.
 
 **Response `200`:**
 
@@ -55,13 +55,13 @@ The app uses a **synchronous** request that completes the sync for the selected 
 
 | Phase | What is shipped |
 |-------|-----------------|
-| **14a (baseline)** | **Import** page: **Sync all owned sets** calls this endpoint with **no body** (full collection). Optional JSON body `{ "owned_set_ids": […] }` scopes sync to those instances **(API only today; no UI picker)**. |
+| **14a (baseline)** | **Import** page: **Sync entire collection** calls this endpoint with **no body** (full DB). Optional JSON body `{ "owned_set_ids": […] }` scopes sync to those **set copies** **(API only today; no UI picker)**. |
 | **14b (backlog)** | Subset sync UX from list/detail, progress/cancel, conflict policy with manual edits, optional CDN → BLOB image backfill. |
 
 | Tradeoff | Mitigation |
 |----------|------------|
 | Long HTTP request | Sequential per-set processing; Import page shows a spinner while the request runs (browser “cancel” only stops the tab request; server may continue until process policies change in **14b**). |
-| Timeouts | Document recommended max owned sets per operation; programmatic clients may pass explicit `owned_set_ids`. |
+| Timeouts | Document recommended max **distinct `set_num`** per operation; programmatic clients may pass explicit `owned_set_ids`. |
 
 **`POST /imports/rebrickable/sync` body:**
 
@@ -71,7 +71,7 @@ The app uses a **synchronous** request that completes the sync for the selected 
 }
 ```
 
-Omit `owned_set_ids` or pass `null` to sync **all** owned sets (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory).
+Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory).
 
 **Response `200`:**
 
@@ -90,9 +90,11 @@ Omit `owned_set_ids` or pass `null` to sync **all** owned sets (distinct `catalo
 
 **Environment:** Requires `REBRICKABLE_API_KEY`; if missing, return **`400`** with clear `detail`.
 
-## Owned sets
+## Set copies (`GET/POST /owned-sets`, …)
 
-### List owned sets
+Everything under this path is **a physical copy** in the user’s collection (table `owned_sets`). **`catalog_sets`** is shared metadata/template for the LEGO `set_num` and may be removed when the **last** copy is deleted.
+
+### List set copies
 
 **`GET /owned-sets?limit=50&offset=0&investigated=false`**
 
@@ -129,11 +131,11 @@ Omit `owned_set_ids` or pass `null` to sync **all** owned sets (distinct `catalo
 | Field | Notes |
 |-------|--------|
 | `display_label` | `label` if set, else `Copy #{copy_index}`. |
-| `copy_index` | 1-based index among instances sharing `catalog_set_id` (order: `created_at`, `id`). |
+| `copy_index` | 1-based index among **copies** sharing `catalog_set_id` (order: `created_at`, `id`). |
 | `name` | Catalog name; UI default **Unknown name** when null. |
 | `theme_name` | UI default **Unknown theme** when null. |
 | `num_parts` | From catalog; UI default **`?`** when null. |
-| `age` | Integer; shared across instances of same catalog set when PATCHed; UI default **`?`** when null. Rebrickable `6+` → `6` on sync. |
+| `age` | Integer; shared across **copies** of same catalog set when PATCHed; UI default **`?`** when null. Rebrickable `6+` → `6` on sync. |
 
 `catalog_sync_state`: `ok` \| `pending` \| `error` (surface last sync issue for the underlying catalog set if stored).
 
@@ -141,7 +143,7 @@ Multiple `items` may share the same `set_num` with different `id`.
 
 **List title (UI):** render `{display_label} — {set_num}`; secondary line: name, theme, parts, age with defaults above.
 
-### Owned set detail
+### Set copy detail
 
 **`GET /owned-sets/{id}`**
 
@@ -211,13 +213,13 @@ Multiple `items` may share the same `set_num` with different `id`.
 }
 ```
 
-`quantity` and `missing_quantity` are **per instance** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect this instance’s missing state. When a part has a user BLOB, `part_image_url` is `/api/parts/{part_id}/image`; `missing_image_url` is the same URL when `missing_quantity` > 0 and a part image exists, otherwise null.
+`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state. When a part has a user BLOB, `part_image_url` is `/api/parts/{part_id}/image`; `missing_image_url` is the same URL when `missing_quantity` > 0 and a part image exists, otherwise null.
 
 `aliases` (Phase **11A**): other identifiers for this `part_id` from `part_aliases`, excluding strings equal to `part_num`. Omitted or empty when none. Read-only in detail until Phase **11B** enables editing via `PATCH /parts/{part_id}/aliases`.
 
 **Catalog `image_url`:** Rebrickable CDN URL when synced, or `/api/catalog-sets/{catalog_set_id}/image` when the user uploaded a set BLOB.
 
-### Update owned-set instance metadata
+### Update set copy (`PATCH`)
 
 **`PATCH /owned-sets/{id}`**
 
@@ -225,17 +227,17 @@ All fields optional; omitted fields unchanged.
 
 | Field | Type | Scope | Notes |
 |-------|------|-------|--------|
-| `investigated` | boolean | This instance | |
-| `label` | string \| null | This instance | Empty string clears (stored NULL); UI default display `Copy #{copy_index}`. |
-| `notes` | string \| null | This instance | |
-| `age` | integer \| null | **All instances** with same `catalog_set_id` | Rebrickable sync may set from `age_range` (`6+` → `6`). |
-| `set_num` | string | **This instance only** | Re-links to matching or new `catalog_sets` row; clears this instance’s missing items. UI warning required. |
-| `catalog_name` | string \| null | **All instances** (catalog row) | |
-| `catalog_theme_name` | string \| null | **All instances** (catalog row) | Creates or links a `themes` row when `theme_id` was NULL. |
-| `catalog_num_parts` | integer \| null | **All instances** (catalog row) | |
-| `catalog_year` | integer \| null | **All instances** (catalog row) | |
+| `investigated` | boolean | This copy | |
+| `label` | string \| null | This copy | Empty string clears (stored NULL); UI default display `Copy #{copy_index}`. |
+| `notes` | string \| null | This copy | |
+| `age` | integer \| null | **All copies** with same `catalog_set_id` | Rebrickable sync may set from `age_range` (`6+` → `6`). |
+| `set_num` | string | **This copy only** | Re-links to matching or new `catalog_sets` row; clears this copy’s missing items. UI warning required. |
+| `catalog_name` | string \| null | **All copies** (catalog row) | |
+| `catalog_theme_name` | string \| null | **All copies** (catalog row) | Creates or links a `themes` row when `theme_id` was NULL. |
+| `catalog_num_parts` | integer \| null | **All copies** (catalog row) | |
+| `catalog_year` | integer \| null | **All copies** (catalog row) | |
 
-Example (instance + shared catalog fields):
+Example (**this copy** + shared catalog fields):
 
 ```json
 {
@@ -250,20 +252,20 @@ Example (instance + shared catalog fields):
 }
 ```
 
-**Set number change:** send `set_num` only after UI warning; server re-links this instance to the matching or new `catalog_sets` row; other instances unchanged. Invalid or empty `set_num` → **400**.
+**Set number change:** send `set_num` only after UI warning; server re-links **this copy** to the matching or new `catalog_sets` row; other copies unchanged. Invalid or empty `set_num` → **400**.
 
-**Response `200`:** same shape as list item fields for the updated instance.
+**Response `200`:** same shape as list item fields for the updated copy.
 
-### Delete owned-set instance
+### Delete set copy
 
 **`DELETE /owned-sets/{id}`**
 
-- Deletes the `owned_sets` row; cascades `missing_items` and `owned_set_inventory_lines`.
+- Deletes the **`owned_sets` row** (one physical copy); cascades `missing_items` and `owned_set_inventory_lines`.
 - If no other `owned_sets` reference the same `catalog_set_id`, delete that **catalog set and its inventory** as well.
 - **`404`** if unknown id.
 - **`200`** with `{ "deleted": true, "id": 1 }` on success.
 
-### Duplicate owned-set instance (“Make a copy”)
+### Duplicate set copy (“Make a copy”)
 
 #### Preview (for confirmation dialog)
 
@@ -299,12 +301,12 @@ If `label` is omitted, server uses `suggested_label` from the preview rules.
 
 | Rule | Behavior |
 |------|----------|
-| `catalog_set_id` | Copied from source instance |
+| `catalog_set_id` | Copied from source row |
 | `investigated` | Always **`false`** |
 | `label` | From request body or `Copy #n` default |
 | `age`, `notes` | **`null`** (not copied from source) |
-| `missing_items` | **None** on the new instance |
-| Source instance | Unchanged |
+| `missing_items` | **None** on the new copy |
+| Source row | Unchanged |
 
 **Response `201`:** list-item shape plus `duplicated_from_owned_set_id`.
 
@@ -350,8 +352,8 @@ Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, 
 
 **Semantics:**
 
-- **`type=set`:** Match `catalog_sets.set_num` (prefix for MVP) for sets that have at least one `owned_sets` row; return **owned-set instance** ids (multiple per `set_num` allowed).
-- **`type=part`:** Match `parts.part_num` or `part_aliases.alias`; return parts that occur in inventories of **owned** catalog sets only.
+- **`type=set`:** Match `catalog_sets.set_num` (prefix for MVP) for sets that have at least one `owned_sets` row; return **`owned_set_id`** values (**one per physical copy**; multiple per `set_num` allowed).
+- **`type=part`:** Match `parts.part_num` or `part_aliases.alias`; return parts that occur in inventories of **sets already in the collection** only.
 - **`type=all`:** Return two buckets or a unified list with `result_kind` discriminator.
 
 **Example response (`type=set`):**
@@ -406,7 +408,7 @@ or
 
 **Rules:**
 
-- `quantity_missing` ≥ 0. If `0`, **delete** existing missing row for that owned set + line (part BLOB is **not** cleared automatically).
+- `quantity_missing` ≥ 0. If `0`, **delete** existing missing row for that **set copy** + line (part BLOB is **not** cleared automatically).
 - If > 0, must be ≤ `quantity` on the referenced inventory line (**400** if not).
 - Creates `missing_items` row when needed; does not accept image bytes in this endpoint.
 
@@ -464,9 +466,9 @@ Missing lines are embedded in **`GET /owned-sets/{id}`**; a dedicated `GET /owne
 
 ## Post-MVP endpoints (Phases 9–10 — implemented)
 
-### Instance inventory (Phase 9)
+### Per-copy inventory (Phase 9)
 
-Detail payload (`GET /owned-sets/{id}`) exposes per-line **`quantity`** and **`missing_quantity`** for **this instance** (from `owned_set_inventory_lines`).
+Detail payload (`GET /owned-sets/{id}`) exposes per-line **`quantity`** and **`missing_quantity`** for **this physical copy** (from `owned_set_inventory_lines`).
 
 **`PATCH /owned-sets/{owned_set_id}/inventory-lines/{instance_line_id}`**
 
@@ -478,8 +480,8 @@ Detail payload (`GET /owned-sets/{id}`) exposes per-line **`quantity`** and **`m
 ```
 
 - `quantity` > 0 when provided; `0 ≤ quantity_missing ≤ quantity` when provided.
-- **`404`** if `instance_line_id` does not belong to this owned set.
-- Does not change other instances’ lines.
+- **`404`** if `instance_line_id` does not belong to this **`owned_sets` row** (this copy).
+- Does not change other copies’ lines.
 
 **`PATCH .../missing`** remains for missing-only updates using catalog line ids (`set_part_inventory_line_id` / `minifig_part_inventory_line_id`).
 
@@ -509,7 +511,7 @@ Contracts below match **shipped** behavior unless a bullet explicitly marks a ga
 
 - Body unchanged: `part_num`, optional `part_name`, `color_id`, `color_name`, `quantity`.
 - Client may call `PUT /parts/{part_id}/image` after **201** when the user selected a file.
-- **`409`** if the part/color line already exists on this instance.
+- **`409`** if the part/color line already exists **on this copy**.
 
 **`PATCH /owned-sets/{owned_set_id}/set-parts/{instance_line_id}`**
 
@@ -522,15 +524,15 @@ Contracts below match **shipped** behavior unless a bullet explicitly marks a ga
 }
 ```
 
-- Updates shared catalog part name, catalog line color (may recreate line if color key changes — see implementation), and **instance** `quantity`.
+- Updates shared catalog part name, catalog line color (may recreate line if color key changes — see implementation), and **this copy’s** `quantity`.
 - **`part_num` not accepted** (read-only in UI).
-- **`404`** if the instance line does not belong to this owned set.
+- **`404`** if the line does not belong to this **`owned_sets` row** (this copy).
 
 **`DELETE /owned-sets/{owned_set_id}/set-parts/{instance_line_id}`** → **`204`**
 
-- Removes `owned_set_inventory_lines` for this instance.
-- Deletes `set_part_inventory_lines` when no instance references that catalog line.
-- Catalog-set cleanup when last instance deleted follows existing `DELETE /owned-sets/{id}` rules.
+- Removes `owned_set_inventory_lines` for **this copy**.
+- Deletes `set_part_inventory_lines` when **no copy** references that catalog line.
+- Catalog-set cleanup when **last copy** deleted follows existing `DELETE /owned-sets/{id}` rules.
 
 **`PATCH .../inventory-lines/{instance_line_id}`** (Phase 9, implemented) remains for inline **missing quantity** (and optional quantity) on the detail table; the part modal uses set-parts PATCH for full line edits.
 
@@ -575,7 +577,7 @@ Response **`200`:**
 ```
 
 - Requires `REBRICKABLE_API_KEY`; **`400`** if missing.
-- Per token: upsert catalog + template inventory + create instance + copy instance inventory (Phase 9).
+- Per token: upsert catalog + template inventory + create **`owned_sets` row** + copy per-copy inventory (Phase 9).
 - **No** image HTTP downloads during import.
 
 ### Manual add set (Phase 13)
@@ -588,19 +590,23 @@ Returns branching data for the **Add set** wizard (`AddSetWizard`) and for API c
 |-------|--------|
 | `set_num` | Normalized trimmed set number. |
 | `catalog_exists` | `true` if a `catalog_sets` row already exists for this number. |
-| `set_name`, `theme_name`, `year`, `num_parts`, `age`, `image_url` | Populated when **`catalog_exists`** (shared catalog + first non-null `owned_sets.age` among instances for age). |
+| `set_name`, `theme_name`, `year`, `num_parts`, `age`, `image_url` | Populated when **`catalog_exists`** (shared catalog + first non-null `owned_sets.age` among **copies** for age). |
 | `existing_copy_count` | Number of `owned_sets` for that catalog set. |
-| `suggested_label` | e.g. `Copy #n` for the next instance. |
+| `suggested_label` | e.g. `Copy #n` for the next copy. |
 | `set_parts` | Template set-part lines (`part_num`, `part_name`, `color_name`, `quantity`) when catalog exists; empty when `catalog_exists` is false. |
 
-**`POST /owned-sets`** — create catalog + first instance **or** add another instance only.
+**`POST /owned-sets`** — create catalog + **first physical copy** **or** **add another copy** only (`owned_sets`).
 
 | Case | Body | Server |
 |------|------|--------|
 | **Catalog exists** | **`set_num`** and optional **`label`** only. Sending `catalog` or `parts` → **400** (“omit catalog and parts”). | New `owned_sets` row; **`clone_instance_inventory`** from template. |
-| **New catalog** | **`set_num`**; optional **`label`**, **`age`**, **`catalog`** (`name`, `theme_name`, `year`, `num_parts`), **`parts`** (array of `part_num`, optional `part_name`/`color_id`/`color_name`, `quantity` > 0). | Creates **`source=user`** catalog, optional lines from `parts`, first instance. |
+| **New catalog** | **`set_num`**; optional **`label`**, **`age`**, **`catalog`** (`name`, `theme_name`, `year`, `num_parts`), **`parts`** (array of `part_num`, optional `part_name`/`color_id`/`color_name`, `quantity` > 0). | Creates **`source=user`** catalog, optional lines from `parts`, **first copy**. |
 
-The **wizard UI** uses **`add-preview`** then **`POST`**; for **net-new** catalogs it sends optional **`catalog`** + **`age`** + **`label`** but **does not** collect **`parts[]`**—users add inventory via **PartLineModal** on detail, **CSV** (Phase **12**), **sync** (**14a**), or a direct **`POST /owned-sets`** JSON body with `parts`.
+**`GET /owned-sets/add-rebrickable-draft?set_num=…`** — **`200`** (live Rebrickable; **requires** `REBRICKABLE_API_KEY`)
+
+Read-only wizard **prefill**: returns **`catalog`** (same shape as `POST` **`catalog`** input), **`age`**, **`parts`** (**non‑spare, non‑alternate** set‑part lines only; same row shape as `POST` **`parts`**), plus explanatory **`note`** (minifig BOM is excluded; use CSV/sync for full BOM). **`409`** if this **`set_num`** already exists locally (use **`add-preview`** + duplicate flow). **`400`** missing API key. **`502`** upstream Rebrickable failure (friendly message when **`404`** from API).
+
+The **wizard** calls **`add-preview`** → step 2, then **`add-rebrickable-draft`** (optional) + **`POST`**. Rows with empty **`part_num`** are omitted from **`POST`**.
 
 **Example — new copy only**
 
@@ -608,7 +614,7 @@ The **wizard UI** uses **`add-preview`** then **`POST`**; for **net-new** catalo
 { "set_num": "6024-1", "label": "Copy #2" }
 ```
 
-**Example — first instance of a new set_num (API client)**
+**Example — first row for a brand-new `set_num` (API client)**
 
 ```json
 {
@@ -620,7 +626,7 @@ The **wizard UI** uses **`add-preview`** then **`POST`**; for **net-new** catalo
 
 Part alias editing: [Part aliases (Phase 11B)](#part-aliases-phase-11b) (not part of the wizard contract).
 
-See also [Rebrickable sync — synchronous](#rebrickable-sync--synchronous) for **Phase 14a / 14b** (Import **Sync all**, optional `owned_set_ids`).
+See also [Rebrickable sync — synchronous](#rebrickable-sync--synchronous) for **Phase 14a / 14b** (Import **Sync entire collection**, optional `owned_set_ids`).
 
 ## CORS
 
