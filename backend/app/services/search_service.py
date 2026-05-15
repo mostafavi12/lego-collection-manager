@@ -157,6 +157,52 @@ def _occurrences_for_part(session: Session, *, part_id: int) -> list[SearchPartS
     return out
 
 
+def _expand_part_class(session: Session, seed: Part) -> list[Part]:
+    """Return part rows connected by alias strings, preserving actual part numbers.
+
+    Alias rows describe equivalence, but set BOM lines still point at the concrete
+    `parts.part_num` that was imported or entered for that set. Search display uses
+    those concrete part rows so each alias line can show only its own occurrences.
+    """
+    class_ids: set[int] = {seed.id}
+    known_strings: set[str] = {seed.part_num}
+
+    changed = True
+    while changed:
+        changed = False
+        alias_strings = session.scalars(
+            select(PartAlias.alias).where(PartAlias.part_id.in_(class_ids))
+        ).all()
+        for alias in alias_strings:
+            if alias not in known_strings:
+                known_strings.add(alias)
+                changed = True
+
+        linked_parts = session.scalars(
+            select(Part)
+            .options(selectinload(Part.aliases))
+            .where(Part.part_num.in_(known_strings))
+        ).all()
+        for part in linked_parts:
+            if part.id not in class_ids:
+                class_ids.add(part.id)
+                changed = True
+            if part.part_num not in known_strings:
+                known_strings.add(part.part_num)
+                changed = True
+
+    parts = session.scalars(
+        select(Part)
+        .options(selectinload(Part.aliases))
+        .where(Part.id.in_(class_ids))
+    ).all()
+    by_id = {part.id: part for part in parts}
+    return [by_id[seed.id], *sorted(
+        (part for part in parts if part.id != seed.id),
+        key=lambda p: p.part_num.casefold(),
+    )]
+
+
 def _search_parts(
     session: Session,
     *,
@@ -164,20 +210,14 @@ def _search_parts(
     limit: int,
     offset: int,
 ) -> list[SearchPartResult]:
-    owned = _owned_catalog_ids_subquery()
-
     part_match = or_(Part.part_num.startswith(q), PartAlias.alias.startswith(q))
 
     part_ids = [
         row[0]
         for row in session.execute(
             select(Part.id)
-            .join(SetPartInventoryLine, SetPartInventoryLine.part_id == Part.id)
             .outerjoin(PartAlias, PartAlias.part_id == Part.id)
-            .where(
-                SetPartInventoryLine.catalog_set_id.in_(owned),
-                part_match,
-            )
+            .where(part_match)
             .group_by(Part.id, Part.part_num)
             .order_by(Part.part_num)
             .limit(limit)
@@ -197,15 +237,27 @@ def _search_parts(
     ordered_parts = [by_id[pid] for pid in part_ids if pid in by_id]
 
     results: list[SearchPartResult] = []
+    seen_classes: set[frozenset[int]] = set()
     for part in ordered_parts:
-        occurrences = _occurrences_for_part(session, part_id=part.id)
-        lines: list[SearchPartDisplayLine] = [
-            SearchPartDisplayLine(display_part_num=part.part_num, sets=list(occurrences))
-        ]
-        for alias in sorted(part.aliases, key=lambda a: a.alias.casefold()):
+        class_parts = _expand_part_class(session, part)
+        class_key = frozenset(p.id for p in class_parts)
+        if class_key in seen_classes:
+            continue
+        seen_classes.add(class_key)
+
+        lines: list[SearchPartDisplayLine] = []
+        for class_part in class_parts:
+            occurrences = _occurrences_for_part(session, part_id=class_part.id)
+            if not occurrences:
+                continue
             lines.append(
-                SearchPartDisplayLine(display_part_num=alias.alias, sets=list(occurrences))
+                SearchPartDisplayLine(
+                    display_part_num=class_part.part_num,
+                    sets=list(occurrences),
+                )
             )
+        if not lines:
+            continue
 
         results.append(
             SearchPartResult(

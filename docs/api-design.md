@@ -353,7 +353,7 @@ Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, 
 **Semantics:**
 
 - **`type=set`:** Match `catalog_sets.set_number` (string prefix on digits for MVP) for sets that have at least one `owned_sets` row; return **`owned_set_id`** values (**one per physical copy**; multiple copies sharing the same catalog set allowed).
-- **`type=part`:** Match `parts.part_num` or `part_aliases.alias` (prefix); return **logical parts** that appear in the **catalog BOM** of at least one set in the collection (`set_part_inventory_lines` and minifig BOM lines). Each hit includes canonical **`part_num`** (string; LEGO part identifiers may contain letters), **`name`**, resolved **`image_url`** (Rebrickable URL or `/api/parts/{id}/image` when a BLOB exists), and **`lines`**: one row per **canonical `part_num`** plus one per **alias**, each with **`display_part_num`** and **`sets`**: catalog **`set_num`** (base number), template **`quantity`** in that set, and an **`owned_set_id`** link (first copy) for navigation.
+- **`type=part`:** Match `parts.part_num` or `part_aliases.alias` (prefix); return **logical alias classes** that appear in the **catalog BOM** of at least one set in the collection (`set_part_inventory_lines` and minifig BOM lines). Each hit includes canonical **`part_num`** (string; LEGO part identifiers may contain letters), **`name`**, resolved **`image_url`** (Rebrickable URL or `/api/parts/{id}/image` when a BLOB exists), and **`lines`**: one row per actual **`parts.part_num`** in the alias class that has owned-set occurrences. Each line’s **`sets`** list includes only catalog sets whose BOM originally references that exact part number, with catalog **`set_num`** (base number), template **`quantity`**, and an **`owned_set_id`** link (first copy) for navigation.
 - **`type=all`:** Return two buckets (`sets`, `parts`).
 
 **Example response (`type=set`):**
@@ -380,7 +380,7 @@ Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, 
 }
 ```
 
-**Example fragment (`type=part`):** each logical part lists the canonical number and every alias with the same per-set quantities (template BOM: set-level lines plus minifig counts × BOM qty).
+**Example fragment (`type=part`):** each logical part lists the canonical number and alias part numbers with their own per-set quantities (template BOM: set-level lines plus minifig counts × BOM qty).
 
 ```json
 {
@@ -401,8 +401,8 @@ Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, 
         {
           "display_part_num": "3069b",
           "sets": [
-            { "set_num": 65001, "quantity": 5, "owned_set_id": 3 },
-            { "set_num": 30217, "quantity": 1, "owned_set_id": 4 }
+            { "set_num": 73605, "quantity": 1, "owned_set_id": 4 },
+            { "set_num": 45001, "quantity": 2, "owned_set_id": 5 }
           ]
         }
       ]

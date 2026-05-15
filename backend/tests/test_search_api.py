@@ -55,35 +55,52 @@ def test_search_parts_by_part_num_and_alias(api_client, db_session) -> None:
     assert len(by_alias.json()["parts"]) == 1
 
 
-def test_search_parts_includes_aliases_and_set_quantities(api_client, db_session) -> None:
-    cat_a = add_catalog_set(db_session, set_number=65001)
-    cat_b = add_catalog_set(db_session, set_number=30217)
-    add_owned_set(db_session, cat_a)
-    add_owned_set(db_session, cat_b)
-    part = add_part(db_session, part_num="15598")
-    add_part_alias(db_session, part, "3069b")
+def test_search_parts_groups_aliases_by_original_part_number(api_client, db_session) -> None:
+    cat_main = add_catalog_set(db_session, set_number=1111)
+    cat_alias_a = add_catalog_set(db_session, set_number=2222)
+    cat_alias_a_2 = add_catalog_set(db_session, set_number=77777)
+    cat_alias_b = add_catalog_set(db_session, set_number=3333)
+    add_owned_set(db_session, cat_main)
+    add_owned_set(db_session, cat_alias_a)
+    add_owned_set(db_session, cat_alias_a_2)
+    add_owned_set(db_session, cat_alias_b)
+    part = add_part(db_session, part_num="123456")
+    alias_a = add_part(db_session, part_num="9876a")
+    alias_b = add_part(db_session, part_num="65432")
+    add_part_alias(db_session, part, "9876a")
+    add_part_alias(db_session, part, "65432")
     color = add_color(db_session)
     add_set_part_inventory_line(
-        db_session, catalog_set=cat_a, part=part, color=color, quantity=5
+        db_session, catalog_set=cat_main, part=part, color=color, quantity=3
     )
     add_set_part_inventory_line(
-        db_session, catalog_set=cat_b, part=part, color=color, quantity=1
+        db_session, catalog_set=cat_alias_a, part=alias_a, color=color, quantity=4
+    )
+    add_set_part_inventory_line(
+        db_session, catalog_set=cat_alias_a_2, part=alias_a, color=color, quantity=1
+    )
+    add_set_part_inventory_line(
+        db_session, catalog_set=cat_alias_b, part=alias_b, color=color, quantity=1
     )
     db_session.commit()
 
-    response = api_client.get("/api/search", params={"q": "15598", "type": "part"})
+    response = api_client.get("/api/search", params={"q": "123456", "type": "part"})
     assert response.status_code == 200
     body = response.json()
     assert len(body["parts"]) == 1
     hit = body["parts"][0]
-    assert hit["part_num"] == "15598"
-    assert len(hit["lines"]) == 2
-    assert hit["lines"][0]["display_part_num"] == "15598"
-    assert hit["lines"][1]["display_part_num"] == "3069b"
-    sets0 = {(s["set_num"], s["quantity"]) for s in hit["lines"][0]["sets"]}
-    sets1 = {(s["set_num"], s["quantity"]) for s in hit["lines"][1]["sets"]}
-    assert sets0 == {(65001, 5), (30217, 1)}
-    assert sets0 == sets1
+    assert hit["part_num"] == "123456"
+    by_line = {
+        line["display_part_num"]: {
+            (s["set_num"], s["quantity"]) for s in line["sets"]
+        }
+        for line in hit["lines"]
+    }
+    assert by_line == {
+        "123456": {(1111, 3)},
+        "65432": {(3333, 1)},
+        "9876a": {(2222, 4), (77777, 1)},
+    }
 
 
 def test_search_type_all_returns_both_buckets(api_client, db_session) -> None:

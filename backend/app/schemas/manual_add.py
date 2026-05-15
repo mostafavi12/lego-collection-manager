@@ -44,7 +44,7 @@ class ManualAddPartInput(BaseModel):
 class OwnedSetCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    set_num: str
+    set_num: int | str
     label: str | None = None
     age: int | None = None
     catalog: ManualAddCatalogInput | None = None

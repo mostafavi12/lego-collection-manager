@@ -43,7 +43,7 @@ from app.services.owned_sets_service import (
 MANUAL_SOURCE = "user"
 
 
-def normalize_set_num(set_num: str) -> LegoSetId:
+def normalize_set_num(set_num: int | str) -> LegoSetId:
     """Parse user/CSV input into a catalog key (default Rebrickable variant ``-1`` when omitted)."""
     if not set_num or not str(set_num).strip():
         raise OwnedSetServiceError("Set number is required")

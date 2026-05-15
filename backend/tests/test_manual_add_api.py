@@ -40,7 +40,7 @@ def test_add_preview_existing_set_num(api_client, db_session) -> None:
 
 
 def test_create_new_set_stub(api_client, db_session) -> None:
-    response = api_client.post("/api/owned-sets", json={"set_num": "8888-1"})
+    response = api_client.post("/api/owned-sets", json={"set_num": 8888})
     assert response.status_code == 201
     body = response.json()
     assert body["catalog_created"] is True

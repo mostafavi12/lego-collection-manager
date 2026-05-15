@@ -47,7 +47,14 @@ async function parseErrorMessage(response: Response): Promise<string> {
       return detail
         .map((item) => {
           if (typeof item === "object" && item !== null && "msg" in item) {
-            return String((item as { msg: string }).msg);
+            const validationItem = item as { loc?: unknown; msg: string };
+            const loc = Array.isArray(validationItem.loc)
+              ? validationItem.loc
+                  .filter((part) => part !== "body" && part !== "query")
+                  .map(String)
+                  .join(".")
+              : "";
+            return loc ? `${loc}: ${validationItem.msg}` : validationItem.msg;
           }
           return String(item);
         })
