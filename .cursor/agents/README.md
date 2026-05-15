@@ -10,6 +10,7 @@ Contributor roles for this repository. Each brief links to authoritative specs u
 | [data-import.md](./data-import.md) | CSV text import, Rebrickable client |
 | [docs.md](./docs.md) | README, `docs/`, `.env.example` |
 | [qa.md](./qa.md) | Writing/updating automated tests |
+| [smoke.md](./smoke.md) | **During development:** local smoke test (`./scripts/smoke.sh`) |
 | [ci.md](./ci.md) | GitHub Actions workflow |
 | [pre-submit.md](./pre-submit.md) | **Before commit/PR:** doc consistency + CI + smoke/acceptance gate |
 

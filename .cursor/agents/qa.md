@@ -27,7 +27,9 @@ Repo-wide policy: [`.cursor/rules/project-rules.mdc`](../rules/project-rules.mdc
 
 - Backend: `cd backend && pytest`.
 - Frontend: run the `test` script from `frontend/package.json` once Vitest is configured.
+- **Local smoke (dev):** [`./scripts/smoke.sh`](../../scripts/smoke.sh) or the [**smoke**](./smoke.md) agent — install, pytest, migrate, API probe, frontend build ([`docs/smoke-test.md`](../../docs/smoke-test.md)).
 
 ## Collaboration
 
+- The [**smoke**](./smoke.md) agent runs the sequential local smoke test during development.
 - The [**pre-submit**](./pre-submit.md) agent runs the full test gate and maps results to PRD acceptance criteria before the user submits a change; coordinate when new behavior needs tests or fixtures.
