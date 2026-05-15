@@ -37,7 +37,9 @@ export function MissingLineEditor({
   const [qty, setQty] = useState(String(line.missing_quantity));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState(line.missing_image_url);
+  const [imageUrl, setImageUrl] = useState(
+    line.part_image_url ?? line.missing_image_url,
+  );
   const [missingItemId, setMissingItemId] = useState(line.missing_item_id);
 
   async function saveQuantity() {
@@ -72,7 +74,7 @@ export function MissingLineEditor({
     setError(null);
     try {
       const result = await uploadMissingImage(ownedSetId, missingItemId, file);
-      setImageUrl(result.missing_image_url);
+      setImageUrl(result.part_image_url ?? result.missing_image_url);
       onUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");

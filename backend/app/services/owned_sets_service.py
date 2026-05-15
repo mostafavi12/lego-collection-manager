@@ -37,7 +37,12 @@ from app.schemas.owned_sets import (
     SetPartLineDetail,
 )
 from app.services.catalog_cleanup import delete_catalog_set_data
-from app.services.catalog_state import catalog_sync_state, missing_image_url
+from app.services.catalog_state import (
+    catalog_sync_state,
+    missing_image_url_for_part,
+    resolve_catalog_image_url,
+    resolve_part_image_url,
+)
 from app.services.instance_inventory import (
     clear_instance_inventory,
     clone_instance_inventory,
@@ -51,7 +56,6 @@ from app.services.instance_labels import (
     display_label,
     suggested_copy_label,
 )
-from app.services.missing_storage import delete_image_file
 from app.utils.age import parse_age_value
 
 
@@ -82,7 +86,7 @@ def _to_list_item(
         name=catalog_set.name,
         year=catalog_set.year,
         theme_name=theme_name,
-        image_url=catalog_set.image_url,
+        image_url=resolve_catalog_image_url(catalog_set),
         catalog_sync_state=catalog_sync_state(catalog_set),
         investigated=owned_set.investigated,
         label=owned_set.label,
@@ -95,11 +99,6 @@ def _to_list_item(
 
 
 def _clear_instance_data_for_owned_set(session: Session, owned_set_id: int) -> None:
-    items = session.scalars(
-        select(MissingItem).where(MissingItem.owned_set_id == owned_set_id)
-    ).all()
-    for item in items:
-        delete_image_file(item.image_path)
     clear_instance_inventory(session, owned_set_id)
 
 
@@ -278,6 +277,7 @@ def get_owned_set_detail(
             SetPartLineDetail(
                 instance_line_id=instance_line.id,
                 catalog_line_id=line.id,
+                part_id=part.id,
                 part_num=part.part_num,
                 part_name=part.name,
                 color_id=color.external_id,
@@ -285,12 +285,12 @@ def get_owned_set_detail(
                 quantity=instance_line.quantity,
                 is_spare=line.is_spare,
                 is_alternate=line.is_alternate,
-                image_url=line.image_url,
+                image_url=resolve_part_image_url(part) or line.image_url,
+                part_image_url=resolve_part_image_url(part),
                 missing_quantity=instance_line.quantity_missing,
                 missing_item_id=missing.id if missing else None,
-                missing_image_url=missing_image_url(
-                    missing.id if missing else None,
-                    missing.image_path if missing else None,
+                missing_image_url=missing_image_url_for_part(
+                    part, quantity_missing=instance_line.quantity_missing
                 ),
             )
         )
@@ -325,16 +325,18 @@ def get_owned_set_detail(
                 MinifigPartLineDetail(
                     instance_line_id=instance_line.id,
                     catalog_line_id=part_line.id,
+                    part_id=part.id,
                     part_num=part.part_num,
                     part_name=part.name,
                     color_id=color.external_id,
                     color_name=color.name,
                     quantity=instance_line.quantity,
+                    image_url=resolve_part_image_url(part) or part_line.image_url,
+                    part_image_url=resolve_part_image_url(part),
                     missing_quantity=instance_line.quantity_missing,
                     missing_item_id=missing.id if missing else None,
-                    missing_image_url=missing_image_url(
-                        missing.id if missing else None,
-                        missing.image_path if missing else None,
+                    missing_image_url=missing_image_url_for_part(
+                        part, quantity_missing=instance_line.quantity_missing
                     ),
                 )
             )
@@ -358,11 +360,12 @@ def get_owned_set_detail(
         age=owned_set.age,
         notes=owned_set.notes,
         catalog=CatalogBlock(
+            catalog_set_id=catalog_set.id,
             set_num=catalog_set.set_num,
             name=catalog_set.name,
             year=catalog_set.year,
             theme_name=theme_name,
-            image_url=catalog_set.image_url,
+            image_url=resolve_catalog_image_url(catalog_set),
             num_parts=catalog_set.num_parts,
         ),
         inventory=InventoryBlock(set_parts=set_parts, minifigs=minifigs),

@@ -5,8 +5,10 @@ import { deleteOwnedSet, getOwnedSet, updateOwnedSet } from "../api/client";
 import type { OwnedSetDetailResponse } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { Modal } from "../components/Modal";
+import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
 import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
 import { MissingLineEditor } from "../components/MissingLineEditor";
+import { PartImageEditor } from "../components/PartImageEditor";
 
 interface InstanceForm {
   label: string;
@@ -178,11 +180,12 @@ export function OwnedSetDetailPage() {
       </p>
 
       <header className="detail-header">
-        {catalog.image_url ? (
-          <img src={catalog.image_url} alt="" className="detail-header__image" />
-        ) : (
-          <div className="detail-header__image detail-header__image--placeholder" />
-        )}
+        <CatalogSetImageEditor
+          catalogSetId={catalog.catalog_set_id}
+          imageUrl={catalog.image_url}
+          setNum={catalog.set_num}
+          onUpdated={() => void load()}
+        />
         <div className="detail-header__body">
           <h1>
             {detail.display_label} — {catalog.set_num}
@@ -322,9 +325,12 @@ export function OwnedSetDetailPage() {
                 <tr key={line.instance_line_id}>
                   <td>
                     <div className="part-cell">
-                      {line.image_url && (
-                        <img src={line.image_url} alt="" className="part-cell__img" />
-                      )}
+                      <PartImageEditor
+                        partId={line.part_id}
+                        partNum={line.part_num}
+                        imageUrl={line.part_image_url ?? line.image_url}
+                        onUpdated={() => void load()}
+                      />
                       <span>
                         <strong>{line.part_num}</strong>
                         {line.part_name ? ` — ${line.part_name}` : ""}

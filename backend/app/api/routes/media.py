@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
@@ -12,9 +12,9 @@ router = APIRouter(prefix="/media", tags=["media"])
 def get_missing_image(
     missing_item_id: int,
     db: Session = Depends(get_db),
-) -> FileResponse:
+) -> Response:
     resolved = resolve_missing_image_for_serving(db, missing_item_id)
     if resolved is None:
         raise HTTPException(status_code=404, detail="Image not found")
-    path, media_type = resolved
-    return FileResponse(path, media_type=media_type)
+    content, media_type = resolved
+    return Response(content=content, media_type=media_type)

@@ -1,27 +1,11 @@
-"""Upload directory settings for missing-part images."""
+"""Deprecated: use app.config.image_settings for BLOB image limits."""
 
-from __future__ import annotations
+from app.config.image_settings import (
+    ALLOWED_IMAGE_CONTENT_TYPES,
+    DEFAULT_MAX_IMAGE_BYTES,
+    get_max_image_bytes,
+)
 
-import os
-from pathlib import Path
-
+# Backward-compatible alias for older imports.
+get_max_missing_image_bytes = get_max_image_bytes
 DEFAULT_UPLOAD_ROOT = "./data/uploads"
-DEFAULT_MAX_MISSING_IMAGE_BYTES = 5 * 1024 * 1024
-
-ALLOWED_IMAGE_CONTENT_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-}
-
-
-def get_upload_root() -> Path:
-    raw = os.environ.get("UPLOAD_ROOT", DEFAULT_UPLOAD_ROOT)
-    path = Path(raw)
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def get_max_missing_image_bytes() -> int:
-    return int(os.environ.get("MISSING_IMAGE_MAX_BYTES", DEFAULT_MAX_MISSING_IMAGE_BYTES))

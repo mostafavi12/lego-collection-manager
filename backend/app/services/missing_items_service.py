@@ -1,9 +1,8 @@
-"""Missing-part photo storage (quantities live on instance inventory lines)."""
+"""Missing-part tracking; photos stored on the global Part row."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -13,20 +12,16 @@ from app.db.models import (
     MissingItem,
     OwnedSet,
     OwnedSetInventoryLine,
+    Part,
     SetMinifigInventoryLine,
     SetPartInventoryLine,
 )
 from app.schemas.missing import MissingImageResponse, MissingUpsertRequest, MissingUpsertResponse
-from app.services.catalog_state import missing_image_url
+from app.services.catalog_state import missing_image_url_for_part, resolve_part_image_url
+from app.services.image_blob import clear_part_image, set_part_image
 from app.services.instance_inventory import (
     InstanceInventoryError,
     resolve_or_create_instance_line_for_catalog_ref,
-)
-from app.services.missing_storage import (
-    delete_image_file,
-    extension_for_content_type,
-    resolve_uploaded_path,
-    save_missing_image,
 )
 
 
@@ -38,6 +33,24 @@ class MissingItemError(Exception):
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _part_for_instance_line(
+    session: Session,
+    instance_line: OwnedSetInventoryLine,
+) -> Part | None:
+    if instance_line.set_part_inventory_line_id is not None:
+        line = session.get(SetPartInventoryLine, instance_line.set_part_inventory_line_id)
+        if line is None:
+            return None
+        return session.get(Part, line.part_id)
+    assert instance_line.minifig_part_inventory_line_id is not None
+    line = session.get(
+        MinifigPartInventoryLine, instance_line.minifig_part_inventory_line_id
+    )
+    if line is None:
+        return None
+    return session.get(Part, line.part_id)
 
 
 def upsert_missing(
@@ -70,7 +83,6 @@ def upsert_missing(
         cleared_id = 0
         if instance_line.missing_item is not None:
             cleared_id = instance_line.missing_item.id
-            delete_image_file(instance_line.missing_item.image_path)
             session.delete(instance_line.missing_item)
         instance_line.quantity_missing = 0
         session.flush()
@@ -86,7 +98,6 @@ def upsert_missing(
         missing = MissingItem(
             owned_set_id=owned_set_id,
             owned_set_inventory_line_id=instance_line.id,
-            image_path=None,
             created_at=utc_now(),
             updated_at=utc_now(),
         )
@@ -111,22 +122,23 @@ def upload_missing_image(
     content_type: str,
 ) -> MissingImageResponse:
     missing = _get_missing_for_owned_set(session, owned_set_id, missing_item_id)
+    instance_line = missing.owned_set_inventory_line
 
-    if extension_for_content_type(content_type) is None:
-        raise MissingItemError("File must be JPEG or PNG")
-    if not content:
-        raise MissingItemError("Empty file")
-    if missing.owned_set_inventory_line.quantity_missing <= 0:
+    if instance_line.quantity_missing <= 0:
         raise MissingItemError("Cannot attach image when missing quantity is 0")
 
-    delete_image_file(missing.image_path)
-    missing.image_path = save_missing_image(missing_item_id, content, content_type)
+    part = _part_for_instance_line(session, instance_line)
+    if part is None:
+        raise MissingItemError("Part not found for inventory line", status_code=404)
+
+    set_part_image(session, part.id, content=content, content_type=content_type)
     missing.updated_at = utc_now()
     session.flush()
 
     return MissingImageResponse(
         missing_item_id=missing.id,
-        missing_image_url=missing_image_url(missing.id, missing.image_path),
+        missing_image_url=resolve_part_image_url(part),
+        part_image_url=resolve_part_image_url(part),
     )
 
 
@@ -136,34 +148,37 @@ def delete_missing_image(
     missing_item_id: int,
 ) -> MissingImageResponse:
     missing = _get_missing_for_owned_set(session, owned_set_id, missing_item_id)
-    delete_image_file(missing.image_path)
-    missing.image_path = None
+    part = _part_for_instance_line(session, missing.owned_set_inventory_line)
+    if part is not None:
+        clear_part_image(session, part.id)
     missing.updated_at = utc_now()
     session.flush()
-    return MissingImageResponse(missing_item_id=missing.id, missing_image_url=None)
+    return MissingImageResponse(
+        missing_item_id=missing.id,
+        missing_image_url=None,
+        part_image_url=None,
+    )
 
 
 def resolve_missing_image_for_serving(
     session: Session,
     missing_item_id: int,
-) -> tuple[Path, str] | None:
+) -> tuple[bytes, str] | None:
     missing = session.get(MissingItem, missing_item_id)
-    if missing is None or not missing.image_path:
+    if missing is None:
         return None
-
-    path = resolve_uploaded_path(missing.image_path)
-    if path is None or not path.is_file():
+    instance_line = missing.owned_set_inventory_line
+    if instance_line.quantity_missing <= 0:
         return None
-
-    suffix = path.suffix.lower()
-    if suffix in (".jpg", ".jpeg"):
-        media_type = "image/jpeg"
-    elif suffix == ".png":
-        media_type = "image/png"
-    else:
+    part = _part_for_instance_line(session, instance_line)
+    if part is None:
         return None
+    from app.services.image_blob import get_part_image
 
-    return path, media_type
+    stored = get_part_image(session, part.id)
+    if stored is None:
+        return None
+    return stored.content, stored.content_type
 
 
 def _get_missing_for_owned_set(

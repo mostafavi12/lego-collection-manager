@@ -62,12 +62,11 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 
 ### 3. SQLite storage
 
-**User outcome:** All collection and catalog data persist in a single local SQLite database file; missing-part images persist on local disk.
+**User outcome:** All collection and catalog data persist in a single local SQLite database file; user-uploaded part and set images persist in the same database (Phase 10 BLOB columns).
 
 **Acceptance criteria:**
 
 - Database path is configurable (environment variable); sensible default for local dev documented in [development-plan.md](./development-plan.md).
-- Upload root for missing-part images is configurable; documented in `backend/.env.example`.
 - Schema is versioned with **Alembic** migrations.
 - Application starts only if migrations can be applied or the database is at the expected revision.
 
@@ -122,8 +121,8 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 - Missing state is stored **per owned-set instance**, not globally.
 - User cannot mark missing more than the **expected quantity** from inventory for that part/color (validation).
 - UI and API expose current missing lines and remaining “complete” status at a glance for that instance.
-- Clearing missing removes or zeroes the corresponding records without deleting catalog inventory; **deleting** a missing row removes any stored image file for that row.
-- User can **upload**, **replace**, and **remove** the image for a missing item; stored path is served by the API for display in the UI (no dependency on Rebrickable CDN for that photo).
+- Clearing missing removes or zeroes the corresponding records without deleting catalog inventory.
+- User can **upload**, **replace**, and **remove** the photo for a missing line; bytes are stored on the **part** record (global per `part_id`) and served via same-origin API URLs (no dependency on Rebrickable CDN for that photo).
 
 ### 8. Duplicate owned-set instance (“Make a copy”)
 
@@ -147,7 +146,7 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 **Acceptance criteria:**
 
 - **Delete** action on the **set detail** view (after opening the instance), with a confirmation dialog.
-- **`DELETE /owned-sets/{id}`** removes the instance, its `missing_items`, and any image files under `UPLOAD_ROOT`.
+- **`DELETE /owned-sets/{id}`** removes the instance and its `missing_items`. Part/set BLOB images on shared catalog rows remain unless the last instance for that catalog set is deleted (catalog cleanup).
 - If this was the last instance for that catalog set, **catalog and inventory rows are deleted** as well (full removal from the database).
 - **`404`** if the id does not exist.
 
@@ -164,7 +163,7 @@ Rebrickable sync may populate age as `6+` → store **`6`** (integer). CSV impor
 
 ## 11. Post-MVP collection semantics (Phases 9–12)
 
-The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order. **Not implemented until each phase is explicitly started.**
+The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order. **Phases 9–10 are implemented** on `main`; Phases 11–12 are planned.
 
 ### 11.1 Collection invariant: all sets are owned
 

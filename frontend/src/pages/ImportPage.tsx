@@ -54,7 +54,8 @@ export function ImportPage() {
       <header className="page__header">
         <h1>Import</h1>
         <p className="page__lede">
-          Add owned sets from a comma-separated list, then sync catalog data from
+          Add owned sets from a comma-separated list or{" "}
+          <Link to="/add">add one set manually</Link>, then sync catalog data from
           Rebrickable.
         </p>
       </header>

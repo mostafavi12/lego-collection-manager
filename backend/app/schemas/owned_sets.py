@@ -59,6 +59,7 @@ class OwnedSetDeleteResponse(BaseModel):
 
 
 class CatalogBlock(BaseModel):
+    catalog_set_id: int
     set_num: str
     name: str | None
     year: int | None
@@ -70,6 +71,7 @@ class CatalogBlock(BaseModel):
 class SetPartLineDetail(BaseModel):
     instance_line_id: int
     catalog_line_id: int
+    part_id: int
     part_num: str
     part_name: str | None
     color_id: int
@@ -78,6 +80,7 @@ class SetPartLineDetail(BaseModel):
     is_spare: bool
     is_alternate: bool
     image_url: str | None
+    part_image_url: str | None
     missing_quantity: int
     missing_item_id: int | None
     missing_image_url: str | None
@@ -86,11 +89,14 @@ class SetPartLineDetail(BaseModel):
 class MinifigPartLineDetail(BaseModel):
     instance_line_id: int
     catalog_line_id: int
+    part_id: int
     part_num: str
     part_name: str | None
     color_id: int
     color_name: str
     quantity: int
+    image_url: str | None
+    part_image_url: str | None
     missing_quantity: int
     missing_item_id: int | None
     missing_image_url: str | None

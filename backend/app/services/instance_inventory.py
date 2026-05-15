@@ -221,15 +221,12 @@ def update_instance_inventory_line(
     line.quantity_missing = new_missing
 
     if new_missing == 0:
-        from app.services.missing_storage import delete_image_file
-
         missing = session.scalar(
             select(MissingItem).where(
                 MissingItem.owned_set_inventory_line_id == line.id
             )
         )
         if missing is not None:
-            delete_image_file(missing.image_path)
             session.delete(missing)
 
     session.flush()

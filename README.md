@@ -43,9 +43,10 @@ Configuration is read from the environment (see [`backend/.env.example`](backend
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `DATABASE_URL` | `sqlite:///./data/lego.db` | SQLite database file → `backend/data/lego.db` |
-| `UPLOAD_ROOT` | `./data/uploads` | Missing-part photos → `backend/data/uploads/` |
 | `REBRICKABLE_API_KEY` | — | Required for Rebrickable sync (not for tests) |
 | `LOG_LEVEL` | `INFO` | Importer and application log verbosity |
+
+User-uploaded **part** and **set** images are stored as JPEG/PNG BLOBs in SQLite (see [docs/data-sources.md](docs/data-sources.md)); no upload directory is required.
 
 On startup the API **refuses to start** unless the database is at the latest Alembic revision (`alembic upgrade head`). Importers log structured summaries (set counts, failures) and never log API keys.
 

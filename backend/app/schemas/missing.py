@@ -29,3 +29,4 @@ class MissingUpsertResponse(BaseModel):
 class MissingImageResponse(BaseModel):
     missing_item_id: int
     missing_image_url: str | None
+    part_image_url: str | None = None
