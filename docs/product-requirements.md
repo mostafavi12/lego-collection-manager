@@ -162,12 +162,69 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 
 Rebrickable sync may populate age as `6+` → store **`6`** (integer). CSV import does **not** rename existing instance labels; duplicate custom labels are allowed.
 
+## 11. Post-MVP collection semantics (Phases 9–12)
+
+The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order. **Not implemented until each phase is explicitly started.**
+
+### 11.1 Collection invariant: all sets are owned
+
+The database does not store LEGO sets the user does not own. Every `catalog_sets` row has at least one `owned_sets` row. Deleting the last instance for a set number removes catalog and inventory for that set (existing delete rule).
+
+### 11.2 Rebrickable fetch without images
+
+When importing or enriching from Rebrickable (CSV import in Phase 11, optional prefill in manual add, and existing sync endpoint):
+
+- **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs.
+- **Do not fetch:** image bytes from Rebrickable CDN URLs (no local cache folders, no automatic BLOB population from URLs in these flows).
+
+User-uploaded images are stored in SQLite (Phase 10).
+
+### 11.3 Shared vs per-instance fields
+
+| Data | Scope when user edits |
+|------|------------------------|
+| Set name, theme, year, number of parts, age, **set image** | **All instances** sharing the same `catalog_set_id` / `set_num`. |
+| Instance label, investigated, notes | **This instance only**. |
+| `set_num` re-link | **This instance only** (with warning; existing MVP rule). |
+| **Part quantity** on inventory | **This instance only** (Phase 9). |
+| **Missing quantity** per line | **This instance only**; must satisfy `0 ≤ missing ≤ quantity` for that instance line. |
+| **Part image** | **Global per `parts` row** — updating the image for part X updates every inventory line that references part X in every set. |
+| **Part aliases** | **Symmetric equivalence class** — see §11.5. |
+
+### 11.4 Part images
+
+- Any inventory line **may** have a user-provided image via its part record; missing parts are the primary use case.
+- One image per part (JPEG/PNG BLOB in DB, max 5 MB).
+
+### 11.5 Part aliases (bidirectional)
+
+Users may edit the alias list for a part. The system maintains an **undirected** alias group:
+
+- If part **B** is added to part **X**’s alias list, **X** is added to **B**’s alias list.
+- If part **A** is removed from **X**’s alias list, **X** is removed from **A**’s alias list.
+
+Search treats all members of the group as interchangeable for part-number lookup.
+
+### 11.6 CSV import (Phase 11)
+
+Unchanged additive semantics (one token → one new instance). Additionally, for each token the app calls Rebrickable and upserts **full** catalog inventory (no images). Failures are per-token; valid tokens still succeed.
+
+### 11.7 Manual add set (Phase 12)
+
+1. User enters **set number** (only required field).
+2. If set number **already exists:** show message that a **new instance** is being created; load catalog + inventory from DB; create instance; user edits instance fields on detail.
+3. If set number **is new:** user enters set metadata and parts list (or optional Rebrickable prefill without images); system creates catalog + **first** instance + instance inventory.
+
+### 11.8 Sync UX (deferred)
+
+No new bulk sync UI in Phases 9–12. `POST /imports/rebrickable/sync` remains for later enhancement (Phase 13+).
+
 ## UX surfaces (MVP)
 
 1. **Owned sets** — list layout per [§4](#4-owned-sets-list); **Make a copy** with confirmation dialog per row.
 2. **Set detail** — instance field editor + inventory + missing panel; **delete** instance; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
-4. **Import** — CSV/text file upload (additive); trigger Rebrickable sync (from owned list or global import action).
+4. **Import** — CSV/text file upload (additive); trigger Rebrickable sync (MVP). *Post-MVP:* CSV also fetches full set data (Phase 11); **Add set** wizard (Phase 12).
 
 ## Non-goals (MVP)
 

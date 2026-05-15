@@ -420,6 +420,104 @@ or
 
 Missing lines are embedded in **`GET /owned-sets/{id}`**; a dedicated `GET /owned-sets/{id}/missing` is **optional** if the detail payload becomes too heavy post-MVP.
 
+---
+
+## Planned API additions (Phases 9–12, not yet implemented)
+
+Contracts below are **targets** for post-MVP work. MVP endpoints above remain until each phase ships.
+
+### Instance inventory (Phase 9)
+
+Detail payload (`GET /owned-sets/{id}`) exposes per-line **`quantity`** and **`quantity_missing`** for **this instance** (not catalog template quantities).
+
+**`PATCH /owned-sets/{owned_set_id}/inventory-lines/{line_id}`** (or batch variant):
+
+```json
+{
+  "quantity": 4,
+  "quantity_missing": 2
+}
+```
+
+- `quantity` > 0; `0 ≤ quantity_missing ≤ quantity`.
+- `404` if line does not belong to this instance.
+- Does not change other instances’ lines.
+
+MVP **`PATCH .../missing`** may be deprecated or delegated to this endpoint once instance lines own `quantity_missing`.
+
+### Images in database (Phase 10)
+
+Replace disk **`/api/media/missing/{id}`** with BLOB-backed routes, e.g.:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/parts/{part_id}/image` | Serve part image bytes |
+| `PUT` | `/parts/{part_id}/image` | Upload/replace (multipart; max 5 MB) |
+| `DELETE` | `/parts/{part_id}/image` | Clear part image |
+| `GET` | `/catalog-sets/{catalog_set_id}/image` | Serve set image |
+| `PUT` | `/catalog-sets/{catalog_set_id}/image` | Upload/replace set image |
+| `DELETE` | `/catalog-sets/{catalog_set_id}/image` | Clear set image |
+
+Responses use stored `Content-Type` (`image/jpeg` or `image/png`). **`413`** when over size limit.
+
+JSON fields may expose `part_image_url` / `set_image_url` as same-origin API paths instead of Rebrickable CDN URLs.
+
+### CSV import with Rebrickable (Phase 11)
+
+**`POST /imports/csv`** response extended (example):
+
+```json
+{
+  "instances_created": 3,
+  "sets_fetched": 3,
+  "sets_failed": [
+    { "token_index": 2, "set_num": "0000-1", "message": "HTTP 404 from Rebrickable" }
+  ],
+  "errors": []
+}
+```
+
+- Requires `REBRICKABLE_API_KEY`; **`400`** if missing.
+- Per token: upsert catalog + template inventory + create instance + copy instance inventory (Phase 9).
+- **No** image HTTP downloads during import.
+
+### Manual add set (Phase 12)
+
+**`POST /owned-sets`** (or split `POST /catalog/sets` + instance — pick one at implementation):
+
+**Body (step 1 — set number only):**
+
+```json
+{ "set_num": "6024-1" }
+```
+
+**Behavior:**
+
+- If `set_num` exists: **`201`** new instance; response includes `owned_set_id`, `catalog_set_id`, message that this is a new copy; inventory cloned from template.
+- If new: **`422`** or **`400`** with `detail` requiring metadata/parts **or** accept full body in one request:
+
+```json
+{
+  "set_num": "99999-1",
+  "catalog": { "name": "...", "theme_name": "...", "year": 2020, "num_parts": 100 },
+  "parts": [
+    { "part_num": "3024", "color_id": 0, "quantity": 2, "is_spare": false, "is_alternate": false }
+  ]
+}
+```
+
+**`PATCH /parts/{part_id}/aliases`**
+
+```json
+{ "aliases": ["3024", "3024b"] }
+```
+
+Server enforces **symmetric closure** across all parts in the alias group (see [product-requirements.md §11.5](./product-requirements.md#115-part-aliases-bidirectional)).
+
+### Sync (unchanged in 9–12)
+
+**`POST /imports/rebrickable/sync`** — no contract change in Phases 9–12; bulk sync UI deferred to Phase 13+.
+
 ## CORS
 
 Backend allows the Vite dev origin (e.g. `http://localhost:5173`) via environment-driven CORS settings for MVP.

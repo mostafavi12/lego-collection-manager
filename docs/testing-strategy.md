@@ -48,6 +48,17 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 - `PATCH .../missing`: validation against inventory quantity; clear with zero removes row and image file.
 - `PUT` / `DELETE` missing image; `GET /media/missing/{id}`: 404 when absent; content-type for JPEG/PNG fixtures.
 
+### Post-MVP (Phases 9–12)
+
+Add when each phase is implemented (still **no live Rebrickable** in CI):
+
+| Phase | Focus |
+|-------|--------|
+| **9** | Instance quantity PATCH isolation across two `owned_sets` sharing `catalog_set_id`; `quantity_missing` validation. |
+| **10** | BLOB round-trip; 5 MB limit; JPEG/PNG only; part image visible on two sets; migration off `UPLOAD_ROOT`. |
+| **11** | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
+| **12** | `POST /owned-sets` branch existing vs new `set_num`; alias symmetry (add/remove pairs). |
+
 ### Search
 
 - SQL/query layer tests for prefix match on `set_num` and match on `part_num` / `part_aliases.alias` with controlled fixtures.

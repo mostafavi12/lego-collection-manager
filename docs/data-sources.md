@@ -23,9 +23,18 @@ This document defines **file** and **network** inputs: formats, environment vari
 
 ### Semantics
 
-- **One token → one owned-set instance:** each valid set number in the file creates a **new** row in `owned_sets`, linked to the shared `catalog_sets` row for that `set_num` (creating a **stub** catalog row when needed). Repeating the same `set_num` in one file or across imports creates **multiple instances** (see [product-requirements.md](./product-requirements.md)).
+- **One token → one owned-set instance:** each valid set number in the file creates a **new** row in `owned_sets`, linked to the shared `catalog_sets` row for that `set_num`. Repeating the same `set_num` in one file or across imports creates **multiple instances** (see [product-requirements.md](./product-requirements.md)).
 - Import is **additive** only: it never removes existing owned instances.
 - Re-uploading an identical file will create **duplicate instances**; the app does not deduplicate across imports.
+
+### MVP vs Phase 11 (CSV + Rebrickable)
+
+| Aspect | MVP (Phases 1–8) | Phase 11+ |
+|--------|------------------|-----------|
+| Catalog row on CSV | **Stub** (`name` NULL, etc.) until sync | **Full fetch** per token via Rebrickable APIs |
+| Inventory | Filled by `POST /imports/rebrickable/sync` | Filled during CSV import (same endpoints as sync, mocked in tests) |
+| Images | N/A on CSV | **Not downloaded** from Rebrickable URLs |
+| API key | Optional for CSV alone | **Required** for CSV import |
 
 ### Investigation default
 
@@ -114,7 +123,9 @@ Except for the per-instance **label** (user-only), set-level metadata may come f
 
 **Re-sync behavior:** each successful Rebrickable sync **upserts** catalog fields from the API. When the API returns `age_range`, sync updates **all** owned instances for that catalog set. Manual values for those catalog fields may be **overwritten** on a later sync.
 
-## Local files (missing-part images)
+## User-provided images
+
+### MVP (Phases 1–8): disk storage
 
 | Variable | Purpose |
 |----------|---------|
@@ -123,10 +134,15 @@ Except for the per-instance **label** (user-only), set-level metadata may come f
 Rules:
 
 - **One image per `missing_items` row** (replace on re-upload).
-- Accepted formats: **JPEG** and **PNG** (MVP); max size per [api-design.md](./api-design.md).
-- Files are stored on disk with a stable name derived from `missing_items.id` (see [database-schema.md](./database-schema.md)); database holds relative path only.
-- Deleting a missing item or its image removes the file from disk.
-- Images are **not** sent to Rebrickable; they exist for local UI and future offline reports.
+- Accepted formats: **JPEG** and **PNG**; max size per [api-design.md](./api-design.md).
+- Files on disk; database holds relative path only.
+
+### Phase 10+: SQLite BLOBs
+
+- Part images on `parts`; set images on `catalog_sets`.
+- Max **5 MB**; JPEG/PNG; min size **0** allowed.
+- No `UPLOAD_ROOT`, `MEDIA_ROOT`, or thumbnail/full folder layout.
+- Images are **not** sent to Rebrickable.
 
 ## Testing constraint
 

@@ -229,6 +229,46 @@ SQLite full-text (FTS5) is **optional post-MVP**; MVP may use `LIKE` with normal
 - Deleting a `missing_items` row removes its image file if present.
 - Catalog rows are generally **not** deleted on failed sync; importer updates in place. Optional future “prune sets no longer owned” job is out of MVP scope.
 
+---
+
+## Planned schema changes (Phases 9–12, not yet implemented)
+
+These tables/columns describe the **target** design for post-MVP work. MVP columns above remain until migrated phase by phase.
+
+### Instance inventory (Phase 9)
+
+Catalog inventory lines stay on `catalog_sets` as the **template** (from Rebrickable or manual entry). New table (name TBD, e.g. `owned_set_inventory_lines`):
+
+| Column | Type | Notes |
+|--------|------|--------|
+| `id` | INTEGER PK | |
+| `owned_set_id` | INTEGER FK → `owned_sets.id` NOT NULL | |
+| `set_part_inventory_line_id` | INTEGER FK NULL | Exactly one line FK set per row (set-part or minifig-part). |
+| `minifig_part_inventory_line_id` | INTEGER FK NULL | |
+| `quantity` | INTEGER NOT NULL | Expected/owned qty for **this instance**; > 0. |
+| `quantity_missing` | INTEGER NOT NULL DEFAULT 0 | 0 ≤ value ≤ `quantity`. |
+
+Creating an instance (CSV, duplicate, manual add) **copies** template lines into instance rows. `missing_items` may be folded into `quantity_missing` or kept for photo linkage until Phase 10 — implementers choose one model and document in migration notes.
+
+### Images in SQLite (Phase 10)
+
+| Table | New columns | Notes |
+|-------|-------------|--------|
+| `parts` | `image_blob` BLOB NULL, `image_content_type` TEXT NULL, `image_byte_size` INTEGER NULL | One image per part globally. |
+| `catalog_sets` | `image_blob`, `image_content_type`, `image_byte_size` | Set box art; shared by all instances. |
+
+Constraints: JPEG or PNG; max **5_242_880** bytes (5 MB); min size **0** allowed. Remove `missing_items.image_path` and stop using `UPLOAD_ROOT` after migration.
+
+Serving: `GET` endpoints return bytes with `Content-Type` from stored metadata (see planned [api-design.md](./api-design.md)).
+
+### Part aliases (Phase 12)
+
+Keep `part_aliases` table; all write paths enforce **symmetric closure** within an alias equivalence class (see [product-requirements.md §11.5](./product-requirements.md#115-part-aliases-bidirectional)).
+
+### Collection invariant (Phase 12)
+
+Enforce at application layer: `catalog_sets` without any `owned_sets` must not exist after commits (except transient transactions).
+
 ## Related documents
 
 - [README.md](./README.md) — index of all specification files in `docs/`
