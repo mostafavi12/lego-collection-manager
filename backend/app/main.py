@@ -3,7 +3,7 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-from app.api.routes import imports, owned_sets, search
+from app.api.routes import imports, media, owned_sets, search
 
 load_dotenv()
 
@@ -15,6 +15,7 @@ app = FastAPI(
 app.include_router(imports.router, prefix="/api")
 app.include_router(owned_sets.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
+app.include_router(media.router, prefix="/api")
 
 
 @app.get("/health")
