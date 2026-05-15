@@ -11,19 +11,20 @@ This document defines **file** and **network** inputs: formats, environment vari
 | **Encoding** | UTF-8 only. |
 | **Structure** | A **plain text** file: Rebrickable-compatible **set numbers** separated by **commas**. There is **no header row** and **no column layout** (not a spreadsheet schema). |
 | **Separators** | Comma (`,`). Tokens may also be separated by **whitespace** and **newlines**; the parser normalizes by splitting on commas and whitespace runs, then trimming each token. |
-| **Example** | `6024-1,10281-1,21309-1` or multi-line: `6024-1, 10281-1\n21309-1` |
+| **Example** | `6024`, `6024-1`, `10281-2` or multi-line: `6024, 10281-1\n21309-1` |
 | **Minimum content** | At least one non-empty set number token per successful import. |
 
 ### Normalization
 
 - Trim leading and trailing whitespace on every token.
 - Empty token after trim → token error, skip token.
-- **Case:** store and match using the canonical string returned by Rebrickable after first successful sync when possible; until sync, preserve user input trimmed.
-- **Variants:** Rebrickable uses set numbers such as `6024-1`. User values must be resolvable to the same `set_num` the API expects; if the API returns 404 for a row, surface that as a **sync-time** error for that set copy’s shared catalog (`catalog_sets`) row (see import API).
+- **Base number vs variant:** Rebrickable’s HTTP API uses strings like `6024-1` (base **6024**, variant **1**). Users may enter **only the base number** (e.g. `6024`); the app assumes variant **`1`** when building the Rebrickable key. Users may also enter an explicit variant (`6024-2`, `65001-3`). The database stores **`set_number`** (integer) and **`set_variant`** (integer); the UI and collection JSON expose **only the base number** as `set_num`.
+- **Case:** digits-only tokens are case-insensitive only insofar as they are numeric; preserve explicit `base-variant` input after trim.
+- If the API returns 404 for the resolved key, surface that as a **sync-time** or **import-time** error for that token (see import API).
 
 ### Semantics
 
-- **One token → one new physical copy:** each valid set number in the file creates a **new** row in `owned_sets`, linked to the shared `catalog_sets` row for that `set_num`. Repeating the same `set_num` in one file or across imports creates **multiple copies** (see [product-requirements.md](./product-requirements.md)).
+- **One token → one new physical copy:** each valid set number in the file creates a **new** row in `owned_sets`, linked to the shared `catalog_sets` row for that **number + variant**. Repeating the same token in one file or across imports creates **multiple copies** (see [product-requirements.md](./product-requirements.md)).
 - Import is **additive** only: it never removes existing copies.
 - Re-uploading an identical file will create **additional duplicate copies**; the app does not deduplicate across imports.
 

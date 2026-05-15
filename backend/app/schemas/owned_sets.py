@@ -5,7 +5,7 @@ class OwnedSetListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    set_num: str
+    set_num: int
     name: str | None
     year: int | None
     theme_name: str | None
@@ -39,7 +39,7 @@ class OwnedSetUpdateRequest(BaseModel):
 
 class DuplicatePreviewResponse(BaseModel):
     source_owned_set_id: int
-    set_num: str
+    set_num: int
     set_name: str | None
     existing_copy_count: int
     suggested_label: str
@@ -60,7 +60,7 @@ class OwnedSetDeleteResponse(BaseModel):
 
 class CatalogBlock(BaseModel):
     catalog_set_id: int
-    set_num: str
+    set_num: int
     name: str | None
     year: int | None
     theme_name: str | None

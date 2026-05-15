@@ -35,7 +35,7 @@ def test_rebrickable_sync_logs_set_summary(
 ) -> None:
     caplog.set_level(logging.INFO, logger="app.importers.rebrickable_sync_service")
 
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     db_session.commit()
 

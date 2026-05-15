@@ -10,12 +10,12 @@ def test_add_preview_new_set_num(api_client) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["catalog_exists"] is False
-    assert body["set_num"] == "9999-1"
+    assert body["set_num"] == 9999
     assert body["suggested_label"] == "Copy #1"
 
 
 def test_add_preview_existing_set_num(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session, external_id=0, name="Black")
     add_set_part_inventory_line(
@@ -44,7 +44,7 @@ def test_create_new_set_stub(api_client, db_session) -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["catalog_created"] is True
-    assert body["set_num"] == "8888-1"
+    assert body["set_num"] == 8888
     assert body["investigated"] is False
     assert body["display_label"] == "Copy #1"
 
@@ -86,7 +86,7 @@ def test_create_new_set_with_catalog_and_parts(api_client, db_session) -> None:
 
 
 def test_create_additional_copy(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session, external_id=0, name="Black")
     add_set_part_inventory_line(
@@ -113,7 +113,7 @@ def test_create_additional_copy(api_client, db_session) -> None:
 
 
 def test_create_copy_rejects_catalog_body(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     db_session.commit()
 
@@ -125,7 +125,7 @@ def test_create_copy_rejects_catalog_body(api_client, db_session) -> None:
 
 
 def test_rebrickable_draft_409_when_catalog_exists(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     db_session.commit()
 
@@ -156,7 +156,7 @@ def test_rebrickable_draft_ok(api_client, monkeypatch) -> None:
     )
 
     fake_draft = OwnedSetRebrickableDraftResponse(
-        set_num="8888-1",
+        set_num=8888,
         catalog=ManualAddCatalogInput(
             name="From API",
             theme_name=None,
@@ -192,7 +192,7 @@ def test_rebrickable_draft_ok(api_client, monkeypatch) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["set_num"] == "8888-1"
+    assert body["set_num"] == 8888
     assert body["catalog"]["name"] == "From API"
     assert body["catalog"]["year"] == 2000
     assert len(body["parts"]) == 1

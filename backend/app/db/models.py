@@ -38,16 +38,23 @@ class Theme(Base):
 
 
 class CatalogSet(Base):
-    """Shared metadata and inventory **template** for one LEGO `set_num`.
+    """Shared metadata and inventory **template** for one LEGO catalog set.
+
+    `set_number` is the user-visible integer (e.g. 65001). `set_variant` is the Rebrickable
+    suffix (usually 1); HTTP calls use ``{set_number}-{set_variant}``.
 
     In the product, this is not a wishlist row: it exists only because the user has at least
     one physical copy (`OwnedSet`). Deleting the user's last copy removes this catalog stub.
     """
 
     __tablename__ = "catalog_sets"
+    __table_args__ = (
+        UniqueConstraint("set_number", "set_variant", name="uq_catalog_sets_number_variant"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    set_num: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    set_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    set_variant: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     name: Mapped[str | None] = mapped_column(Text, nullable=True)
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     theme_id: Mapped[int | None] = mapped_column(
@@ -76,7 +83,7 @@ class OwnedSet(Base):
     """One physical LEGO set **copy** stored in the user's collection (`owned_sets` table).
 
     Product rule: the database never represents LEGO sets outside the user's collection.
-    `catalog_sets` holds shared metadata for a `set_num` and exists only while at least
+    `catalog_sets` holds shared metadata for a LEGO set number (`set_number`) and exists only while at least
     one copy row points to it; deleting the last copy cascades away that catalog.
     """
 

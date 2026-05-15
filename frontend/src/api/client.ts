@@ -81,16 +81,16 @@ export function mediaUrl(path: string | null): string | null {
 }
 
 export function fetchAddSetPreview(
-  setNum: string,
+  setNum: string | number,
 ): Promise<AddSetPreviewResponse> {
-  const params = new URLSearchParams({ set_num: setNum.trim() });
+  const params = new URLSearchParams({ set_num: String(setNum).trim() });
   return request(`/owned-sets/add-preview?${params}`);
 }
 
 export function fetchManualAddRebrickableDraft(
-  setNum: string,
+  setNum: string | number,
 ): Promise<RebrickableSetDraftResponse> {
-  const params = new URLSearchParams({ set_num: setNum.trim() });
+  const params = new URLSearchParams({ set_num: String(setNum).trim() });
   return request(`/owned-sets/add-rebrickable-draft?${params}`);
 }
 

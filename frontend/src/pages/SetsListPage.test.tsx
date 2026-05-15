@@ -30,7 +30,7 @@ describe("SetsListPage", () => {
 
     renderPage();
 
-    expect(await screen.findByText(/6024-1 \(Police Car\) - copy A/)).toBeInTheDocument();
+    expect(await screen.findByText(/6024 \(Police Car\) - copy A/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /make a copy/i })).toHaveLength(2);
   });
 
@@ -45,7 +45,7 @@ describe("SetsListPage", () => {
         ok: true,
         json: async () => ({
           source_owned_set_id: 1,
-          set_num: "6024-1",
+          set_num: 6024,
           set_name: "Police Car",
           existing_copy_count: 2,
           suggested_label: "Copy #3",

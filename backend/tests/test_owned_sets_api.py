@@ -16,7 +16,7 @@ from tests.factories import (
 
 def _seed_collection(db_session):
     theme = add_theme(db_session, external_id=67, name="Town")
-    catalog = add_catalog_set(db_session, set_num="6024-1", theme=theme)
+    catalog = add_catalog_set(db_session, theme=theme)
     owned_a = add_owned_set(db_session, catalog, investigated=False, label="copy A")
     owned_b = add_owned_set(db_session, catalog, investigated=True, label="copy B")
     part = add_part(db_session, part_num="3024")
@@ -52,7 +52,7 @@ def test_list_filter_investigated(api_client, db_session) -> None:
 
 
 def test_list_pending_catalog_sync_state(api_client, db_session) -> None:
-    stub = add_catalog_stub(db_session, set_num="stub-1")
+    stub = add_catalog_stub(db_session)
     add_owned_set(db_session, stub)
     db_session.commit()
 
@@ -65,7 +65,7 @@ def test_get_owned_set_detail(api_client, db_session) -> None:
     response = api_client.get(f"/api/owned-sets/{owned_a.id}")
     assert response.status_code == 200
     body = response.json()
-    assert body["catalog"]["set_num"] == "6024-1"
+    assert body["catalog"]["set_num"] == 6024
     assert len(body["inventory"]["set_parts"]) == 1
     assert body["inventory"]["set_parts"][0]["missing_quantity"] == 1
     assert body["inventory"]["set_parts"][0]["missing_item_id"] == 1

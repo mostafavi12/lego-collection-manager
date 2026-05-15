@@ -9,7 +9,7 @@ export const setCopyListFixture: SetCopyListResponse = {
   items: [
     {
       id: 1,
-      set_num: "6024-1",
+      set_num: 6024,
       name: "Police Car",
       year: 1980,
       theme_name: "Town",
@@ -25,7 +25,7 @@ export const setCopyListFixture: SetCopyListResponse = {
     },
     {
       id: 2,
-      set_num: "6024-1",
+      set_num: 6024,
       name: "Police Car",
       year: 1980,
       theme_name: "Town",
@@ -52,7 +52,7 @@ export const setCopyDetailFixture: SetCopyDetailResponse = {
   notes: null,
   catalog: {
     catalog_set_id: 10,
-    set_num: "6024-1",
+    set_num: 6024,
     name: "Police Car",
     year: 1980,
     theme_name: "Town",
@@ -86,7 +86,7 @@ export const searchFixture: SearchResponse = {
   sets: [
     {
       owned_set_id: 1,
-      set_num: "6024-1",
+      set_num: 6024,
       name: "Police Car",
       investigated: false,
       label: "copy A",

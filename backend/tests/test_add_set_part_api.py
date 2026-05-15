@@ -10,7 +10,7 @@ from tests.factories import (
 
 
 def test_add_set_part_to_instance(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     owned = add_owned_set(db_session, catalog)
     db_session.commit()
 
@@ -37,7 +37,7 @@ def test_add_set_part_to_instance(api_client, db_session) -> None:
 
 
 def test_add_set_part_duplicate_returns_409(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session, external_id=0, name="Black")
     add_set_part_inventory_line(

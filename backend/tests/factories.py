@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.domain.lego_set_number import LegoSetId, to_rebrickable_set_num
 from app.db.models import (
     CatalogMinifig,
     CatalogSet,
@@ -47,16 +48,19 @@ def add_theme(session: Session, *, external_id: int = 1, name: str = "Town") -> 
 def add_catalog_set(
     session: Session,
     *,
-    set_num: str = "6024-1",
+    set_number: int = 6024,
+    set_variant: int = 1,
     theme: Theme | None = None,
 ) -> CatalogSet:
+    rb = to_rebrickable_set_num(LegoSetId(set_number, set_variant))
     catalog_set = CatalogSet(
-        set_num=set_num,
+        set_number=set_number,
+        set_variant=set_variant,
         name="Police Car",
         year=1980,
         theme_id=theme.id if theme else None,
         source="rebrickable",
-        source_ref=set_num,
+        source_ref=rb,
         fetched_at=utc_now(),
     )
     session.add(catalog_set)
@@ -134,17 +138,20 @@ def add_set_part_inventory_line(
 def add_catalog_stub(
     session: Session,
     *,
-    set_num: str = "9999-1",
+    set_number: int = 9999,
+    set_variant: int = 1,
 ) -> CatalogSet:
+    rb = to_rebrickable_set_num(LegoSetId(set_number, set_variant))
     catalog_set = CatalogSet(
-        set_num=set_num,
+        set_number=set_number,
+        set_variant=set_variant,
         name=None,
         year=None,
         theme_id=None,
         num_parts=None,
         image_url=None,
         source="csv_import",
-        source_ref=set_num,
+        source_ref=rb,
         fetched_at=utc_now(),
     )
     session.add(catalog_set)

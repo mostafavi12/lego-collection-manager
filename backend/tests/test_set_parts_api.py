@@ -14,7 +14,7 @@ from tests.factories import (
 
 
 def test_post_set_part_returns_part_and_catalog_ids(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     owned = add_owned_set(db_session, catalog)
     db_session.commit()
 
@@ -38,7 +38,7 @@ def test_post_set_part_returns_part_and_catalog_ids(api_client, db_session) -> N
 
 
 def test_detail_includes_part_aliases(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     add_part_alias(db_session, part, "3024b")
     add_part_alias(db_session, part, "3024")
@@ -56,7 +56,7 @@ def test_detail_includes_part_aliases(api_client, db_session) -> None:
 
 
 def test_patch_set_part_updates_name_and_quantity(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     part.name = "Old"
     color = add_color(db_session, external_id=0, name="Black")
@@ -88,7 +88,7 @@ def test_patch_set_part_updates_name_and_quantity(api_client, db_session) -> Non
 def test_patch_set_part_changes_color_repoints_catalog_line(
     api_client, db_session
 ) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     black = add_color(db_session, external_id=0, name="Black")
     line = add_set_part_inventory_line(
@@ -119,7 +119,7 @@ def test_patch_set_part_changes_color_repoints_catalog_line(
 def test_delete_set_part_removes_instance_and_orphan_catalog_line(
     api_client, db_session
 ) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session, external_id=0, name="Black")
     line = add_set_part_inventory_line(
@@ -154,7 +154,7 @@ def test_delete_set_part_removes_instance_and_orphan_catalog_line(
 def test_delete_set_part_keeps_catalog_line_when_other_instance_uses_it(
     api_client, db_session
 ) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session, external_id=0, name="Black")
     line = add_set_part_inventory_line(
@@ -175,7 +175,7 @@ def test_delete_set_part_keeps_catalog_line_when_other_instance_uses_it(
 
 
 def test_patch_set_part_not_found(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     owned = add_owned_set(db_session, catalog)
     db_session.commit()
 
@@ -187,7 +187,7 @@ def test_patch_set_part_not_found(api_client, db_session) -> None:
 
 
 def test_patch_set_part_rejects_missing_above_quantity(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session, external_id=0, name="Black")
     line = add_set_part_inventory_line(

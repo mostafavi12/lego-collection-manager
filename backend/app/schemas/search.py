@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class SearchSetResult(BaseModel):
     owned_set_id: int
-    set_num: str
+    set_num: int
     name: str | None
     investigated: bool
     label: str | None

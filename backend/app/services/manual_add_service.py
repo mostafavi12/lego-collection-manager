@@ -8,6 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import CatalogSet, Color, OwnedSet, Part, SetPartInventoryLine, Theme
+from app.domain.lego_set_number import (
+    LegoSetId,
+    LegoSetNumberParseError,
+    parse_user_set_number,
+    to_rebrickable_set_num,
+)
 from app.schemas.manual_add import (
     AddPreviewPartLine,
     ManualAddCatalogInput,
@@ -37,11 +43,14 @@ from app.services.owned_sets_service import (
 MANUAL_SOURCE = "user"
 
 
-def normalize_set_num(set_num: str) -> str:
-    trimmed = set_num.strip()
-    if not trimmed:
+def normalize_set_num(set_num: str) -> LegoSetId:
+    """Parse user/CSV input into a catalog key (default Rebrickable variant ``-1`` when omitted)."""
+    if not set_num or not str(set_num).strip():
         raise OwnedSetServiceError("Set number is required")
-    return trimmed
+    try:
+        return parse_user_set_number(str(set_num))
+    except LegoSetNumberParseError as exc:
+        raise OwnedSetServiceError(str(exc)) from exc
 
 
 def _shared_age_for_catalog(session: Session, catalog_set_id: int) -> int | None:
@@ -72,15 +81,18 @@ def _catalog_part_lines(session: Session, catalog_set_id: int) -> list[AddPrevie
 
 
 def get_add_preview(session: Session, set_num: str) -> OwnedSetAddPreviewResponse:
-    normalized = normalize_set_num(set_num)
+    lsid = normalize_set_num(set_num)
     catalog = session.scalar(
         select(CatalogSet)
-        .where(CatalogSet.set_num == normalized)
+        .where(
+            CatalogSet.set_number == lsid.number,
+            CatalogSet.set_variant == lsid.variant,
+        )
         .options(selectinload(CatalogSet.theme))
     )
     if catalog is None:
         return OwnedSetAddPreviewResponse(
-            set_num=normalized,
+            set_num=lsid.number,
             catalog_exists=False,
             set_name=None,
             existing_copy_count=0,
@@ -90,7 +102,7 @@ def get_add_preview(session: Session, set_num: str) -> OwnedSetAddPreviewRespons
     count = count_owned_instances(session, catalog.id)
     theme_name = catalog.theme.name if catalog.theme else None
     return OwnedSetAddPreviewResponse(
-        set_num=normalized,
+        set_num=lsid.number,
         catalog_exists=True,
         set_name=catalog.name,
         existing_copy_count=count,
@@ -125,10 +137,14 @@ def create_owned_set_manual(
     session: Session,
     body: OwnedSetCreateRequest,
 ) -> OwnedSetCreateResponse:
-    set_num = normalize_set_num(body.set_num)
+    lsid = normalize_set_num(body.set_num)
+    rb_key = to_rebrickable_set_num(lsid)
     catalog = session.scalar(
         select(CatalogSet)
-        .where(CatalogSet.set_num == set_num)
+        .where(
+            CatalogSet.set_number == lsid.number,
+            CatalogSet.set_variant == lsid.variant,
+        )
         .options(selectinload(CatalogSet.theme))
     )
     now = utc_now()
@@ -141,14 +157,15 @@ def create_owned_set_manual(
             )
     else:
         catalog = CatalogSet(
-            set_num=set_num,
+            set_number=lsid.number,
+            set_variant=lsid.variant,
             name=None,
             year=None,
             theme_id=None,
             num_parts=None,
             image_url=None,
             source=MANUAL_SOURCE,
-            source_ref=set_num,
+            source_ref=rb_key,
             fetched_at=now,
         )
         session.add(catalog)

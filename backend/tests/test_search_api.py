@@ -14,7 +14,7 @@ def test_search_empty_query_returns_400(api_client) -> None:
 
 
 def test_search_sets_by_prefix(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     owned = add_owned_set(db_session, catalog, label="A")
     db_session.commit()
 
@@ -27,7 +27,7 @@ def test_search_sets_by_prefix(api_client, db_session) -> None:
 
 
 def test_search_multiple_instances_same_set_num(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog, label="A")
     add_owned_set(db_session, catalog, label="B")
     db_session.commit()
@@ -37,7 +37,7 @@ def test_search_multiple_instances_same_set_num(api_client, db_session) -> None:
 
 
 def test_search_parts_by_part_num_and_alias(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="1000-1")
+    catalog = add_catalog_set(db_session, set_number=1000)
     add_owned_set(db_session, catalog)
     part = add_part(db_session, part_num="3024")
     add_part_alias(db_session, part, "alias-3024")
@@ -53,7 +53,7 @@ def test_search_parts_by_part_num_and_alias(api_client, db_session) -> None:
 
 
 def test_search_type_all_returns_both_buckets(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     part = add_part(db_session, part_num="6024plate")
     color = add_color(db_session, external_id=2, name="Blue")

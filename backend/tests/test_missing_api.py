@@ -11,7 +11,7 @@ from tests.factories import (
 
 
 def _seed_line(db_session, *, quantity: int = 4):
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session)
     line = add_set_part_inventory_line(
@@ -129,7 +129,7 @@ def test_delete_image_keeps_missing_row(api_client, db_session) -> None:
 
 def test_put_image_wrong_owned_set_returns_404(api_client, db_session) -> None:
     owned_a, line_a, _part = _seed_line(db_session)
-    catalog_b = add_catalog_set(db_session, set_num="9999-1")
+    catalog_b = add_catalog_set(db_session, set_number=9999)
     owned_b = add_owned_set(db_session, catalog_b)
     db_session.commit()
 

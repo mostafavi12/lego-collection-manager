@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-SET_NUM_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-]*$")
+from app.domain.lego_set_number import LegoSetNumberParseError, parse_user_set_number
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,9 @@ def validate_set_num(token: str) -> str | None:
     trimmed = token.strip()
     if not trimmed:
         return "empty set number"
-    if not SET_NUM_RE.match(trimmed):
+    try:
+        parse_user_set_number(trimmed)
+    except LegoSetNumberParseError:
         return "invalid set number format"
     return None
 

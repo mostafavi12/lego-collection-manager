@@ -6,14 +6,14 @@ from tests.factories import add_catalog_set, add_owned_set, add_theme
 
 def test_duplicate_preview_and_create_with_label(api_client, db_session) -> None:
     theme = add_theme(db_session)
-    catalog = add_catalog_set(db_session, set_num="6024-1", theme=theme)
+    catalog = add_catalog_set(db_session, theme=theme)
     owned = add_owned_set(db_session, catalog, label="copy A")
     db_session.commit()
 
     preview = api_client.get(f"/api/owned-sets/{owned.id}/duplicate-preview")
     assert preview.status_code == 200
     body = preview.json()
-    assert body["set_num"] == "6024-1"
+    assert body["set_num"] == 6024
     assert body["existing_copy_count"] == 1
     assert body["suggested_label"] == "Copy #2"
 
@@ -30,7 +30,7 @@ def test_duplicate_preview_and_create_with_label(api_client, db_session) -> None
 
 
 def test_delete_owned_set_removes_last_catalog(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="9999-1")
+    catalog = add_catalog_set(db_session, set_number=9999)
     owned = add_owned_set(db_session, catalog)
     catalog_id = catalog.id
     db_session.commit()
@@ -43,7 +43,7 @@ def test_delete_owned_set_removes_last_catalog(api_client, db_session) -> None:
 
 
 def test_patch_catalog_theme_when_no_theme_linked(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     assert catalog.theme_id is None
     owned = add_owned_set(db_session, catalog)
     db_session.commit()
@@ -66,7 +66,7 @@ def test_patch_catalog_theme_when_no_theme_linked(api_client, db_session) -> Non
 
 def test_patch_catalog_theme_updates_existing_theme(api_client, db_session) -> None:
     theme = add_theme(db_session, name="Town")
-    catalog = add_catalog_set(db_session, set_num="6024-1", theme=theme)
+    catalog = add_catalog_set(db_session, theme=theme)
     owned = add_owned_set(db_session, catalog)
     db_session.commit()
 
@@ -82,7 +82,7 @@ def test_patch_catalog_theme_updates_existing_theme(api_client, db_session) -> N
 
 
 def test_patch_age_updates_all_instances(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     owned_a = add_owned_set(db_session, catalog, label="a")
     owned_b = add_owned_set(db_session, catalog, label="b")
     db_session.commit()
@@ -100,7 +100,7 @@ def test_patch_age_updates_all_instances(api_client, db_session) -> None:
 
 
 def test_patch_set_num_relinks_single_instance(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     owned_a = add_owned_set(db_session, catalog)
     owned_b = add_owned_set(db_session, catalog)
     db_session.commit()
@@ -110,12 +110,12 @@ def test_patch_set_num_relinks_single_instance(api_client, db_session) -> None:
         json={"set_num": "8888-1"},
     )
     assert response.status_code == 200
-    assert response.json()["set_num"] == "8888-1"
+    assert response.json()["set_num"] == 8888
 
     db_session.expire_all()
     assert db_session.get(OwnedSet, owned_b.id).catalog_set_id == catalog.id
     new_catalog = db_session.scalar(
-        select(CatalogSet).where(CatalogSet.set_num == "8888-1")
+        select(CatalogSet).where(CatalogSet.set_number == 8888)
     )
     assert new_catalog is not None
     assert db_session.get(OwnedSet, owned_a.id).catalog_set_id == new_catalog.id

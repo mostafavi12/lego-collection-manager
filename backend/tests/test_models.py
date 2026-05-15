@@ -29,11 +29,12 @@ def test_create_core_models(db_session: Session) -> None:
     assert missing.owned_set_inventory_line_id is not None
 
 
-def test_catalog_set_set_num_is_unique(db_session: Session) -> None:
-    factories.add_catalog_set(db_session, set_num="6024-1")
+def test_catalog_set_number_variant_is_unique(db_session: Session) -> None:
+    factories.add_catalog_set(db_session)
     db_session.add(
         CatalogSet(
-            set_num="6024-1",
+            set_number=6024,
+            set_variant=1,
             source="csv_import",
             source_ref="6024-1",
             fetched_at=factories.utc_now(),

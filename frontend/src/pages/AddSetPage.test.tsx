@@ -18,7 +18,7 @@ describe("AddSetWizard", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          set_num: "8888-1",
+          set_num: 8888,
           catalog_exists: false,
           set_name: null,
           existing_copy_count: 0,
@@ -36,7 +36,7 @@ describe("AddSetWizard", () => {
         json: async () => ({
           catalog_created: true,
           id: 9,
-          set_num: "8888-1",
+          set_num: 8888,
           name: null,
           year: null,
           theme_name: null,
@@ -65,7 +65,7 @@ describe("AddSetWizard", () => {
     await user.click(screen.getByRole("button", { name: /^next$/i }));
 
     expect(
-      await screen.findByRole("heading", { name: /new set — 8888-1/i }),
+      await screen.findByRole("heading", { name: /new set — 8888/i }),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^add$/i }));
 
@@ -77,7 +77,7 @@ describe("AddSetWizard", () => {
   it("includes manual part rows in POST for a new catalog", async () => {
     const onCreated = vi.fn();
     const preview = {
-      set_num: "8888-1",
+      set_num: 8888,
       catalog_exists: false,
       set_name: null,
       existing_copy_count: 0,
@@ -92,7 +92,7 @@ describe("AddSetWizard", () => {
     const createJson = {
       catalog_created: true,
       id: 9,
-      set_num: "8888-1",
+      set_num: 8888,
       name: null,
       year: null,
       theme_name: null,
@@ -127,7 +127,7 @@ describe("AddSetWizard", () => {
 
     await user.type(screen.getByLabelText(/lego set number/i), "8888-1");
     await user.click(screen.getByRole("button", { name: /^next$/i }));
-    await screen.findByRole("heading", { name: /new set — 8888-1/i });
+    await screen.findByRole("heading", { name: /new set — 8888/i });
 
     await user.type(screen.getByLabelText(/^part #/i), "3024");
     await user.click(screen.getByRole("button", { name: /^add$/i }));
@@ -151,7 +151,7 @@ describe("AddSetWizard", () => {
   it("Fetch from Rebrickable applies draft fields", async () => {
     const onCreated = vi.fn();
     const preview = {
-      set_num: "8888-1",
+      set_num: 8888,
       catalog_exists: false,
       set_name: null,
       existing_copy_count: 0,
@@ -164,7 +164,7 @@ describe("AddSetWizard", () => {
       set_parts: [],
     };
     const draft = {
-      set_num: "8888-1",
+      set_num: 8888,
       catalog: {
         name: "RB Set",
         theme_name: "Classic",
@@ -186,7 +186,7 @@ describe("AddSetWizard", () => {
     const createJson = {
       catalog_created: true,
       id: 12,
-      set_num: "8888-1",
+      set_num: 8888,
       name: "RB Set",
       year: 1985,
       theme_name: "Classic",

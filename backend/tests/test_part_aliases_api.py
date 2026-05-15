@@ -38,7 +38,7 @@ def test_patch_part_aliases_returns_symmetric_lists(api_client, db_session) -> N
 
 
 def test_patch_aliases_visible_on_owned_set_detail(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session, external_id=0, name="Black")
     add_set_part_inventory_line(
@@ -58,7 +58,7 @@ def test_patch_aliases_visible_on_owned_set_detail(api_client, db_session) -> No
 
 
 def test_search_finds_part_by_user_alias_after_patch(api_client, db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="1000-1")
+    catalog = add_catalog_set(db_session, set_number=1000)
     add_owned_set(db_session, catalog)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session)

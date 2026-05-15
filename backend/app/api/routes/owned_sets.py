@@ -99,11 +99,16 @@ def get_manual_add_rebrickable_draft(
 ) -> OwnedSetRebrickableDraftResponse:
     """Return catalog metadata + non-spare/non-alternate set part lines for wizard prefill."""
     try:
-        normalized = normalize_set_num(set_num)
+        lsid = normalize_set_num(set_num)
     except OwnedSetServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
-    existing = db.scalar(select(CatalogSet).where(CatalogSet.set_num == normalized))
+    existing = db.scalar(
+        select(CatalogSet).where(
+            CatalogSet.set_number == lsid.number,
+            CatalogSet.set_variant == lsid.variant,
+        )
+    )
     if existing is not None:
         raise HTTPException(
             status_code=409,
@@ -117,7 +122,7 @@ def get_manual_add_rebrickable_draft(
 
     try:
         with RebrickableClient() as client:
-            return fetch_manual_add_rebrickable_draft(client, normalized)
+            return fetch_manual_add_rebrickable_draft(client, set_num)
     except RebrickableAPIError as exc:
         message = str(exc)
         if exc.status_code == 404:

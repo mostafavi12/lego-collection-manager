@@ -32,7 +32,7 @@ def test_import_creates_instances_with_rebrickable_fetch(db_session) -> None:
 
 
 def test_import_reuses_existing_catalog_set(db_session) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     db_session.commit()
 

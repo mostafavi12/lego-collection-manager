@@ -6,7 +6,7 @@
  */
 export interface SetCopyListItem {
   id: number;
-  set_num: string;
+  set_num: number;
   name: string | null;
   year: number | null;
   theme_name: string | null;
@@ -23,7 +23,7 @@ export interface SetCopyListItem {
 
 export interface DuplicatePreviewResponse {
   source_owned_set_id: number;
-  set_num: string;
+  set_num: number;
   set_name: string | null;
   existing_copy_count: number;
   suggested_label: string;
@@ -52,7 +52,7 @@ export interface SetCopyDuplicateResponse extends SetCopyListItem {
 
 export interface CatalogBlock {
   catalog_set_id: number;
-  set_num: string;
+  set_num: number;
   name: string | null;
   year: number | null;
   theme_name: string | null;
@@ -149,7 +149,7 @@ export interface SetCopyDetailResponse {
 export interface SearchSetResult {
   /** Collection row id (same as `/sets/:id`). */
   owned_set_id: number;
-  set_num: string;
+  set_num: number;
   name: string | null;
   investigated: boolean;
   label: string | null;
@@ -174,7 +174,7 @@ export interface AddPreviewPartLine {
 }
 
 export interface AddSetPreviewResponse {
-  set_num: string;
+  set_num: number;
   catalog_exists: boolean;
   set_name: string | null;
   existing_copy_count: number;
@@ -212,7 +212,7 @@ export interface SetCopyCreateBody {
 
 /** Live Rebrickable draft for wizard prefill (`GET /owned-sets/add-rebrickable-draft`). */
 export interface RebrickableSetDraftResponse {
-  set_num: string;
+  set_num: number;
   catalog: ManualAddCatalogInput;
   age: number | null;
   parts: ManualAddPartInput[];
@@ -225,7 +225,7 @@ export interface SetCopyCreateResponse extends SetCopyListItem {
 
 export interface CsvImportSetFailure {
   token_index: number;
-  set_num: string;
+  set_num: number;
   message: string;
 }
 

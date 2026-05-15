@@ -34,6 +34,7 @@ from app.rebrickable.dto import (
     SetPartLineDTO,
     ThemeDTO,
 )
+from app.domain.lego_set_number import from_rebrickable_set_num
 
 SOURCE = "rebrickable"
 
@@ -135,10 +136,17 @@ def upsert_catalog_set(
     fetched_at: datetime,
     persist_image_urls: bool = True,
 ) -> CatalogSet:
-    catalog_set = session.scalar(select(CatalogSet).where(CatalogSet.set_num == dto.set_num))
+    lsid = from_rebrickable_set_num(dto.set_num)
+    catalog_set = session.scalar(
+        select(CatalogSet).where(
+            CatalogSet.set_number == lsid.number,
+            CatalogSet.set_variant == lsid.variant,
+        )
+    )
     if catalog_set is None:
         catalog_set = CatalogSet(
-            set_num=dto.set_num,
+            set_number=lsid.number,
+            set_variant=lsid.variant,
             name=dto.name,
             year=dto.year,
             theme_id=theme_id,

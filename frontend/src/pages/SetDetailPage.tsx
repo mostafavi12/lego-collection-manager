@@ -32,7 +32,7 @@ function formFromDetail(detail: SetCopyDetailResponse): InstanceForm {
     label: detail.label ?? detail.display_label,
     notes: detail.notes ?? "",
     age: detail.age != null ? String(detail.age) : "",
-    setNum: detail.catalog.set_num,
+  setNum: String(detail.catalog.set_num),
     catalogName: detail.catalog.name ?? "",
     catalogTheme: detail.catalog.theme_name ?? "",
     catalogParts:
@@ -69,7 +69,7 @@ export function SetDetailPage() {
       const data = await getSetCopy(setCopyId);
       setDetail(data);
       setForm(formFromDetail(data));
-      setOriginalSetNum(data.catalog.set_num);
+      setOriginalSetNum(String(data.catalog.set_num));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load set");
     } finally {

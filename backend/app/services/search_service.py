@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import or_, select
+from sqlalchemy import cast, or_, select, String
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -42,10 +42,11 @@ def _search_sets(
     limit: int,
     offset: int,
 ) -> list[SearchSetResult]:
+    set_prefix = cast(CatalogSet.set_number, String).like(f"{q}%")
     rows = session.execute(
         select(OwnedSet, CatalogSet)
         .join(CatalogSet, OwnedSet.catalog_set_id == CatalogSet.id)
-        .where(CatalogSet.set_num.startswith(q))
+        .where(set_prefix)
         .order_by(OwnedSet.id)
         .limit(limit)
         .offset(offset)
@@ -53,7 +54,7 @@ def _search_sets(
     return [
         SearchSetResult(
             owned_set_id=owned.id,
-            set_num=catalog.set_num,
+            set_num=catalog.set_number,
             name=catalog.name,
             investigated=owned.investigated,
             label=owned.label,

@@ -10,7 +10,7 @@ from tests.factories import (
 
 
 def _seed_two_instances(db_session):
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     part = add_part(db_session)
     color = add_color(db_session)
     line = add_set_part_inventory_line(

@@ -36,8 +36,8 @@ def test_part_image_round_trip(api_client, db_session) -> None:
 def test_part_image_visible_across_two_sets(api_client, db_session) -> None:
     part = add_part(db_session, part_num="shared")
     color = add_color(db_session)
-    catalog_a = add_catalog_set(db_session, set_num="6024-1")
-    catalog_b = add_catalog_set(db_session, set_num="9999-1")
+    catalog_a = add_catalog_set(db_session)
+    catalog_b = add_catalog_set(db_session, set_number=9999)
     add_set_part_inventory_line(
         db_session, catalog_set=catalog_a, part=part, color=color
     )

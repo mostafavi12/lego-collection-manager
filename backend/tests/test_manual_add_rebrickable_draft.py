@@ -59,7 +59,7 @@ class FakeReader:
 
 def test_draft_includes_theme_and_filters_spares() -> None:
     draft = fetch_manual_add_rebrickable_draft(FakeReader(), "  6024-1 ")
-    assert draft.set_num == "6024-1"
+    assert draft.set_num == 6024
     assert draft.catalog.name == "Test Set"
     assert draft.catalog.theme_name == "Classic"
     assert draft.catalog.year == 1999

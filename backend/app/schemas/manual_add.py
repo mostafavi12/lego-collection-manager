@@ -9,7 +9,7 @@ class AddPreviewPartLine(BaseModel):
 
 
 class OwnedSetAddPreviewResponse(BaseModel):
-    set_num: str
+    set_num: int
     catalog_exists: bool
     set_name: str | None
     existing_copy_count: int
@@ -54,7 +54,7 @@ class OwnedSetCreateRequest(BaseModel):
 class OwnedSetCreateResponse(BaseModel):
     catalog_created: bool
     id: int
-    set_num: str
+    set_num: int
     name: str | None
     year: int | None
     theme_name: str | None
@@ -72,7 +72,7 @@ class OwnedSetCreateResponse(BaseModel):
 class OwnedSetRebrickableDraftResponse(BaseModel):
     """Draft catalog + set-part lines from Rebrickable for the manual-add wizard (no persistence)."""
 
-    set_num: str
+    set_num: int
     catalog: ManualAddCatalogInput
     age: int | None
     parts: list[ManualAddPartInput]

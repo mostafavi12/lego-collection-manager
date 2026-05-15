@@ -16,7 +16,7 @@ def test_post_sync_requires_api_key(api_client, monkeypatch: pytest.MonkeyPatch)
 
 def test_post_sync_success(api_client, db_session, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     owned = add_owned_set(db_session, catalog)
     db_session.commit()
 

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import CatalogSet, OwnedSet
+from app.domain.lego_set_number import LegoSetId, parse_user_set_number, to_rebrickable_set_num
 from app.importers.rebrickable_catalog import utc_now
 from app.importers.rebrickable_sync_service import (
     RebrickableReader,
@@ -29,7 +30,7 @@ CSV_STUB_SOURCE = "csv_import"
 @dataclass
 class CsvImportSetFailure:
     token_index: int
-    set_num: str
+    set_num: int
     message: str
 
 
@@ -42,16 +43,21 @@ class CsvImportResult:
     errors: list[ParseError]
 
 
-def _ensure_catalog_stub(session: Session, set_num: str) -> tuple[CatalogSet, bool]:
+def _ensure_catalog_stub(session: Session, lsid: LegoSetId) -> tuple[CatalogSet, bool]:
+    rb_key = to_rebrickable_set_num(lsid)
     catalog_set = session.scalar(
-        select(CatalogSet).where(CatalogSet.set_num == set_num)
+        select(CatalogSet).where(
+            CatalogSet.set_number == lsid.number,
+            CatalogSet.set_variant == lsid.variant,
+        )
     )
     if catalog_set is not None:
         return catalog_set, False
     catalog_set = CatalogSet(
-        set_num=set_num,
+        set_number=lsid.number,
+        set_variant=lsid.variant,
         source=CSV_STUB_SOURCE,
-        source_ref=set_num,
+        source_ref=rb_key,
         fetched_at=utc_now(),
     )
     session.add(catalog_set)
@@ -89,8 +95,11 @@ def import_set_list(
         len(errors),
     )
 
-    def process_token(token_index: int, set_num: str, rb_client: RebrickableReader) -> None:
+    def process_token(token_index: int, raw_token: str, rb_client: RebrickableReader) -> None:
         nonlocal instances_created, catalog_stubs_created, sets_fetched
+
+        lsid = parse_user_set_number(raw_token)
+        rb_key = to_rebrickable_set_num(lsid)
 
         try:
             recommended_age: int | None = None
@@ -98,29 +107,32 @@ def import_set_list(
                 _parts, _lines, recommended_age = sync_one_catalog_set(
                     session,
                     rb_client,
-                    set_num,
+                    rb_key,
                     persist_image_urls=False,
                 )
             catalog_set = session.scalar(
-                select(CatalogSet).where(CatalogSet.set_num == set_num)
+                select(CatalogSet).where(
+                    CatalogSet.set_number == lsid.number,
+                    CatalogSet.set_variant == lsid.variant,
+                )
             )
             if catalog_set is None:
-                raise RuntimeError(f"catalog missing after sync for {set_num}")
+                raise RuntimeError(f"catalog missing after sync for {rb_key}")
             _create_owned_instance(session, catalog_set)
             if recommended_age is not None:
                 _apply_shared_age(session, catalog_set.id, recommended_age)
             instances_created += 1
             sets_fetched += 1
-            logger.info("CSV import token_ok set_num=%s", set_num)
+            logger.info("CSV import token_ok rb_key=%s", rb_key)
         except RebrickableAPIError as exc:
             session.rollback()
             message = _format_api_error(exc)
             logger.warning(
-                "CSV import token_failed set_num=%s error=%s",
-                set_num,
+                "CSV import token_failed rb_key=%s error=%s",
+                rb_key,
                 message,
             )
-            catalog_set, created_stub = _ensure_catalog_stub(session, set_num)
+            catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
             if created_stub:
                 catalog_stubs_created += 1
             _create_owned_instance(session, catalog_set)
@@ -128,14 +140,14 @@ def import_set_list(
             sets_failed.append(
                 CsvImportSetFailure(
                     token_index=token_index,
-                    set_num=set_num,
+                    set_num=lsid.number,
                     message=message,
                 )
             )
         except Exception as exc:
             session.rollback()
-            logger.exception("CSV import token_failed set_num=%s", set_num)
-            catalog_set, created_stub = _ensure_catalog_stub(session, set_num)
+            logger.exception("CSV import token_failed rb_key=%s", rb_key)
+            catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
             if created_stub:
                 catalog_stubs_created += 1
             _create_owned_instance(session, catalog_set)
@@ -143,7 +155,7 @@ def import_set_list(
             sets_failed.append(
                 CsvImportSetFailure(
                     token_index=token_index,
-                    set_num=set_num,
+                    set_num=lsid.number,
                     message=str(exc),
                 )
             )

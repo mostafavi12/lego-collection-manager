@@ -31,7 +31,10 @@ def test_csv_import_fetches_catalog_and_inventory(db_session) -> None:
     assert result.catalog_stubs_created == 0
     assert result.sets_failed == []
     catalog = db_session.scalar(
-        select(CatalogSet).where(CatalogSet.set_num == "6024-1")
+        select(CatalogSet).where(
+            CatalogSet.set_number == 6024,
+            CatalogSet.set_variant == 1,
+        )
     )
     assert catalog is not None
     assert catalog.source == "rebrickable"
@@ -45,7 +48,10 @@ def test_csv_import_does_not_store_image_urls(db_session) -> None:
     db_session.commit()
 
     catalog = db_session.scalar(
-        select(CatalogSet).where(CatalogSet.set_num == "6024-1")
+        select(CatalogSet).where(
+            CatalogSet.set_number == 6024,
+            CatalogSet.set_variant == 1,
+        )
     )
     part = db_session.scalar(select(Part).where(Part.part_num == "3024"))
     assert catalog is not None
@@ -66,9 +72,12 @@ def test_csv_import_reports_rebrickable_failure_but_creates_stub(db_session) -> 
     assert result.sets_fetched == 0
     assert result.catalog_stubs_created == 1
     assert len(result.sets_failed) == 1
-    assert result.sets_failed[0].set_num == "6024-1"
+    assert result.sets_failed[0].set_num == 6024
     catalog = db_session.scalar(
-        select(CatalogSet).where(CatalogSet.set_num == "6024-1")
+        select(CatalogSet).where(
+            CatalogSet.set_number == 6024,
+            CatalogSet.set_variant == 1,
+        )
     )
     assert catalog is not None
     assert catalog.source == "csv_import"

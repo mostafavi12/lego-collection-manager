@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.domain.lego_set_number import to_rebrickable_set_num
 from app.importers.rebrickable_inventory_filters import include_set_part_line
 from app.importers.rebrickable_sync_service import RebrickableReader
 from app.schemas.manual_add import (
@@ -16,8 +17,9 @@ def fetch_manual_add_rebrickable_draft(
     reader: RebrickableReader,
     set_num: str,
 ) -> OwnedSetRebrickableDraftResponse:
-    normalized = normalize_set_num(set_num)
-    set_dto = reader.get_set(normalized)
+    lsid = normalize_set_num(set_num)
+    rb_key = to_rebrickable_set_num(lsid)
+    set_dto = reader.get_set(rb_key)
     theme_name: str | None = None
     if set_dto.theme_external_id is not None:
         theme_name = reader.get_theme(set_dto.theme_external_id).name
@@ -30,7 +32,7 @@ def fetch_manual_add_rebrickable_draft(
     )
 
     parts: list[ManualAddPartInput] = []
-    for line in reader.iter_set_parts(normalized):
+    for line in reader.iter_set_parts(rb_key):
         if not include_set_part_line(line):
             continue
         parts.append(
@@ -44,7 +46,7 @@ def fetch_manual_add_rebrickable_draft(
         )
 
     return OwnedSetRebrickableDraftResponse(
-        set_num=normalized,
+        set_num=lsid.number,
         catalog=catalog,
         age=set_dto.age,
         parts=parts,

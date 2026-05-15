@@ -2,7 +2,7 @@
 
 SQLite is the **single source of truth** for catalog and collection data. Schema follows **normalized** tables with clear separation between **global catalog** (Rebrickable-sourced LEGO data) and **your collection** (rows in `owned_sets`: one per physical copy, investigation state, missing parts, and user-uploaded images as BLOBs). All importable rows carry **source metadata**.
 
-**Product invariant:** there is no LEGO set in the DB that is not represented by at least one **`owned_sets`** row. **`catalog_sets`** is shared metadata/template for a `set_num` while you have one or more copies.
+**Product invariant:** there is no LEGO set in the DB that is not represented by at least one **`owned_sets`** row. **`catalog_sets`** is shared metadata/template for a LEGO catalog identity (base **set number** + **variant**) while you have one or more copies.
 
 ## Environment
 
@@ -18,7 +18,7 @@ Migrations: **Alembic** tracks revisions; application startup fails fast if the 
 
 1. **Catalog vs collection:** Catalog tables mirror importer entities; collection tables reference catalog by foreign key.
 2. **Many copies per set number:** Multiple `owned_sets` rows may reference the same `catalog_sets.id` (several physical copies, complete or not).
-3. **No duplicate catalog primaries:** Upserts keyed by natural keys (`set_num`, `part_num`, `color_id` from API, etc.).
+3. **No duplicate catalog primaries:** Upserts keyed by natural keys (`set_number` + `set_variant`, `part_num`, `color_id` from API, etc.).
 4. **Inventory fidelity:** Stickered vs plain and distinct Rebrickable part numbers are preserved on line tables—**no collapsing** of lines in MVP. Rebrickable **spare** and **alternate** rows are read from the API but **not stored** (see [data-sources.md](./data-sources.md)).
 5. **Missing parts** belong to a **set copy** (`owned_sets` row) and reference a **specific per-copy inventory line** (set-level part row or minifig BOM row) for traceability in the UI.
 6. **User images:** At most one JPEG/PNG BLOB per `parts` row (global part image) and per `catalog_sets` row (shared set box image). Missing-line uploads attach to the part record.
@@ -59,10 +59,13 @@ erDiagram
 
 ### `catalog_sets`
 
+Each row is one Rebrickable **set identity**: a **base set number** (what users usually mean by “set number”, e.g. `65001`) plus a **variant** suffix (Rebrickable’s `-1`, `-2`, …; stored as an integer, default `1`). HTTP calls to Rebrickable use the combined `source_ref` string (e.g. `65001-1`). The REST API exposes only the **base number** as JSON `set_num` for readability.
+
 | Column | Type | Notes |
 |--------|------|--------|
 | `id` | INTEGER PK | Surrogate key. |
-| `set_num` | TEXT NOT NULL UNIQUE | Business key; matches Rebrickable. |
+| `set_number` | INTEGER NOT NULL | User-facing LEGO set number (no `-n` suffix). |
+| `set_variant` | INTEGER NOT NULL | Rebrickable catalog variant; usually `1`. |
 | `name` | TEXT NULL | From API; NULL allowed for **CSV stub** rows until first sync. |
 | `year` | INTEGER NULL | |
 | `theme_id` | INTEGER FK → `themes.id` NULL | |
@@ -72,10 +75,12 @@ erDiagram
 | `image_content_type` | TEXT NULL | `image/jpeg` or `image/png` when `image_blob` set. |
 | `image_byte_size` | INTEGER NULL | Byte length of `image_blob`. |
 | `source` | TEXT NOT NULL | e.g. `csv_import` (stub) or `rebrickable`. |
-| `source_ref` | TEXT NOT NULL | Typically same as `set_num`. |
+| `source_ref` | TEXT NOT NULL | Full Rebrickable set key, e.g. `65001-1` (importer provenance and API paths). |
 | `fetched_at` | TIMESTAMP NOT NULL | UTC. |
 
-**CSV import:** may insert **minimal stub** rows (`set_num`, `source` = `csv_import`, `source_ref` = `set_num`, `fetched_at`, other fields NULL) so `owned_sets` can reference `catalog_set_id` before the first Rebrickable sync; sync then upserts full metadata and inventories.
+**Unique:** `(set_number, set_variant)`.
+
+**CSV import:** may insert **minimal stub** rows (`set_number`, `set_variant`, `source` = `csv_import`, `source_ref` = Rebrickable form `"{set_number}-{set_variant}"`, `fetched_at`, other fields NULL) so `owned_sets` can reference `catalog_set_id` before the first Rebrickable sync; sync then upserts full metadata and inventories.
 
 ### `owned_sets`
 
@@ -214,7 +219,7 @@ Per **set copy**, links to **one** `owned_set_inventory_lines` row when the user
 
 | Table | Index | Purpose |
 |-------|-------|---------|
-| `catalog_sets` | `set_num` | Unique lookup; search by set number. |
+| `catalog_sets` | `(set_number, set_variant)` | Unique lookup; search by set number prefix on `set_number`. |
 | `parts` | `part_num` | Lookup; prefix search helper. |
 | `part_aliases` | `alias` | Search by alternate id. |
 | `set_part_inventory_lines` | `(catalog_set_id)` | Set detail parts query. |

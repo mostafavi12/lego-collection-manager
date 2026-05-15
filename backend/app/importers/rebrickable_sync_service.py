@@ -22,6 +22,7 @@ from app.importers.rebrickable_catalog import (
     upsert_theme,
     utc_now,
 )
+from app.domain.lego_set_number import LegoSetId, to_rebrickable_set_num
 from app.rebrickable.client import RebrickableClient
 from app.rebrickable.dto import CatalogSetDTO, ThemeDTO
 from app.rebrickable.exceptions import RebrickableAPIError
@@ -54,15 +55,23 @@ class RebrickableSyncResult:
 
 
 def resolve_set_nums(session: Session, owned_set_ids: list[int] | None) -> list[str]:
+    """Distinct Rebrickable ``set_num`` keys (e.g. ``6024-1``) for owned catalog rows."""
     stmt = (
-        select(CatalogSet.set_num)
+        select(CatalogSet.set_number, CatalogSet.set_variant)
         .join(OwnedSet, OwnedSet.catalog_set_id == CatalogSet.id)
         .distinct()
-        .order_by(CatalogSet.set_num)
+        .order_by(CatalogSet.set_number, CatalogSet.set_variant)
     )
     if owned_set_ids is not None:
         stmt = stmt.where(OwnedSet.id.in_(owned_set_ids))
-    return list(session.scalars(stmt))
+    keys: list[str] = []
+    seen: set[str] = set()
+    for num, var in session.execute(stmt):
+        rb = to_rebrickable_set_num(LegoSetId(number=num, variant=var))
+        if rb not in seen:
+            seen.add(rb)
+            keys.append(rb)
+    return keys
 
 
 def sync_catalog_for_set_nums(

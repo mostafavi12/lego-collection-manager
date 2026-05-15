@@ -9,7 +9,7 @@ class CsvTokenError(BaseModel):
 
 class CsvImportSetFailure(BaseModel):
     token_index: int
-    set_num: str
+    set_num: int
     message: str
 
 

@@ -56,6 +56,12 @@ from app.services.instance_labels import (
     display_label,
     suggested_copy_label,
 )
+from app.domain.lego_set_number import (
+    LegoSetId,
+    LegoSetNumberParseError,
+    parse_user_set_number,
+    to_rebrickable_set_num,
+)
 from app.utils.age import parse_age_value
 
 
@@ -86,7 +92,7 @@ def _to_list_item(
 ) -> OwnedSetListItem:
     return OwnedSetListItem(
         id=owned_set.id,
-        set_num=catalog_set.set_num,
+        set_num=catalog_set.set_number,
         name=catalog_set.name,
         year=catalog_set.year,
         theme_name=theme_name,
@@ -152,14 +158,16 @@ def _apply_catalog_theme_name(
     catalog_set.theme_id = theme.id
 
 
-def _relocate_to_set_num(session: Session, owned_set: OwnedSet, set_num: str) -> None:
-    trimmed = set_num.strip()
-    if not trimmed:
-        raise OwnedSetServiceError("Set number must not be empty")
-
+def _relocate_to_lego_set(session: Session, owned_set: OwnedSet, lsid: LegoSetId) -> None:
     _clear_instance_data_for_owned_set(session, owned_set.id)
 
-    existing = session.scalar(select(CatalogSet).where(CatalogSet.set_num == trimmed))
+    existing = session.scalar(
+        select(CatalogSet).where(
+            CatalogSet.set_number == lsid.number,
+            CatalogSet.set_variant == lsid.variant,
+        )
+    )
+    rb_key = to_rebrickable_set_num(lsid)
     if existing is not None:
         owned_set.catalog_set_id = existing.id
         session.flush()
@@ -167,14 +175,15 @@ def _relocate_to_set_num(session: Session, owned_set: OwnedSet, set_num: str) ->
     else:
         now = utc_now()
         stub = CatalogSet(
-            set_num=trimmed,
+            set_number=lsid.number,
+            set_variant=lsid.variant,
             name=None,
             year=None,
             theme_id=None,
             num_parts=None,
             image_url=None,
             source=CSV_STUB_SOURCE,
-            source_ref=trimmed,
+            source_ref=rb_key,
             fetched_at=now,
         )
         session.add(stub)
@@ -368,7 +377,7 @@ def get_owned_set_detail(
         notes=owned_set.notes,
         catalog=CatalogBlock(
             catalog_set_id=catalog_set.id,
-            set_num=catalog_set.set_num,
+            set_num=catalog_set.set_number,
             name=catalog_set.name,
             year=catalog_set.year,
             theme_name=theme_name,
@@ -414,8 +423,16 @@ def update_owned_set(
     if body.catalog_theme_name is not None:
         _apply_catalog_theme_name(session, catalog_set, body.catalog_theme_name)
 
-    if body.set_num is not None and body.set_num.strip() != catalog_set.set_num:
-        _relocate_to_set_num(session, owned_set, body.set_num)
+    if body.set_num is not None:
+        try:
+            lsid = parse_user_set_number(str(body.set_num))
+        except LegoSetNumberParseError as exc:
+            raise OwnedSetServiceError(str(exc)) from exc
+        if (catalog_set.set_number, catalog_set.set_variant) != (
+            lsid.number,
+            lsid.variant,
+        ):
+            _relocate_to_lego_set(session, owned_set, lsid)
         session.refresh(owned_set, attribute_names=["catalog_set"])
         catalog_set = owned_set.catalog_set
 
@@ -445,7 +462,7 @@ def get_duplicate_preview(
     count = count_owned_instances(session, catalog_set.id)
     return DuplicatePreviewResponse(
         source_owned_set_id=source_id,
-        set_num=catalog_set.set_num,
+        set_num=catalog_set.set_number,
         set_name=catalog_set.name,
         existing_copy_count=count,
         suggested_label=suggested_copy_label(count),

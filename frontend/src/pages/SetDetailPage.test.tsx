@@ -33,7 +33,7 @@ describe("SetDetailPage", () => {
 
     renderDetail();
 
-    expect(await screen.findByRole("heading", { name: /6024-1 \(Police Car\) - copy A/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /6024 \(Police Car\) - copy A/i })).toBeInTheDocument();
     expect(screen.getByText(/Plate 1 x 1/)).toBeInTheDocument();
     expect(screen.getByText("3024b")).toBeInTheDocument();
     expect(screen.getByLabelText(/missing quantity for 3024/i)).toHaveValue(1);
@@ -51,7 +51,7 @@ describe("SetDetailPage", () => {
     const user = userEvent.setup();
     renderDetail();
 
-    await screen.findByRole("heading", { name: /6024-1 \(Police Car\) - copy A/i });
+    await screen.findByRole("heading", { name: /6024 \(Police Car\) - copy A/i });
     await user.click(screen.getByRole("button", { name: /add part/i }));
 
     expect(
@@ -199,9 +199,9 @@ describe("SetDetailPage", () => {
     renderDetail();
 
     await screen.findByText("Copy details");
-    const setNumInput = (await screen.findAllByDisplayValue("6024-1"))[0]!;
+    const setNumInput = (await screen.findAllByDisplayValue("6024"))[0]!;
     await user.clear(setNumInput);
-    await user.type(setNumInput, "8888-1");
+    await user.type(setNumInput, "8888");
     const saveButton = (await screen.findAllByRole("button", { name: /save changes/i }))[0]!;
     await user.click(saveButton);
 
@@ -214,7 +214,7 @@ describe("SetDetailPage", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-    expect(setNumInput).toHaveValue("6024-1");
+    expect(setNumInput).toHaveValue("6024");
   });
 
   it("deletes copy after confirmation", async () => {

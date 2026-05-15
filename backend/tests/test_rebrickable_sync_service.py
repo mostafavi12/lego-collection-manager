@@ -126,7 +126,7 @@ def fake_client() -> FakeRebrickableClient:
 
 
 def test_sync_populates_catalog(db_session, fake_client) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     db_session.commit()
 
@@ -138,7 +138,12 @@ def test_sync_populates_catalog(db_session, fake_client) -> None:
     assert result.parts_upserted >= 2
     assert result.inventory_lines_written >= 3
 
-    updated = db_session.scalar(select(CatalogSet).where(CatalogSet.set_num == "6024-1"))
+    updated = db_session.scalar(
+        select(CatalogSet).where(
+            CatalogSet.set_number == 6024,
+            CatalogSet.set_variant == 1,
+        )
+    )
     assert updated is not None
     assert updated.name == "Police Car"
     assert updated.source == "rebrickable"
@@ -148,7 +153,7 @@ def test_sync_populates_catalog(db_session, fake_client) -> None:
 
 
 def test_second_sync_replaces_inventory(db_session, fake_client) -> None:
-    catalog = add_catalog_set(db_session, set_num="6024-1")
+    catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     db_session.commit()
 
@@ -166,32 +171,37 @@ def test_second_sync_replaces_inventory(db_session, fake_client) -> None:
 
 
 def test_sync_records_failure_without_corrupting_other_set(db_session, fake_client) -> None:
-    catalog_ok = add_catalog_set(db_session, set_num="6024-1")
-    catalog_bad = add_catalog_set(db_session, set_num="bad-1")
+    catalog_ok = add_catalog_set(db_session)
+    catalog_bad = add_catalog_set(db_session, set_number=77777)
     add_owned_set(db_session, catalog_ok)
     add_owned_set(db_session, catalog_bad)
     db_session.commit()
 
-    fake_client.sets["bad-1"] = CatalogSetDTO(
-        set_num="bad-1",
+    fake_client.sets["77777-1"] = CatalogSetDTO(
+        set_num="77777-1",
         name=None,
         year=None,
         theme_external_id=None,
         num_parts=None,
         image_url=None,
     )
-    fake_client.fail_set_nums.add("bad-1")
+    fake_client.fail_set_nums.add("77777-1")
 
     result = sync_catalog_for_set_nums(
-        db_session, fake_client, ["6024-1", "bad-1"]
+        db_session, fake_client, ["6024-1", "77777-1"]
     )
     db_session.commit()
 
     assert result.sets_synced == 1
     assert len(result.sets_failed) == 1
-    assert result.sets_failed[0].set_num == "bad-1"
+    assert result.sets_failed[0].set_num == "77777-1"
     assert "404" in result.sets_failed[0].message
 
-    ok_set = db_session.scalar(select(CatalogSet).where(CatalogSet.set_num == "6024-1"))
+    ok_set = db_session.scalar(
+        select(CatalogSet).where(
+            CatalogSet.set_number == 6024,
+            CatalogSet.set_variant == 1,
+        )
+    )
     assert ok_set is not None
     assert ok_set.name == "Police Car"

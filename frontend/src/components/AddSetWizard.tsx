@@ -218,7 +218,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
             <input
               value={setNum}
               disabled={loading}
-              placeholder="e.g. 6024-1"
+              placeholder="e.g. 6024 or 65001-2"
               onChange={(e) => setSetNum(e.target.value)}
               autoFocus
             />

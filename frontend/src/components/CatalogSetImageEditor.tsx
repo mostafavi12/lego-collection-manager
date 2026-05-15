@@ -7,7 +7,7 @@ import { ImageBlobEditor } from "./ImageBlobEditor";
 interface CatalogSetImageEditorProps {
   catalogSetId: number;
   imageUrl: string | null;
-  setNum: string;
+  setNum: string | number;
   onUpdated: () => void;
 }
 
