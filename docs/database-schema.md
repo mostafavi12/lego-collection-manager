@@ -65,7 +65,7 @@ erDiagram
 | `year` | INTEGER NULL | |
 | `theme_id` | INTEGER FK → `themes.id` NULL | |
 | `num_parts` | INTEGER NULL | From API if provided. |
-| `image_url` | TEXT NULL | Rebrickable CDN URL when synced (not downloaded in Phases 9–12). |
+| `image_url` | TEXT NULL | Rebrickable CDN URL when synced (not downloaded in Phases 9–13). |
 | `image_blob` | BLOB NULL | User-uploaded set box image (JPEG/PNG). |
 | `image_content_type` | TEXT NULL | `image/jpeg` or `image/png` when `image_blob` set. |
 | `image_byte_size` | INTEGER NULL | Byte length of `image_blob`. |
@@ -254,11 +254,13 @@ BLOB columns on `parts` and `catalog_sets` (see table definitions above). Constr
 
 Serving: `GET /parts/{part_id}/image`, `GET /catalog-sets/{catalog_set_id}/image`, and `GET /media/missing/{missing_item_id}` (part BLOB when missing qty > 0). See [api-design.md](./api-design.md).
 
-### Part aliases (Phase 12)
+### Part aliases (Phase 11B)
 
-Keep `part_aliases` table; all write paths enforce **symmetric closure** within an alias equivalence class (see [product-requirements.md §11.5](./product-requirements.md#115-part-aliases-bidirectional)).
+Keep `part_aliases` table; manual writes use `source='user'`. `PATCH /parts/{part_id}/aliases` enforces **symmetric closure** within an alias equivalence class (see [product-requirements.md §11.5](./product-requirements.md#115-part-aliases-bidirectional)).
 
-### Collection invariant (Phase 12)
+`GET /owned-sets/{id}` exposes `aliases: string[]` on each `set_parts` line — derived from `part_aliases` for that `part_id` (excluding `part_num`), not a separate column.
+
+### Collection invariant (Phase 13)
 
 Enforce at application layer: `catalog_sets` without any `owned_sets` must not exist after commits (except transient transactions).
 

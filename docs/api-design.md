@@ -171,6 +171,7 @@ Multiple `items` may share the same `set_num` with different `id`.
         "color_id": 0,
         "color_name": "Black",
         "quantity": 4,
+        "aliases": ["3024b", "3024pr"],
         "image_url": "https://…",
         "part_image_url": "/api/parts/42/image",
         "missing_quantity": 1,
@@ -206,6 +207,8 @@ Multiple `items` may share the same `set_num` with different `id`.
 ```
 
 `quantity` and `missing_quantity` are **per instance** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect this instance’s missing state. When a part has a user BLOB, `part_image_url` is `/api/parts/{part_id}/image`; `missing_image_url` is the same URL when `missing_quantity` > 0 and a part image exists, otherwise null.
+
+`aliases` (Phase **11A**): other identifiers for this `part_id` from `part_aliases`, excluding strings equal to `part_num`. Omitted or empty when none. Read-only in detail until Phase **11B** enables editing via `PATCH /parts/{part_id}/aliases`.
 
 **Catalog `image_url`:** Rebrickable CDN URL when synced, or `/api/catalog-sets/{catalog_set_id}/image` when the user uploaded a set BLOB.
 
@@ -481,11 +484,77 @@ See [Images (SQLite BLOBs — Phase 10)](#images-sqlite-blobs--phase-10) above.
 
 ---
 
-## Planned API additions (Phases 11–12, not yet implemented)
+## Planned API additions (Phases 11A–13, not yet implemented)
 
 Contracts below are **targets** for remaining post-MVP work.
 
-### CSV import with Rebrickable (Phase 11)
+### Inventory part modal (Phase 11A)
+
+**`POST /owned-sets/{owned_set_id}/set-parts`** — *implemented*; response extended:
+
+```json
+{
+  "instance_line_id": 100,
+  "part_id": 42,
+  "catalog_line_id": 9001,
+  "quantity": 2,
+  "quantity_missing": 0
+}
+```
+
+- Body unchanged: `part_num`, optional `part_name`, `color_id`, `color_name`, `quantity`.
+- Client may call `PUT /parts/{part_id}/image` after **201** when the user selected a file.
+- **`409`** if the part/color line already exists on this instance.
+
+**`PATCH /owned-sets/{owned_set_id}/set-parts/{instance_line_id}`**
+
+```json
+{
+  "part_name": "Plate 1 x 1",
+  "color_id": 0,
+  "color_name": "Black",
+  "quantity": 4
+}
+```
+
+- Updates shared catalog part name, catalog line color (may recreate line if color key changes — see implementation), and **instance** `quantity`.
+- **`part_num` not accepted** (read-only in UI).
+- **`404`** if the instance line does not belong to this owned set.
+
+**`DELETE /owned-sets/{owned_set_id}/set-parts/{instance_line_id}`** → **`204`**
+
+- Removes `owned_set_inventory_lines` for this instance.
+- Deletes `set_part_inventory_lines` when no instance references that catalog line.
+- Catalog-set cleanup when last instance deleted follows existing `DELETE /owned-sets/{id}` rules.
+
+**`PATCH .../inventory-lines/{instance_line_id}`** (Phase 9, implemented) remains for inline **missing quantity** (and optional quantity) on the detail table; the part modal uses set-parts PATCH for full line edits.
+
+### Part aliases (Phase 11B)
+
+**`PATCH /api/parts/{part_id}/aliases`**
+
+Request:
+
+```json
+{ "aliases": ["3024b", "3024pr"] }
+```
+
+Response **`200`:**
+
+```json
+{
+  "part_id": 42,
+  "part_num": "3024",
+  "aliases": ["3024b", "3024pr"]
+}
+```
+
+- **Replace-list** semantics: body is the full set of *other* identifiers for this part (exclude own `part_num` from chips in UI).
+- Server enforces **symmetric closure** across the equivalence class (see [product-requirements.md §11.5](./product-requirements.md#115-part-aliases-bidirectional)).
+- Manual rows use `source='user'`. If an alias string matches another existing `parts.part_num`, **merge** equivalence classes (simpler UX; no `409` unless validation fails).
+- **`404`** unknown `part_id`; **`422`** invalid alias (empty, over max count e.g. 20).
+
+### CSV import with Rebrickable (Phase 12)
 
 **`POST /imports/csv`** response extended (example):
 
@@ -504,9 +573,11 @@ Contracts below are **targets** for remaining post-MVP work.
 - Per token: upsert catalog + template inventory + create instance + copy instance inventory (Phase 9).
 - **No** image HTTP downloads during import.
 
-### Manual add set (Phase 12)
+### Manual add set (Phase 13)
 
-**`POST /owned-sets`** (or split `POST /catalog/sets` + instance — pick one at implementation):
+**`GET /owned-sets/add-preview?set_num=...`** — preview catalog existence, suggested label, template parts (partially implemented).
+
+**`POST /owned-sets`**:
 
 **Body (step 1 — set number only):**
 
@@ -529,17 +600,11 @@ Contracts below are **targets** for remaining post-MVP work.
 }
 ```
 
-**`PATCH /parts/{part_id}/aliases`**
+Part alias editing: see [Part aliases (Phase 11B)](#part-aliases-phase-11b) above (not part of the wizard contract).
 
-```json
-{ "aliases": ["3024", "3024b"] }
-```
+### Sync (unchanged in 9–13)
 
-Server enforces **symmetric closure** across all parts in the alias group (see [product-requirements.md §11.5](./product-requirements.md#115-part-aliases-bidirectional)).
-
-### Sync (unchanged in 9–12)
-
-**`POST /imports/rebrickable/sync`** — no contract change in Phases 9–12; bulk sync UI deferred to Phase 13+.
+**`POST /imports/rebrickable/sync`** — no contract change in Phases 9–13; bulk sync UI deferred to Phase 14+.
 
 ## CORS
 

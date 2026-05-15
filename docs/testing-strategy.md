@@ -49,7 +49,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 - `PUT` / `DELETE` missing image → part BLOB; `GET /media/missing/{id}` and `GET /parts/{id}/image`: 404 when absent; content-type for JPEG/PNG fixtures.
 - `PUT` / `GET` / `DELETE` `/parts/{id}/image` and `/catalog-sets/{id}/image`: BLOB round-trip, size/MIME validation (`test_image_blob_api.py`).
 
-### Post-MVP (Phases 9–12)
+### Post-MVP (Phases 9–13)
 
 Still **no live Rebrickable** in CI.
 
@@ -57,8 +57,10 @@ Still **no live Rebrickable** in CI.
 |-------|--------|--------|
 | **9** | implemented | `PATCH .../inventory-lines/{instance_line_id}` isolation across two instances; `quantity_missing` validation (`test_instance_inventory_api.py`). |
 | **10** | implemented | BLOB round-trip; 5 MB limit; JPEG/PNG only; part image visible on two sets (`test_image_blob_api.py`). |
-| **11** | planned | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
-| **12** | planned | `POST /owned-sets` branch existing vs new `set_num`; alias symmetry (add/remove pairs). |
+| **11A** | planned | `POST set-parts` returns `part_id`; `PATCH`/`DELETE set-parts`; detail `aliases`; image on add (mock `PUT`); `PartLineModal` Vitest. |
+| **11B** | planned | `PATCH /parts/{id}/aliases` symmetry; search by alias across class. |
+| **12** | planned | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
+| **13** | partial | `POST /owned-sets` / `add-preview` branches; wizard UI (`AddSetWizard` largely done). |
 
 ### Search
 

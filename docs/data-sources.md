@@ -27,9 +27,9 @@ This document defines **file** and **network** inputs: formats, environment vari
 - Import is **additive** only: it never removes existing owned instances.
 - Re-uploading an identical file will create **duplicate instances**; the app does not deduplicate across imports.
 
-### MVP vs Phase 11 (CSV + Rebrickable)
+### MVP vs Phase 12 (CSV + Rebrickable)
 
-| Aspect | MVP (Phases 1–8) | Phase 11+ |
+| Aspect | MVP (Phases 1–8) | Phase 12+ |
 |--------|------------------|-----------|
 | Catalog row on CSV | **Stub** (`name` NULL, etc.) until sync | **Full fetch** per token via Rebrickable APIs |
 | Inventory | Filled by `POST /imports/rebrickable/sync` | Filled during CSV import (same endpoints as sync, mocked in tests) |

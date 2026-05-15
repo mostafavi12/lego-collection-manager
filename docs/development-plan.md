@@ -150,15 +150,15 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 ---
 
-## Post-MVP overview (Phases 9–12)
+## Post-MVP overview (Phases 9–13)
 
-Phases **1–8** delivered the original MVP (including Rebrickable sync endpoint and disk-based missing photos). Phases **9–12** refactor collection semantics around:
+Phases **1–8** delivered the original MVP (including Rebrickable sync endpoint and disk-based missing photos). Phases **9–13** refactor collection semantics around:
 
 - **Rebrickable as the catalog source** (metadata + full inventory, **no image downloads** from the API).
 - **Every catalog set has at least one owned instance** — there is no “catalog-only” set the user does not own.
-- **Per-instance inventory** (part quantities and missing counts), while **set-level metadata** and **part-level images/aliases** follow the sharing rules in [product-requirements.md §11](./product-requirements.md#11-post-mvp-collection-semantics-phases-912).
+- **Per-instance inventory** (part quantities and missing counts), while **set-level metadata** and **part-level images/aliases** follow the sharing rules in [product-requirements.md §11](./product-requirements.md#11-post-mvp-collection-semantics-phases-913).
 - **Images in SQLite** (JPEG/PNG BLOBs), not on disk under `MEDIA_ROOT` / thumbnails.
-- **Deferred:** bulk sync UX (sync all / selected / current set) — existing `POST /imports/rebrickable/sync` remains; no new sync UI work in 9–12.
+- **Deferred:** bulk sync UX (sync all / selected / current set) — existing `POST /imports/rebrickable/sync` remains; no new sync UI work in 9–13.
 
 Implement **one phase at a time**; update [database-schema.md](./database-schema.md), [api-design.md](./api-design.md), and tests before marking a phase complete.
 
@@ -199,7 +199,43 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 - Replacing a part image updates display for that part in **all** sets in the UI.
 - Disk upload directory is not required for normal operation.
 
-## Phase 11 — CSV import with full Rebrickable fetch (no images)
+## Phase 11A — Inventory part modal (add / edit / delete)
+
+**Goal:** Unified **PartLineModal** for set-parts inventory: add with optional image, click row to edit or delete, show aliases read-only in the table.
+
+**Deliverables**
+
+- APIs: extend `POST /owned-sets/{id}/set-parts` **201** with `part_id` and `catalog_line_id`; add `PATCH` and `DELETE` on `.../set-parts/{instance_line_id}` (see [api-design.md](./api-design.md)).
+- Detail payload: `SetPartLineDetail.aliases` (read-only strings from `part_aliases`, excluding `part_num`).
+- Frontend: replace `AddPartLineDialog` with `PartLineModal` (`create` | `edit`); row click opens edit (**Update** / **Delete** / **Cancel**); optional image on add via existing `PUT /parts/{part_id}/image` after create; remove inline `PartImageEditor` from table (modal is primary).
+- `PATCH .../inventory-lines/{id}` remains for **missing quantity** inline editor; modal uses set-parts PATCH for line metadata and instance quantity.
+- Tests: set-parts CRUD; detail includes aliases; image-on-add flow (mocked PUT); modal Vitest.
+
+**Exit criteria**
+
+- User can add a part with optional photo; photo appears for that `part_id` everywhere.
+- Clicking a set-part row opens edit modal; delete removes instance line and orphan catalog line when unused.
+- Table shows alias identifiers (read-only).
+- No live Rebrickable in tests.
+
+## Phase 11B — Part alias editing in modal
+
+**Goal:** Edit part aliases in the same **PartLineModal** using symmetric equivalence classes (PRD §11.5).
+
+**Deliverables**
+
+- API: `PATCH /api/parts/{part_id}/aliases` with replace-list body `{ "aliases": [...] }` and server-side closure (see [api-design.md](./api-design.md)).
+- Service: `part_alias_service.replace_aliases` — manual rows use `source='user'`; merge classes when an alias string links to another part (documented policy).
+- Frontend: **AliasChipEditor** in create and edit modals; submit order: create — `POST set-parts` → `PATCH aliases` → `PUT image`; edit — `PATCH set-parts` → `PATCH aliases` → image as needed.
+- Tests: symmetry property tests (add B to X ⇒ X on B; remove A from X ⇒ X removed from A); search by alias across class.
+
+**Exit criteria**
+
+- Alias chip editor works in add and edit modals.
+- Undirected alias group stays consistent after edits.
+- Search finds parts by any alias in the class.
+
+## Phase 12 — CSV import with full Rebrickable fetch (no images)
 
 **Goal:** CSV import creates instances **and** loads full catalog + inventory from Rebrickable per token — **without** downloading images.
 
@@ -208,7 +244,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 - `POST /imports/csv`: after each valid token, call Rebrickable (set metadata, set parts, minifigs, minifig BOMs) using the Phase 4A client; upsert catalog + template inventory; create instance rows from template (Phase 9). **Do not** HTTP-fetch `part_img_url` / set image URLs into files or BLOBs.
 - Replace **stub-only** catalog creation: new sets get name, theme, year, `num_parts`, age, and full part/minifig lists when the API succeeds; per-token failures reported without aborting other tokens (same partial-success pattern as today).
 - Requires `REBRICKABLE_API_KEY`; clear error if missing.
-- Frontend: Import page copy explains that CSV adds instances and fetches set data (no images). Optional: de-emphasize or hide “Sync all” until Phase 13+ (endpoint unchanged).
+- Frontend: Import page copy explains that CSV adds instances and fetches set data (no images). Optional: de-emphasize or hide “Sync all” until Phase 14+ (endpoint unchanged).
 - Tests: mocked multi-endpoint Rebrickable sequence per token; assert inventory row counts; assert no image BLOBs/URLs written when policy is “no images on import.”
 
 **Exit criteria**
@@ -217,9 +253,9 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 - Second CSV with same `set_num` creates a **second instance** with its own instance inventory rows.
 - No filesystem image cache created during import.
 
-## Phase 12 — Manual add set (wizard) and symmetric part aliases
+## Phase 13 — Manual add set wizard
 
-**Goal:** User can add a set by number only; branch on whether `set_num` already exists; support manual catalog + parts entry; maintain **bidirectional** part alias groups.
+**Goal:** User can add a set by number only; branch on whether `set_num` already exists; support manual catalog + parts entry. **Part alias editing** is Phase **11B**, not this phase.
 
 **Deliverables**
 
@@ -227,19 +263,20 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
   1. Modal/page with single required field: **LEGO set number**.
   2. If `set_num` **exists**: inform user they are creating a **new instance**; load shared catalog + template inventory from DB; create instance (investigated false); navigate to detail for instance-level edits.
   3. If `set_num` **new**: step 2 — set metadata (name, theme, year, `num_parts`, age) and **parts list** (part number, color, quantity); optional “Fetch from Rebrickable” button to prefill without images; step 3 — confirm and create catalog + first owned instance + instance inventory lines.
-- APIs: `POST /owned-sets` (or `POST /catalog/sets` + instance) with the branching semantics above; `PATCH` parts alias list with **symmetric closure** (adding B to X’s aliases adds X to B’s; removing A from X’s list removes X from A’s).
+- APIs: `POST /owned-sets`, `GET /owned-sets/add-preview` with branching semantics (see [api-design.md](./api-design.md)).
 - **Collection invariant:** deleting the last instance for a `set_num` deletes catalog + inventory for that set (existing rule); no orphan `catalog_sets` without `owned_sets`.
-- Tests: wizard flows (mocked API); alias symmetry property tests (add/remove pairs); new set with only `set_num` then expand metadata.
+- Tests: wizard flows (mocked API); new set with only `set_num` then expand metadata.
+
+**Status (partial):** `AddSetWizard`, `POST /owned-sets`, and `GET /owned-sets/add-preview` are implemented; remaining work is optional Rebrickable prefill on new sets and any wizard polish called out in issues.
 
 **Exit criteria**
 
 - User can add a brand-new set number with manual parts without CSV.
 - User can add Copy #2 of an existing set number in two clicks after the number step.
-- Alias edits keep an undirected equivalence class consistent across all members.
 
-## Phase 13+ (later) — Sync UX and polish
+## Phase 14+ (later) — Sync UX and polish
 
-**Out of scope for Phases 9–12.** May include: sync all / selected / current set UI, refresh policies, conflict resolution when Rebrickable data changes after manual edits, progress/cancel, and optional image backfill from URLs. Existing `POST /imports/rebrickable/sync` stays available; behavior documented in [api-design.md](./api-design.md).
+**Out of scope for Phases 9–13.** May include: sync all / selected / current set UI, refresh policies, conflict resolution when Rebrickable data changes after manual edits, progress/cancel, and optional image backfill from URLs. Existing `POST /imports/rebrickable/sync` stays available; behavior documented in [api-design.md](./api-design.md).
 
 ## Dependency graph (high level)
 
@@ -266,20 +303,24 @@ flowchart LR
     phase6 --> phase7
     phase7 --> phase8
   end
-  subgraph post [Post-MVP Phases 9-12]
+  subgraph post [Post-MVP Phases 9-13]
     phase9[Phase9_InstanceInventory]
     phase10[Phase10_ImagesInDB]
-    phase11[Phase11_CSVFetch]
-    phase12[Phase12_ManualAddAndAliases]
+    phase11A[Phase11A_PartModal]
+    phase11B[Phase11B_Aliases]
+    phase12[Phase12_CSVFetch]
+    phase13[Phase13_ManualAddWizard]
     phase9 --> phase10
-    phase10 --> phase11
-    phase11 --> phase12
+    phase10 --> phase11A
+    phase11A --> phase11B
+    phase11B --> phase12
+    phase12 --> phase13
   end
   phase8 --> phase9
-  phase4a --> phase11
+  phase4a --> phase12
 ```
 
-**Note:** Phase 11 depends on Phase 4A (client) and Phase 9 (instance rows). Phase 10 can proceed after Phase 9 so missing/part uploads target BLOB columns.
+**Note:** Phase 12 (CSV fetch) depends on Phase 4A (client) and Phase 9 (instance rows). Phases 11A–11B depend on Phase 10 (part image BLOBs). Phase 10 can proceed after Phase 9 so missing/part uploads target BLOB columns.
 
 ## Related documents
 

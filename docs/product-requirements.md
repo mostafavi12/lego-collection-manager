@@ -100,6 +100,9 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 - Inventory table supports sorting or stable default order (e.g. by part number, then color).
 - Rebrickable **spare** and **alternate** inventory rows are **not imported** (not shown in the UI).
 - Distinct **stickered vs plain** parts appear as distinct rows matching importer data.
+- User can **add** a set-part via a modal (**+** control); modal supports optional **part image** upload (Phase 11A).
+- User can **open the same modal** by clicking a set-part row to **update** line fields or **delete** the line (**Update** / **Delete** / **Cancel**; Phase 11A).
+- Set-parts table shows **alias identifiers** per line, read-only (Phase 11A); user edits aliases in the same modal (Phase 11B).
 
 ### 6. Search by set number and part number
 
@@ -161,9 +164,9 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 
 Rebrickable sync may populate age as `6+` → store **`6`** (integer). CSV import does **not** rename existing instance labels; duplicate custom labels are allowed.
 
-## 11. Post-MVP collection semantics (Phases 9–12)
+## 11. Post-MVP collection semantics (Phases 9–13)
 
-The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order. **Phases 9–10 are implemented** on `main`; Phases 11–12 are planned.
+The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order. **Phases 9–10 are implemented** on `main`; Phases **11A–11B**, **12**, and **13** are planned (Phase 13 wizard is partially implemented).
 
 ### 11.1 Collection invariant: all sets are owned
 
@@ -171,7 +174,7 @@ The database does not store LEGO sets the user does not own. Every `catalog_sets
 
 ### 11.2 Rebrickable fetch without images
 
-When importing or enriching from Rebrickable (CSV import in Phase 11, optional prefill in manual add, and existing sync endpoint):
+When importing or enriching from Rebrickable (CSV import in Phase 12, optional prefill in manual add, and existing sync endpoint):
 
 - **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs.
 - **Do not fetch:** image bytes from Rebrickable CDN URLs (no local cache folders, no automatic BLOB population from URLs in these flows).
@@ -194,36 +197,43 @@ User-uploaded images are stored in SQLite (Phase 10).
 
 - Any inventory line **may** have a user-provided image via its part record; missing parts are the primary use case.
 - One image per part (JPEG/PNG BLOB in DB, max 5 MB).
+- **Add** and **edit** part modals (Phase 11A) include upload/replace/delete for the part image (same global `parts` row as inline editors).
 
 ### 11.5 Part aliases (bidirectional)
 
-Users may edit the alias list for a part. The system maintains an **undirected** alias group:
+Users may edit the alias list for a part (Phase **11B** UI: chip list in **PartLineModal**). The system maintains an **undirected** alias group:
 
 - If part **B** is added to part **X**’s alias list, **X** is added to **B**’s alias list.
 - If part **A** is removed from **X**’s alias list, **X** is removed from **A**’s alias list.
 
 Search treats all members of the group as interchangeable for part-number lookup.
 
-### 11.6 CSV import (Phase 11)
+### 11.6 CSV import (Phase 12)
 
 Unchanged additive semantics (one token → one new instance). Additionally, for each token the app calls Rebrickable and upserts **full** catalog inventory (no images). Failures are per-token; valid tokens still succeed.
 
-### 11.7 Manual add set (Phase 12)
+### 11.7 Manual add set (Phase 13)
 
 1. User enters **set number** (only required field).
 2. If set number **already exists:** show message that a **new instance** is being created; load catalog + inventory from DB; create instance; user edits instance fields on detail.
 3. If set number **is new:** user enters set metadata and parts list (or optional Rebrickable prefill without images); system creates catalog + **first** instance + instance inventory.
 
-### 11.8 Sync UX (deferred)
+### 11.8 Part alias editing in modal (Phase 11B)
 
-No new bulk sync UI in Phases 9–12. `POST /imports/rebrickable/sync` remains for later enhancement (Phase 13+).
+- **AliasChipEditor** in add and edit **PartLineModal**: removable chips plus “Add alias” field; canonical **part number** shown separately (read-only on edit), not as a chip.
+- API: `PATCH /parts/{part_id}/aliases` with replace-list body; server enforces symmetric closure (§11.5).
+- Alias edits are **global** for the equivalence class (like part images): all sets using any member part reflect the updated alias group in search and detail.
+
+### 11.9 Sync UX (deferred)
+
+No new bulk sync UI in Phases 9–13. `POST /imports/rebrickable/sync` remains for later enhancement (Phase 14+).
 
 ## UX surfaces (MVP)
 
 1. **Owned sets** — list layout per [§4](#4-owned-sets-list); **Make a copy** with confirmation dialog per row.
 2. **Set detail** — instance field editor + inventory + missing panel; **delete** instance; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
-4. **Import** — CSV/text file upload (additive); trigger Rebrickable sync (MVP). *Post-MVP:* CSV also fetches full set data (Phase 11); **Add set** wizard (Phase 12).
+4. **Import** — CSV/text file upload (additive); trigger Rebrickable sync (MVP). *Post-MVP:* CSV also fetches full set data (Phase 12); **Add set** wizard (Phase 13); **PartLineModal** on set detail (Phases 11A–11B).
 
 ## Non-goals (MVP)
 
