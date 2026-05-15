@@ -1,6 +1,8 @@
 import type {
   CsvImportResponse,
   DuplicatePreviewResponse,
+  InstanceInventoryLineResponse,
+  InstanceInventoryLineUpdate,
   MissingImageResponse,
   MissingUpsertResponse,
   OwnedSetDetailResponse,
@@ -154,6 +156,21 @@ export function syncRebrickable(
       ownedSetIds?.length ? { owned_set_ids: ownedSetIds } : {},
     ),
   });
+}
+
+export function patchInstanceInventoryLine(
+  ownedSetId: number,
+  instanceLineId: number,
+  body: InstanceInventoryLineUpdate,
+): Promise<InstanceInventoryLineResponse> {
+  return request(
+    `/owned-sets/${ownedSetId}/inventory-lines/${instanceLineId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export function patchMissing(

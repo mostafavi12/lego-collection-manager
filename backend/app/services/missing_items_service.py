@@ -1,4 +1,4 @@
-"""Missing-part tracking and local image storage."""
+"""Missing-part photo storage (quantities live on instance inventory lines)."""
 
 from __future__ import annotations
 
@@ -6,17 +6,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
     MinifigPartInventoryLine,
     MissingItem,
     OwnedSet,
+    OwnedSetInventoryLine,
     SetMinifigInventoryLine,
     SetPartInventoryLine,
 )
 from app.schemas.missing import MissingImageResponse, MissingUpsertRequest, MissingUpsertResponse
 from app.services.catalog_state import missing_image_url
+from app.services.instance_inventory import (
+    InstanceInventoryError,
+    resolve_or_create_instance_line_for_catalog_ref,
+)
 from app.services.missing_storage import (
     delete_image_file,
     extension_for_content_type,
@@ -44,40 +49,49 @@ def upsert_missing(
     if owned_set is None:
         raise MissingItemError("Owned set not found", status_code=404)
 
+    _validate_catalog_line_for_owned_set(session, owned_set, body)
+
+    try:
+        instance_line = resolve_or_create_instance_line_for_catalog_ref(
+            session,
+            owned_set,
+            set_part_inventory_line_id=body.set_part_inventory_line_id,
+            minifig_part_inventory_line_id=body.minifig_part_inventory_line_id,
+        )
+    except InstanceInventoryError as exc:
+        raise MissingItemError(str(exc), status_code=exc.status_code) from exc
+
+    if body.quantity_missing > instance_line.quantity:
+        raise MissingItemError(
+            f"quantity_missing cannot exceed inventory quantity ({instance_line.quantity})"
+        )
+
     if body.quantity_missing == 0:
-        missing = _find_missing_for_line(session, owned_set_id, body)
         cleared_id = 0
-        if missing is not None:
-            cleared_id = missing.id
-            delete_image_file(missing.image_path)
-            session.delete(missing)
-            session.flush()
+        if instance_line.missing_item is not None:
+            cleared_id = instance_line.missing_item.id
+            delete_image_file(instance_line.missing_item.image_path)
+            session.delete(instance_line.missing_item)
+        instance_line.quantity_missing = 0
+        session.flush()
         return MissingUpsertResponse(
             owned_set_id=owned_set_id,
             missing_item_id=cleared_id,
             updated_lines=1,
         )
 
-    max_quantity = _validate_line_for_owned_set(session, owned_set, body)
-    if body.quantity_missing > max_quantity:
-        raise MissingItemError(
-            f"quantity_missing cannot exceed inventory quantity ({max_quantity})"
-        )
-
-    missing = _find_missing_for_line(session, owned_set_id, body)
+    instance_line.quantity_missing = body.quantity_missing
+    missing = instance_line.missing_item
     if missing is None:
         missing = MissingItem(
             owned_set_id=owned_set_id,
-            set_part_inventory_line_id=body.set_part_inventory_line_id,
-            minifig_part_inventory_line_id=body.minifig_part_inventory_line_id,
-            quantity_missing=body.quantity_missing,
+            owned_set_inventory_line_id=instance_line.id,
             image_path=None,
             created_at=utc_now(),
             updated_at=utc_now(),
         )
         session.add(missing)
     else:
-        missing.quantity_missing = body.quantity_missing
         missing.updated_at = utc_now()
 
     session.flush()
@@ -102,6 +116,8 @@ def upload_missing_image(
         raise MissingItemError("File must be JPEG or PNG")
     if not content:
         raise MissingItemError("Empty file")
+    if missing.owned_set_inventory_line.quantity_missing <= 0:
+        raise MissingItemError("Cannot attach image when missing quantity is 0")
 
     delete_image_file(missing.image_path)
     missing.image_path = save_missing_image(missing_item_id, content, content_type)
@@ -156,47 +172,28 @@ def _get_missing_for_owned_set(
     missing_item_id: int,
 ) -> MissingItem:
     missing = session.scalar(
-        select(MissingItem).where(
+        select(MissingItem)
+        .where(
             MissingItem.id == missing_item_id,
             MissingItem.owned_set_id == owned_set_id,
         )
+        .options(selectinload(MissingItem.owned_set_inventory_line))
     )
     if missing is None:
         raise MissingItemError("Missing item not found", status_code=404)
     return missing
 
 
-def _find_missing_for_line(
-    session: Session,
-    owned_set_id: int,
-    body: MissingUpsertRequest,
-) -> MissingItem | None:
-    if body.set_part_inventory_line_id is not None:
-        return session.scalar(
-            select(MissingItem).where(
-                MissingItem.owned_set_id == owned_set_id,
-                MissingItem.set_part_inventory_line_id == body.set_part_inventory_line_id,
-            )
-        )
-    return session.scalar(
-        select(MissingItem).where(
-            MissingItem.owned_set_id == owned_set_id,
-            MissingItem.minifig_part_inventory_line_id
-            == body.minifig_part_inventory_line_id,
-        )
-    )
-
-
-def _validate_line_for_owned_set(
+def _validate_catalog_line_for_owned_set(
     session: Session,
     owned_set: OwnedSet,
     body: MissingUpsertRequest,
-) -> int:
+) -> None:
     if body.set_part_inventory_line_id is not None:
         line = session.get(SetPartInventoryLine, body.set_part_inventory_line_id)
         if line is None or line.catalog_set_id != owned_set.catalog_set_id:
             raise MissingItemError("Inventory line does not belong to this owned set")
-        return line.quantity
+        return
 
     line = session.get(MinifigPartInventoryLine, body.minifig_part_inventory_line_id)
     if line is None:
@@ -210,4 +207,3 @@ def _validate_line_for_owned_set(
     )
     if in_set is None:
         raise MissingItemError("Inventory line does not belong to this owned set")
-    return line.quantity

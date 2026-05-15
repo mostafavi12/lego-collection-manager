@@ -14,6 +14,7 @@ from app.db.models import (
     MinifigPartInventoryLine,
     MissingItem,
     OwnedSet,
+    OwnedSetInventoryLine,
     Part,
     SetMinifigInventoryLine,
     SetPartInventoryLine,
@@ -37,6 +38,12 @@ from app.schemas.owned_sets import (
 )
 from app.services.catalog_cleanup import delete_catalog_set_data
 from app.services.catalog_state import catalog_sync_state, missing_image_url
+from app.services.instance_inventory import (
+    clear_instance_inventory,
+    clone_instance_inventory,
+    count_lines_with_missing,
+    ensure_instance_inventory,
+)
 from app.services.instance_labels import (
     copy_index_for_owned_set,
     copy_index_map,
@@ -59,14 +66,7 @@ def utc_now() -> datetime:
 
 
 def _missing_counts(session: Session, owned_set_ids: list[int]) -> dict[int, int]:
-    if not owned_set_ids:
-        return {}
-    rows = session.execute(
-        select(MissingItem.owned_set_id, func.count())
-        .where(MissingItem.owned_set_id.in_(owned_set_ids))
-        .group_by(MissingItem.owned_set_id)
-    ).all()
-    return {owned_set_id: int(count) for owned_set_id, count in rows}
+    return count_lines_with_missing(session, owned_set_ids)
 
 
 def _to_list_item(
@@ -94,14 +94,13 @@ def _to_list_item(
     )
 
 
-def _clear_missing_for_owned_set(session: Session, owned_set_id: int) -> None:
+def _clear_instance_data_for_owned_set(session: Session, owned_set_id: int) -> None:
     items = session.scalars(
         select(MissingItem).where(MissingItem.owned_set_id == owned_set_id)
     ).all()
     for item in items:
         delete_image_file(item.image_path)
-        session.delete(item)
-    session.flush()
+    clear_instance_inventory(session, owned_set_id)
 
 
 def _apply_shared_age(
@@ -155,11 +154,13 @@ def _relocate_to_set_num(session: Session, owned_set: OwnedSet, set_num: str) ->
     if not trimmed:
         raise OwnedSetServiceError("Set number must not be empty")
 
-    _clear_missing_for_owned_set(session, owned_set.id)
+    _clear_instance_data_for_owned_set(session, owned_set.id)
 
     existing = session.scalar(select(CatalogSet).where(CatalogSet.set_num == trimmed))
     if existing is not None:
         owned_set.catalog_set_id = existing.id
+        session.flush()
+        clone_instance_inventory(session, owned_set.id)
     else:
         now = utc_now()
         stub = CatalogSet(
@@ -177,6 +178,7 @@ def _relocate_to_set_num(session: Session, owned_set: OwnedSet, set_num: str) ->
         session.flush()
         owned_set.catalog_set_id = stub.id
     session.flush()
+    clone_instance_inventory(session, owned_set.id)
 
 
 def list_owned_sets(
@@ -238,17 +240,25 @@ def get_owned_set_detail(
     if owned_set is None:
         return None
 
+    ensure_instance_inventory(session, owned_set_id)
+
     catalog_set = owned_set.catalog_set
     theme_name = catalog_set.theme.name if catalog_set.theme else None
     copy_idx = copy_index_for_owned_set(session, owned_set)
 
-    missing_by_set_line: dict[int, MissingItem] = {}
-    missing_by_minifig_line: dict[int, MissingItem] = {}
-    for item in owned_set.missing_items:
-        if item.set_part_inventory_line_id is not None:
-            missing_by_set_line[item.set_part_inventory_line_id] = item
-        if item.minifig_part_inventory_line_id is not None:
-            missing_by_minifig_line[item.minifig_part_inventory_line_id] = item
+    instance_by_set_line: dict[int, OwnedSetInventoryLine] = {}
+    instance_by_minifig_line: dict[int, OwnedSetInventoryLine] = {}
+    for instance_line in session.scalars(
+        select(OwnedSetInventoryLine)
+        .where(OwnedSetInventoryLine.owned_set_id == owned_set_id)
+        .options(selectinload(OwnedSetInventoryLine.missing_item))
+    ).all():
+        if instance_line.set_part_inventory_line_id is not None:
+            instance_by_set_line[instance_line.set_part_inventory_line_id] = instance_line
+        if instance_line.minifig_part_inventory_line_id is not None:
+            instance_by_minifig_line[
+                instance_line.minifig_part_inventory_line_id
+            ] = instance_line
 
     set_part_rows = session.execute(
         select(SetPartInventoryLine, Part, Color)
@@ -260,19 +270,23 @@ def get_owned_set_detail(
 
     set_parts: list[SetPartLineDetail] = []
     for line, part, color in set_part_rows:
-        missing = missing_by_set_line.get(line.id)
+        instance_line = instance_by_set_line.get(line.id)
+        if instance_line is None:
+            continue
+        missing = instance_line.missing_item
         set_parts.append(
             SetPartLineDetail(
-                line_id=line.id,
+                instance_line_id=instance_line.id,
+                catalog_line_id=line.id,
                 part_num=part.part_num,
                 part_name=part.name,
                 color_id=color.external_id,
                 color_name=color.name,
-                quantity=line.quantity,
+                quantity=instance_line.quantity,
                 is_spare=line.is_spare,
                 is_alternate=line.is_alternate,
                 image_url=line.image_url,
-                missing_quantity=missing.quantity_missing if missing else 0,
+                missing_quantity=instance_line.quantity_missing,
                 missing_item_id=missing.id if missing else None,
                 missing_image_url=missing_image_url(
                     missing.id if missing else None,
@@ -303,16 +317,20 @@ def get_owned_set_detail(
 
         parts: list[MinifigPartLineDetail] = []
         for part_line, part, color in part_rows:
-            missing = missing_by_minifig_line.get(part_line.id)
+            instance_line = instance_by_minifig_line.get(part_line.id)
+            if instance_line is None:
+                continue
+            missing = instance_line.missing_item
             parts.append(
                 MinifigPartLineDetail(
-                    line_id=part_line.id,
+                    instance_line_id=instance_line.id,
+                    catalog_line_id=part_line.id,
                     part_num=part.part_num,
                     part_name=part.name,
                     color_id=color.external_id,
                     color_name=color.name,
-                    quantity=part_line.quantity,
-                    missing_quantity=missing.quantity_missing if missing else 0,
+                    quantity=instance_line.quantity,
+                    missing_quantity=instance_line.quantity_missing,
                     missing_item_id=missing.id if missing else None,
                     missing_image_url=missing_image_url(
                         missing.id if missing else None,
@@ -396,11 +414,7 @@ def update_owned_set(
         session.refresh(catalog_set, attribute_names=["theme"])
 
     theme_name = catalog_set.theme.name if catalog_set.theme else None
-    missing_count = session.scalar(
-        select(func.count())
-        .select_from(MissingItem)
-        .where(MissingItem.owned_set_id == owned_set_id)
-    ) or 0
+    missing_count = _missing_counts(session, [owned_set_id]).get(owned_set_id, 0)
     copy_idx = copy_index_for_owned_set(session, owned_set)
     return _to_list_item(owned_set, catalog_set, theme_name, int(missing_count), copy_idx)
 
@@ -455,6 +469,7 @@ def duplicate_owned_set(
     )
     session.add(new_owned)
     session.flush()
+    clone_instance_inventory(session, new_owned.id)
 
     catalog_set = source.catalog_set
     theme_name = catalog_set.theme.name if catalog_set.theme else None
@@ -479,7 +494,7 @@ def delete_owned_set(
         return None
 
     catalog_set_id = owned_set.catalog_set_id
-    _clear_missing_for_owned_set(session, owned_set_id)
+    _clear_instance_data_for_owned_set(session, owned_set_id)
     session.delete(owned_set)
     session.flush()
 

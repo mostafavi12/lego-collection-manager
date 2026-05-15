@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
+
+from app.db.models import OwnedSetInventoryLine
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -237,13 +239,12 @@ def replace_set_part_inventory(
         )
         if key in new_keys:
             continue
-        has_missing = session.scalar(
-            select(MissingItem.id).where(
-                MissingItem.set_part_inventory_line_id == existing.id
+        session.execute(
+            delete(OwnedSetInventoryLine).where(
+                OwnedSetInventoryLine.set_part_inventory_line_id == existing.id
             )
         )
-        if has_missing is None:
-            session.delete(existing)
+        session.delete(existing)
 
     session.flush()
     return parts_upserted, lines_written
@@ -333,13 +334,12 @@ def replace_minifig_part_inventory(
         key = (existing.part_id, existing.color_id, existing.is_spare)
         if key in new_keys:
             continue
-        has_missing = session.scalar(
-            select(MissingItem.id).where(
-                MissingItem.minifig_part_inventory_line_id == existing.id
+        session.execute(
+            delete(OwnedSetInventoryLine).where(
+                OwnedSetInventoryLine.minifig_part_inventory_line_id == existing.id
             )
         )
-        if has_missing is None:
-            session.delete(existing)
+        session.delete(existing)
 
     session.flush()
     return parts_upserted, lines_written

@@ -8,6 +8,10 @@ from app.schemas.missing import (
     MissingUpsertRequest,
     MissingUpsertResponse,
 )
+from app.schemas.instance_inventory import (
+    InstanceInventoryLineResponse,
+    InstanceInventoryLineUpdate,
+)
 from app.schemas.owned_sets import (
     DuplicatePreviewResponse,
     DuplicateRequest,
@@ -23,6 +27,10 @@ from app.services.missing_items_service import (
     delete_missing_image,
     upload_missing_image,
     upsert_missing,
+)
+from app.services.instance_inventory import (
+    InstanceInventoryError,
+    update_instance_inventory_line,
 )
 from app.services.owned_sets_service import (
     OwnedSetServiceError,
@@ -56,6 +64,38 @@ def get_owned_set(
     if detail is None:
         raise HTTPException(status_code=404, detail="Owned set not found")
     return detail
+
+
+@router.patch(
+    "/{owned_set_id}/inventory-lines/{instance_line_id}",
+    response_model=InstanceInventoryLineResponse,
+)
+def patch_instance_inventory_line(
+    owned_set_id: int,
+    instance_line_id: int,
+    body: InstanceInventoryLineUpdate,
+    db: Session = Depends(get_db),
+) -> InstanceInventoryLineResponse:
+    if body.quantity is None and body.quantity_missing is None:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one of quantity or quantity_missing is required",
+        )
+    try:
+        line = update_instance_inventory_line(
+            db,
+            owned_set_id,
+            instance_line_id,
+            quantity=body.quantity,
+            quantity_missing=body.quantity_missing,
+        )
+    except InstanceInventoryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return InstanceInventoryLineResponse(
+        instance_line_id=line.id,
+        quantity=line.quantity,
+        quantity_missing=line.quantity_missing,
+    )
 
 
 @router.patch("/{owned_set_id}", response_model=OwnedSetListItem)

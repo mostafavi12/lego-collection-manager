@@ -5,6 +5,7 @@ import { deleteOwnedSet, getOwnedSet, updateOwnedSet } from "../api/client";
 import type { OwnedSetDetailResponse } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { Modal } from "../components/Modal";
+import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
 import { MissingLineEditor } from "../components/MissingLineEditor";
 
 interface InstanceForm {
@@ -318,7 +319,7 @@ export function OwnedSetDetailPage() {
             </thead>
             <tbody>
               {inventory.set_parts.map((line) => (
-                <tr key={line.line_id}>
+                <tr key={line.instance_line_id}>
                   <td>
                     <div className="part-cell">
                       {line.image_url && (
@@ -331,7 +332,13 @@ export function OwnedSetDetailPage() {
                     </div>
                   </td>
                   <td>{line.color_name}</td>
-                  <td>{line.quantity}</td>
+                  <td>
+                    <InstanceQuantityEditor
+                      ownedSetId={detail.id}
+                      line={line}
+                      onUpdated={() => void load()}
+                    />
+                  </td>
                   <td>
                     {line.is_spare && <span className="tag">spare</span>}
                     {line.is_alternate && <span className="tag">alt</span>}
@@ -340,7 +347,6 @@ export function OwnedSetDetailPage() {
                     <MissingLineEditor
                       ownedSetId={detail.id}
                       line={line}
-                      lineRef={{ kind: "set", lineId: line.line_id }}
                       onUpdated={() => void load()}
                     />
                   </td>
@@ -372,21 +378,23 @@ export function OwnedSetDetailPage() {
                   </thead>
                   <tbody>
                     {mf.parts.map((line) => (
-                      <tr key={line.line_id}>
+                      <tr key={line.instance_line_id}>
                         <td>
                           <strong>{line.part_num}</strong>
                           {line.part_name ? ` — ${line.part_name}` : ""}
                         </td>
                         <td>{line.color_name}</td>
-                        <td>{line.quantity}</td>
+                        <td>
+                          <InstanceQuantityEditor
+                            ownedSetId={detail.id}
+                            line={line}
+                            onUpdated={() => void load()}
+                          />
+                        </td>
                         <td>
                           <MissingLineEditor
                             ownedSetId={detail.id}
                             line={line}
-                            lineRef={{
-                              kind: "minifig",
-                              lineId: line.line_id,
-                            }}
                             onUpdated={() => void load()}
                           />
                         </td>

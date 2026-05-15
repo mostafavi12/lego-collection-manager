@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import CatalogSet, OwnedSet
 from app.importers.set_list_parser import ParseError, parse_set_list
+from app.services.instance_inventory import clone_instance_inventory
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +53,14 @@ def import_set_list(session: Session, content: str) -> CsvImportResult:
             session.flush()
             catalog_stubs_created += 1
 
-        session.add(
-            OwnedSet(
-                catalog_set_id=catalog_set.id,
-                investigated=False,
-                created_at=utc_now(),
-            )
+        owned = OwnedSet(
+            catalog_set_id=catalog_set.id,
+            investigated=False,
+            created_at=utc_now(),
         )
+        session.add(owned)
+        session.flush()
+        clone_instance_inventory(session, owned.id)
         instances_created += 1
 
     session.flush()
