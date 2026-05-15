@@ -35,7 +35,99 @@ describe("OwnedSetDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: /copy A — 6024-1/i })).toBeInTheDocument();
     expect(screen.getByText(/Plate 1 x 1/)).toBeInTheDocument();
+    expect(screen.getByText("3024b")).toBeInTheDocument();
     expect(screen.getByLabelText(/missing quantity for 3024/i)).toHaveValue(1);
+  });
+
+  it("opens add part modal from toolbar", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ownedSetDetailFixture,
+      } as Response),
+    );
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole("heading", { name: /copy A — 6024-1/i });
+    await user.click(screen.getByRole("button", { name: /add part/i }));
+
+    expect(
+      await screen.findByRole("heading", { name: /add part/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^add$/i })).toBeInTheDocument();
+  });
+
+  it("opens edit modal when clicking a part row", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ownedSetDetailFixture,
+      } as Response),
+    );
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText(/Plate 1 x 1/);
+    await user.click(screen.getByText(/Plate 1 x 1/));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /edit part/i }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue("3024")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /^update$/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
+  });
+
+  it("patches set part on update from modal", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ownedSetDetailFixture,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          instance_line_id: 100,
+          part_id: 42,
+          catalog_line_id: 10,
+          quantity: 5,
+          quantity_missing: 1,
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ownedSetDetailFixture,
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText(/Plate 1 x 1/);
+    await user.click(screen.getByText(/Plate 1 x 1/));
+
+    const dialog = await screen.findByRole("dialog");
+    const qtyInput = within(dialog).getByLabelText(/quantity/i);
+    await user.clear(qtyInput);
+    await user.type(qtyInput, "5");
+    await user.click(within(dialog).getByRole("button", { name: /^update$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/owned-sets/1/set-parts/100"),
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining('"quantity":5'),
+        }),
+      );
+    });
   });
 
   it("patches missing quantity on save", async () => {

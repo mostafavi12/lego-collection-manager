@@ -484,6 +484,24 @@
   object-fit: contain;
 }
 
+.data-table__row--clickable {
+  cursor: pointer;
+}
+
+.data-table__row--clickable:hover {
+  background: #f6f8fa;
+}
+
+.part-aliases-cell {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  max-width: 10rem;
+}
+
+.part-line-modal__image {
+  margin-top: 1rem;
+}
+
 .tag {
   display: inline-block;
   font-size: 0.65rem;

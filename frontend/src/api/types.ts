@@ -67,8 +67,17 @@ export interface InstanceInventoryLineUpdate {
   quantity_missing?: number;
 }
 
+export interface UpdateSetPartLineBody {
+  part_name?: string | null;
+  color_id?: number;
+  color_name?: string | null;
+  quantity?: number;
+}
+
 export interface InstanceInventoryLineResponse {
   instance_line_id: number;
+  part_id: number;
+  catalog_line_id: number;
   quantity: number;
   quantity_missing: number;
 }
@@ -82,6 +91,7 @@ export interface SetPartLineDetail {
   color_id: number;
   color_name: string;
   quantity: number;
+  aliases: string[];
   image_url: string | null;
   part_image_url: string | null;
   missing_quantity: number;
