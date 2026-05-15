@@ -114,7 +114,7 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - End-to-end manual flow: CSV (additive) → sync → duplicate an owned set from UI → new uninvestigated copy → mark missing + upload photo → reload shows persisted state and local image.
 
-## Phase 7b — Instance management UX (feedback)
+## Phase 7b — Instance management UX (feedback) — **complete**
 
 **Deliverables**
 
@@ -129,7 +129,9 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 - List shows label before set number and name/theme/parts/age with documented defaults.
 - Make a copy only from list; dialog shows set number X and default `Copy #n`; create only after confirm.
 - Detail allows editing instance fields and deleting the instance; no Make a copy on detail.
-- Tests cover delete, duplicate preview/POST with label, PATCH age, and updated list/detail UI (mocked API).
+- Tests cover delete, duplicate preview/POST with label, PATCH age, PATCH theme when `theme_id` is NULL, and updated list/detail UI (mocked API).
+
+**Follow-up (post-merge):** theme PATCH when catalog had no linked theme (CSV stubs); dual-source metadata documented in [data-sources.md](./data-sources.md#catalog-metadata-dual-source).
 
 ## Phase 8 — Hardening and documentation
 
@@ -137,7 +139,7 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 - Structured logging for importer (no secrets).
 - README sections: prerequisites, how to run backend/frontend, how to run migrations, where the SQLite file and upload directory live.
-- GitHub Actions CI on push/PR: backend `pytest` and frontend `npm run build` (see [ci.md](./ci.md), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)); extend with Vitest when configured.
+- GitHub Actions CI on push/PR: backend `pytest`, frontend `npm test`, and `npm run build` (see [ci.md](./ci.md), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
 
 **Exit criteria**
 

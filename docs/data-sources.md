@@ -96,6 +96,24 @@ Every upserted row that originates from Rebrickable should set at least:
 
 Optional later: payload hash for change detection.
 
+## Catalog metadata (dual source)
+
+Except for the per-instance **label** (user-only), set-level metadata may come from **Rebrickable sync**, from **CSV import** (set number only, leaving other fields empty until sync or manual entry), or from **user edit** on the set detail form (`PATCH /owned-sets/{id}`).
+
+| Field | Storage | Rebrickable sync | User PATCH (detail form) |
+|-------|---------|------------------|---------------------------|
+| Set number | `catalog_sets.set_num` | Set API | `set_num` (this instance only; UI warning) |
+| Name | `catalog_sets.name` | Set API | `catalog_name` |
+| Theme | `themes` + `catalog_sets.theme_id` | Set + theme APIs | `catalog_theme_name` (creates/links theme when none) |
+| Year | `catalog_sets.year` | Set API | `catalog_year` |
+| Part count | `catalog_sets.num_parts` | Set API | `catalog_num_parts` |
+| Age | `owned_sets.age` (shared per `catalog_set_id`) | Set API (`age_range` → integer) | `age` |
+| Box image URL | `catalog_sets.image_url` | Set API | Not editable in MVP UI |
+
+**User-only instance fields** (not populated from Rebrickable): `label`, `notes`, `investigated`.
+
+**Re-sync behavior:** each successful Rebrickable sync **upserts** catalog fields from the API. When the API returns `age_range`, sync updates **all** owned instances for that catalog set. Manual values for those catalog fields may be **overwritten** on a later sync.
+
 ## Local files (missing-part images)
 
 | Variable | Purpose |

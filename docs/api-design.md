@@ -209,20 +209,36 @@ Multiple `items` may share the same `set_num` with different `id`.
 
 **`PATCH /owned-sets/{id}`**
 
+All fields optional; omitted fields unchanged.
+
+| Field | Type | Scope | Notes |
+|-------|------|-------|--------|
+| `investigated` | boolean | This instance | |
+| `label` | string \| null | This instance | Empty string clears (stored NULL); UI default display `Copy #{copy_index}`. |
+| `notes` | string \| null | This instance | |
+| `age` | integer \| null | **All instances** with same `catalog_set_id` | Rebrickable sync may set from `age_range` (`6+` → `6`). |
+| `set_num` | string | **This instance only** | Re-links to matching or new `catalog_sets` row; clears this instance’s missing items. UI warning required. |
+| `catalog_name` | string \| null | **All instances** (catalog row) | |
+| `catalog_theme_name` | string \| null | **All instances** (catalog row) | Creates or links a `themes` row when `theme_id` was NULL. |
+| `catalog_num_parts` | integer \| null | **All instances** (catalog row) | |
+| `catalog_year` | integer \| null | **All instances** (catalog row) | |
+
+Example (instance + shared catalog fields):
+
 ```json
 {
   "investigated": true,
   "label": "Copy #2",
-  "age": "8+",
-  "notes": "Second-hand, box damaged"
+  "age": 8,
+  "notes": "Second-hand, box damaged",
+  "catalog_name": "Police Car",
+  "catalog_theme_name": "Town",
+  "catalog_num_parts": 27,
+  "catalog_year": 1980
 }
 ```
 
-All fields optional; omitted fields unchanged. `label` may be set to empty string to clear (stored as NULL); UI should default empty display to `Copy #{copy_index}`.
-
-**Shared catalog fields:** when `age` (and other agreed shared fields) are included in PATCH, apply to **all** `owned_sets` rows with the same `catalog_set_id`.
-
-**Set number change:** use **`PATCH /owned-sets/{id}`** with `set_num` only after UI warning; server re-links this instance to the matching or new `catalog_sets` row; other instances unchanged. Invalid or empty `set_num` → **400**.
+**Set number change:** send `set_num` only after UI warning; server re-links this instance to the matching or new `catalog_sets` row; other instances unchanged. Invalid or empty `set_num` → **400**.
 
 **Response `200`:** same shape as list item fields for the updated instance.
 
@@ -233,7 +249,7 @@ All fields optional; omitted fields unchanged. `label` may be set to empty strin
 - Deletes the `owned_sets` row, cascades `missing_items`, and removes any missing-part image files on disk.
 - If no other `owned_sets` reference the same `catalog_set_id`, delete that **catalog set and its inventory** as well.
 - **`404`** if unknown id.
-- **`204`** No Content on success (or **`200`** with `{ "deleted": true, "id": 1 }` — pick one in implementation and keep consistent).
+- **`200`** with `{ "deleted": true, "id": 1 }` on success.
 
 ### Duplicate owned-set instance (“Make a copy”)
 

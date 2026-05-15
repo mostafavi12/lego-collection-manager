@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from app.db.models import CatalogSet, MissingItem, OwnedSet
+from app.db.models import CatalogSet, MissingItem, OwnedSet, Theme
 from tests.factories import add_catalog_set, add_owned_set, add_theme
 
 
@@ -40,6 +40,45 @@ def test_delete_owned_set_removes_last_catalog(api_client, db_session) -> None:
     assert response.json()["deleted"] is True
     assert db_session.get(OwnedSet, owned.id) is None
     assert db_session.get(CatalogSet, catalog_id) is None
+
+
+def test_patch_catalog_theme_when_no_theme_linked(api_client, db_session) -> None:
+    catalog = add_catalog_set(db_session, set_num="6024-1")
+    assert catalog.theme_id is None
+    owned = add_owned_set(db_session, catalog)
+    db_session.commit()
+
+    response = api_client.patch(
+        f"/api/owned-sets/{owned.id}",
+        json={"catalog_theme_name": "Classic Town"},
+    )
+    assert response.status_code == 200
+    assert response.json()["theme_name"] == "Classic Town"
+
+    db_session.expire_all()
+    refreshed = db_session.get(CatalogSet, catalog.id)
+    assert refreshed is not None
+    assert refreshed.theme_id is not None
+    assert refreshed.theme is not None
+    assert refreshed.theme.name == "Classic Town"
+    assert refreshed.theme.source == "user"
+
+
+def test_patch_catalog_theme_updates_existing_theme(api_client, db_session) -> None:
+    theme = add_theme(db_session, name="Town")
+    catalog = add_catalog_set(db_session, set_num="6024-1", theme=theme)
+    owned = add_owned_set(db_session, catalog)
+    db_session.commit()
+
+    response = api_client.patch(
+        f"/api/owned-sets/{owned.id}",
+        json={"catalog_theme_name": "Classic Town"},
+    )
+    assert response.status_code == 200
+    assert response.json()["theme_name"] == "Classic Town"
+
+    db_session.expire_all()
+    assert db_session.get(Theme, theme.id).name == "Classic Town"
 
 
 def test_patch_age_updates_all_instances(api_client, db_session) -> None:

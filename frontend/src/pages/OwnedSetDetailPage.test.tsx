@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +18,7 @@ function renderDetail() {
 
 describe("OwnedSetDetailPage", () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -77,6 +78,75 @@ describe("OwnedSetDetailPage", () => {
             quantity_missing: 2,
           }),
         }),
+      );
+    });
+  });
+
+  it("shows set number warning and restores on cancel", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => ({
+        ok: true,
+        json: async () => ownedSetDetailFixture,
+      })) as typeof fetch,
+    );
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Instance details");
+    const setNumInput = (await screen.findAllByDisplayValue("6024-1"))[0]!;
+    await user.clear(setNumInput);
+    await user.type(setNumInput, "8888-1");
+    const saveButton = (await screen.findAllByRole("button", { name: /save changes/i }))[0]!;
+    await user.click(saveButton);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /change set number\?/i }),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /^cancel$/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(setNumInput).toHaveValue("6024-1");
+  });
+
+  it("deletes instance after confirmation", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "DELETE") {
+        return {
+          ok: true,
+          json: async () => ({ deleted: true, id: 1 }),
+        } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ownedSetDetailFixture,
+      } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Instance details");
+    const deleteInstanceButton = (
+      await screen.findAllByRole("button", { name: /delete instance/i })
+    )[0]!;
+    await user.click(deleteInstanceButton);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /delete this instance\?/i }),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/owned-sets/1"),
+        expect.objectContaining({ method: "DELETE" }),
       );
     });
   });

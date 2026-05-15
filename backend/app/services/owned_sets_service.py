@@ -20,6 +20,7 @@ from app.db.models import (
     Theme,
 )
 CSV_STUB_SOURCE = "csv_import"
+USER_THEME_SOURCE = "user"
 from app.schemas.owned_sets import (
     CatalogBlock,
     DuplicatePreviewResponse,
@@ -112,6 +113,41 @@ def _apply_shared_age(
         select(OwnedSet).where(OwnedSet.catalog_set_id == catalog_set_id)
     ).all():
         owned.age = age
+
+
+def _apply_catalog_theme_name(
+    session: Session,
+    catalog_set: CatalogSet,
+    theme_name: str,
+) -> None:
+    """Set or update theme on a catalog set (creates/links when theme_id was NULL)."""
+    name = theme_name.strip()
+    if not name:
+        catalog_set.theme_id = None
+        return
+
+    if catalog_set.theme is not None:
+        catalog_set.theme.name = name
+        return
+
+    theme = session.scalar(
+        select(Theme).where(func.lower(Theme.name) == name.lower())
+    )
+    if theme is None:
+        min_user_external_id = session.scalar(
+            select(func.min(Theme.external_id)).where(Theme.external_id < 0)
+        )
+        external_id = -1 if min_user_external_id is None else min_user_external_id - 1
+        theme = Theme(
+            external_id=external_id,
+            name=name,
+            source=USER_THEME_SOURCE,
+            fetched_at=utc_now(),
+        )
+        session.add(theme)
+        session.flush()
+
+    catalog_set.theme_id = theme.id
 
 
 def _relocate_to_set_num(session: Session, owned_set: OwnedSet, set_num: str) -> None:
@@ -348,8 +384,7 @@ def update_owned_set(
     if body.catalog_year is not None:
         catalog_set.year = body.catalog_year
     if body.catalog_theme_name is not None:
-        if catalog_set.theme is not None:
-            catalog_set.theme.name = body.catalog_theme_name.strip() or catalog_set.theme.name
+        _apply_catalog_theme_name(session, catalog_set, body.catalog_theme_name)
 
     if body.set_num is not None and body.set_num.strip() != catalog_set.set_num:
         _relocate_to_set_num(session, owned_set, body.set_num)
@@ -357,6 +392,8 @@ def update_owned_set(
         catalog_set = owned_set.catalog_set
 
     session.flush()
+    if catalog_set.theme_id is not None and catalog_set.theme is None:
+        session.refresh(catalog_set, attribute_names=["theme"])
 
     theme_name = catalog_set.theme.name if catalog_set.theme else None
     missing_count = session.scalar(

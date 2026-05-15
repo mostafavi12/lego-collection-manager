@@ -158,6 +158,8 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 | `set_num` | **This instance only**, after warning + Continue; Cancel restores previous value. |
 | `name`, theme, `num_parts`, `age`, etc. | **All instances** sharing the same `catalog_set_id`. |
 
+**Provenance:** every field in the table above (and `set_num`) may be filled from **Rebrickable** (or left empty after CSV import) **or** entered/edited by the user on set detail—except **`label`**, which is user-only per instance. See [data-sources.md — Catalog metadata (dual source)](./data-sources.md#catalog-metadata-dual-source). Re-running Rebrickable sync refreshes catalog fields from the API and may overwrite prior manual values.
+
 Rebrickable sync may populate age as `6+` → store **`6`** (integer). CSV import does **not** rename existing instance labels; duplicate custom labels are allowed.
 
 ## UX surfaces (MVP)
