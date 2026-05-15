@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-from app.api.routes import images, imports, media, owned_sets, search
+from app.api.routes import images, imports, media, owned_sets, parts, search
 from app.db.migration_check import ensure_database_at_head
 from app.logging_config import configure_logging
 
@@ -30,6 +30,7 @@ app.include_router(owned_sets.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
 app.include_router(images.router, prefix="/api")
+app.include_router(parts.router, prefix="/api")
 
 
 @app.get("/health")
