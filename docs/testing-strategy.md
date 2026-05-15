@@ -76,6 +76,10 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 Keep fixtures **small** and composable; regenerate from captured responses only after stripping private data (none expected for Rebrickable public metadata).
 
+## Local smoke test (development)
+
+For a sequential local check (backend install, `pytest`, `alembic upgrade head`, API health/CSV probe, frontend build), run [`./scripts/smoke.sh`](../scripts/smoke.sh). See [smoke-test.md](./smoke-test.md) and the [**smoke**](../.cursor/agents/smoke.md) agent.
+
 ## Continuous integration
 
 The default pipeline is documented in [ci.md](./ci.md): on every **push** and **pull request**, GitHub Actions runs **backend `pytest`** and a **frontend `npm run build`** (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
