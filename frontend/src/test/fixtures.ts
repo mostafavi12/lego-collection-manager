@@ -97,6 +97,12 @@ export const searchFixture: SearchResponse = {
       part_num: "3024",
       name: "Plate 1 x 1",
       image_url: null,
+      lines: [
+        {
+          display_part_num: "3024",
+          sets: [{ set_num: 6024, quantity: 4, owned_set_id: 1 }],
+        },
+      ],
     },
   ],
 };

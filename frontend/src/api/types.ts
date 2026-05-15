@@ -155,10 +155,22 @@ export interface SearchSetResult {
   label: string | null;
 }
 
+export interface SearchPartSetOccurrence {
+  set_num: number;
+  quantity: number;
+  owned_set_id: number;
+}
+
+export interface SearchPartDisplayLine {
+  display_part_num: string;
+  sets: SearchPartSetOccurrence[];
+}
+
 export interface SearchPartResult {
   part_num: string;
   name: string | null;
   image_url: string | null;
+  lines: SearchPartDisplayLine[];
 }
 
 export interface SearchResponse {
@@ -203,7 +215,7 @@ export interface ManualAddPartInput {
 }
 
 export interface SetCopyCreateBody {
-  set_num: string;
+  set_num: number;
   label?: string | null;
   age?: number | null;
   catalog?: ManualAddCatalogInput;
