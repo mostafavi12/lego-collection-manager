@@ -8,7 +8,7 @@ This folder holds the **authoritative product and technical contracts** for the 
 | [api-design.md](./api-design.md) | REST JSON routes, payloads, errors, pagination |
 | [database-schema.md](./database-schema.md) | SQLite tables, keys, indexes, invariants |
 | [data-sources.md](./data-sources.md) | CSV format, Rebrickable usage, mapping and provenance |
-| [development-plan.md](./development-plan.md) | Phased delivery: MVP (Phases 1–8), post-MVP through manual add (**13**), and **Phase 14+** split (**14a** baseline Import sync vs **14b** backlog) |
+| [development-plan.md](./development-plan.md) | Phased delivery: MVP (Phases 1–8), post-MVP through manual add (**13**), and **Phase 14** sync UX plus remaining backlog |
 | [testing-strategy.md](./testing-strategy.md) | pytest / Vitest expectations, fixtures, no live APIs |
 | [frontend-testing.md](./frontend-testing.md) | Vitest commands, layout, mocking, dev workflow |
 | [smoke-test.md](./smoke-test.md) | Local dev smoke test (`./scripts/smoke.sh`) |

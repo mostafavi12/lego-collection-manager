@@ -150,15 +150,15 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 ---
 
-## Post-MVP overview (Phases 9–13; sync baseline **14a**)
+## Post-MVP overview (Phases 9–13; sync **14**)
 
 Phases **1–8** delivered the original MVP (including Rebrickable sync endpoint and disk-based missing photos). Phases **9–13** refactor collection semantics around:
 
-- **Rebrickable as the catalog source** (metadata + full inventory, **no image downloads** from the API).
+- **Rebrickable as the catalog source** (metadata + full inventory; optional image downloads only through the sync controls).
 - **Every `catalog_sets` row has at least one `owned_sets` row** — everything persisted is in the user’s collection; there is no separate “unowned” catalog.
 - **Per-copy inventory** (part quantities and missing counts), while **set-level metadata** and **part-level images/aliases** follow the sharing rules in [product-requirements.md §11](./product-requirements.md#11-post-mvp-collection-semantics-phases-914).
 - **Images in SQLite** (JPEG/PNG BLOBs), not on disk under `MEDIA_ROOT` / thumbnails.
-- **Sync UX:** **Phase 14a** ships **Import → Sync entire collection** (`POST /imports/rebrickable/sync` with no body); the API accepts optional **`owned_set_ids`** (set copy ids) for scoped sync (**UI not built**). **Phase 14b** covers subset UX, progress/cancel, conflicts, and optional CDN→BLOB backfill (see Phase **14** below).
+- **Sync UX:** **Phase 14** ships **Import → Sync entire collection** (`POST /imports/rebrickable/sync` with no body), current-set sync from detail (`owned_set_ids` with the current set copy id), and optional set/part image downloads. Progress/cancel, conflict policy, and richer subset selection remain backlog (see Phase **14** below).
 
 Implement **one phase at a time**; update [database-schema.md](./database-schema.md), [api-design.md](./api-design.md), and tests before marking a phase complete.
 
@@ -244,7 +244,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 - `POST /imports/csv`: after each valid token, call Rebrickable (set metadata, set parts, minifigs, minifig BOMs) using the Phase 4A client; upsert catalog + template inventory; create per-copy inventory rows from template (Phase 9). **Do not** HTTP-fetch `part_img_url` / set image URLs into files or BLOBs.
 - Replace **stub-only** catalog creation: new sets get name, theme, year, `num_parts`, **age only when Rebrickable returns `age_range`**, and full part/minifig lists when the API succeeds; per-token failures reported without aborting other tokens (same partial-success pattern as today). Manual age entry on set detail when the API has no age.
 - Requires `REBRICKABLE_API_KEY`; clear error if missing.
-- Frontend: Import page copy explains that CSV adds copies and fetches set data (no images). **Sync entire collection** remains on Import (**Phase 14a** baseline); fancier scoped sync is **Phase 14b**.
+- Frontend: Import page copy explains that CSV adds copies and fetches set data (no images). **Sync entire collection** remains on Import with image download controls; current-set scoped sync is available from set detail.
 - Tests: mocked multi-endpoint Rebrickable sequence per token; assert inventory row counts; assert no image BLOBs/URLs written when policy is “no images on import.”
 
 **Exit criteria**
@@ -282,19 +282,20 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 ---
 
-## Phase 14 — Sync UX and polish (split)
+## Phase 14 — Sync UX and polish
 
-### Phase 14a — Bulk sync baseline (**done**)
+### Shipped
 
-- **`POST /imports/rebrickable/sync`** unchanged; **Import** page exposes **Sync entire collection** (empty body syncs everything in the DB).
-- Request body **`{ "owned_set_ids": […] }`** is supported server-side for **scoped** sync; **no frontend UI** exposes selection yet.
+- **Import** page exposes **Sync entire collection** (empty body syncs everything in the DB).
+- **Set detail** exposes collapsed-by-default **Sync from Rebrickable** for the current set copy (`{ "owned_set_ids": [currentCopyId] }`).
+- Both sync surfaces expose **download set images** and **part image download mode** controls. Set image download defaults on; part image download defaults to **none** with options for **missing** and **all**.
 
-### Phase 14b — Deferred backlog
+### Deferred backlog
 
-- UX to pick **subset** of set copies / current-set sync from detail.
+- UX to pick an arbitrary **subset** of set copies from list views.
 - **Progress**, **cancel**, and long-running-job messaging beyond a simple spinner on Import.
 - **Conflict / refresh policies** when Rebrickable data differs from manual edits (document and enforce UX).
-- **Optional image backfill**: HTTP-fetch CDN URLs into BLOBs.
+- Additional image polish, such as retry controls for failed CDN → BLOB downloads.
 
 See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch) reduces need for wizard-only Rebrickable prefill for common flows.
 
@@ -323,7 +324,7 @@ flowchart LR
     phase6 --> phase7
     phase7 --> phase8
   end
-  subgraph post ["Post-MVP Phases 9-13 (+ 14a sync)"]
+  subgraph post ["Post-MVP Phases 9-14"]
     phase9[Phase9_InstanceInventory]
     phase10[Phase10_ImagesInDB]
     phase11A[Phase11A_PartModal]

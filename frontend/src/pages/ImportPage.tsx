@@ -5,14 +5,17 @@ import { importCsv, syncRebrickable } from "../api/client";
 import type { CsvImportResponse, RebrickableSyncResponse } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 
+type PartImageDownloadMode = "none" | "missing" | "all";
+
 export function ImportPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [csvResult, setCsvResult] = useState<CsvImportResponse | null>(null);
   const [syncResult, setSyncResult] = useState<RebrickableSyncResponse | null>(null);
   const [loading, setLoading] = useState<"csv" | "sync" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [downloadSetImages, setDownloadSetImages] = useState(false);
-  const [downloadMissingPartImages, setDownloadMissingPartImages] = useState(false);
+  const [downloadSetImages, setDownloadSetImages] = useState(true);
+  const [partImageDownloadMode, setPartImageDownloadMode] =
+    useState<PartImageDownloadMode>("none");
 
   async function onCsvSubmit(event: FormEvent) {
     event.preventDefault();
@@ -44,7 +47,7 @@ export function ImportPage() {
     try {
       const result = await syncRebrickable(undefined, {
         download_set_images: downloadSetImages,
-        download_missing_part_images: downloadMissingPartImages,
+        part_image_download_mode: partImageDownloadMode,
       });
       setSyncResult(result);
     } catch (err) {
@@ -148,15 +151,42 @@ export function ImportPage() {
           />
           Download set images into the local database
         </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={downloadMissingPartImages}
-            disabled={loading === "sync"}
-            onChange={(e) => setDownloadMissingPartImages(e.target.checked)}
-          />
-          Download part images for currently missing parts only
-        </label>
+        <fieldset className="sync-panel__radio-group">
+          <legend>Part image downloads</legend>
+          <label className="checkbox">
+            <input
+              type="radio"
+              name="part-image-download-mode"
+              value="none"
+              checked={partImageDownloadMode === "none"}
+              disabled={loading === "sync"}
+              onChange={() => setPartImageDownloadMode("none")}
+            />
+            Do not download images for parts
+          </label>
+          <label className="checkbox">
+            <input
+              type="radio"
+              name="part-image-download-mode"
+              value="missing"
+              checked={partImageDownloadMode === "missing"}
+              disabled={loading === "sync"}
+              onChange={() => setPartImageDownloadMode("missing")}
+            />
+            Download part images only for missing parts
+          </label>
+          <label className="checkbox">
+            <input
+              type="radio"
+              name="part-image-download-mode"
+              value="all"
+              checked={partImageDownloadMode === "all"}
+              disabled={loading === "sync"}
+              onChange={() => setPartImageDownloadMode("all")}
+            />
+            Download part images for all sets
+          </label>
+        </fieldset>
         <button
           type="button"
           className="btn btn--secondary"
@@ -182,7 +212,7 @@ export function ImportPage() {
               {syncResult.part_images_downloaded > 0 && (
                 <>
                   {" "}
-                  Downloaded {syncResult.part_images_downloaded} missing-part image
+                  Downloaded {syncResult.part_images_downloaded} part image
                   {syncResult.part_images_downloaded === 1 ? "" : "s"}.
                 </>
               )}

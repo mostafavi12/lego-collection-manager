@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+PartImageDownloadMode = Literal["none", "missing", "all"]
 
 
 class CsvTokenError(BaseModel):
@@ -25,6 +29,7 @@ class RebrickableSyncRequest(BaseModel):
     owned_set_ids: list[int] | None = None
     download_set_images: bool = False
     download_missing_part_images: bool = False
+    part_image_download_mode: PartImageDownloadMode = "none"
 
 
 class RebrickableSetSyncFailure(BaseModel):

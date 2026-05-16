@@ -55,23 +55,25 @@ The app uses a **synchronous** request that completes the sync for the selected 
 
 | Phase | What is shipped |
 |-------|-----------------|
-| **14a (baseline)** | **Import** page: **Sync entire collection** calls this endpoint with **no body** (full DB). Optional JSON body `{ "owned_set_ids": […] }` scopes sync to those **set copies** **(API only today; no UI picker)**. |
-| **14b (backlog)** | Subset sync UX from list/detail, progress/cancel, conflict policy with manual edits, optional CDN → BLOB image backfill. |
+| **Phase 14 shipped** | **Import** page: **Sync entire collection** calls this endpoint with **no body** (full DB). Optional JSON body `{ "owned_set_ids": […] }` scopes sync to those **set copies**; set detail uses this for current-set sync. Import and set detail expose optional set image and part image BLOB downloads. |
+| **Phase 14 backlog** | Progress/cancel, conflict policy with manual edits, and richer subset selection from list views. |
 
 | Tradeoff | Mitigation |
 |----------|------------|
-| Long HTTP request | Sequential per-set processing; Import page shows a spinner while the request runs (browser “cancel” only stops the tab request; server may continue until process policies change in **14b**). |
+| Long HTTP request | Sequential per-set processing; Import and set detail show a spinner while the request runs (browser “cancel” only stops the tab request; server may continue until process policies change). |
 | Timeouts | Document recommended max **distinct `set_num`** per operation; programmatic clients may pass explicit `owned_set_ids`. |
 
 **`POST /imports/rebrickable/sync` body:**
 
 ```json
 {
-  "owned_set_ids": [1, 2, 3]
+  "owned_set_ids": [1, 2, 3],
+  "download_set_images": true,
+  "part_image_download_mode": "none"
 }
 ```
 
-Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory).
+Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory). `download_set_images` stores set box images in SQLite. `part_image_download_mode` is one of `none` (default), `missing` (only parts currently marked missing), or `all` (all synced inventory parts).
 
 **Response `200`:**
 
@@ -82,7 +84,16 @@ Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at leas
     { "set_num": "0000-1", "message": "HTTP 404 from Rebrickable" }
   ],
   "parts_upserted": 1200,
-  "inventory_lines_written": 3500
+  "inventory_lines_written": 3500,
+  "set_images_downloaded": 3,
+  "part_images_downloaded": 42,
+  "image_downloads_failed": [
+    {
+      "target": "part:3024",
+      "url": "https://cdn.rebrickable.com/media/parts/elements/302400.jpg",
+      "message": "HTTP 404"
+    }
+  ]
 }
 ```
 
@@ -659,7 +670,7 @@ The **wizard** calls **`add-preview`** → step 2, then **`add-rebrickable-draft
 
 Part alias editing: [Part aliases (Phase 11B)](#part-aliases-phase-11b) (not part of the wizard contract).
 
-See also [Rebrickable sync — synchronous](#rebrickable-sync--synchronous) for **Phase 14a / 14b** (Import **Sync entire collection**, optional `owned_set_ids`).
+See also [Rebrickable sync — synchronous](#rebrickable-sync--synchronous) for Import **Sync entire collection**, set detail scoped sync, optional `owned_set_ids`, and image download options.
 
 ## CORS
 

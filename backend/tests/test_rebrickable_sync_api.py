@@ -118,7 +118,7 @@ def test_post_sync_passes_image_options(api_client, monkeypatch: pytest.MonkeyPa
             json={
                 "owned_set_ids": [10],
                 "download_set_images": True,
-                "download_missing_part_images": True,
+                "part_image_download_mode": "missing",
             },
         )
 
@@ -126,6 +126,7 @@ def test_post_sync_passes_image_options(api_client, monkeypatch: pytest.MonkeyPa
     assert mock_sync.call_args.kwargs["owned_set_ids"] == [10]
     assert mock_sync.call_args.kwargs["download_set_images"] is True
     assert mock_sync.call_args.kwargs["download_missing_part_images"] is True
+    assert mock_sync.call_args.kwargs["download_all_part_images"] is False
     body = response.json()
     assert body["set_images_downloaded"] == 1
     assert body["part_images_downloaded"] == 2
@@ -136,3 +137,38 @@ def test_post_sync_passes_image_options(api_client, monkeypatch: pytest.MonkeyPa
             "message": "HTTP 404",
         }
     ]
+
+
+def test_post_sync_passes_all_part_image_mode(
+    api_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")
+    mock_result = RebrickableSyncResult(part_images_downloaded=3)
+
+    with patch(
+        "app.api.routes.imports.sync_rebrickable",
+        return_value=mock_result,
+    ) as mock_sync:
+        response = api_client.post(
+            "/api/imports/rebrickable/sync",
+            json={"part_image_download_mode": "all"},
+        )
+
+    assert response.status_code == 200
+    assert mock_sync.call_args.kwargs["download_missing_part_images"] is False
+    assert mock_sync.call_args.kwargs["download_all_part_images"] is True
+    assert response.json()["part_images_downloaded"] == 3
+
+
+def test_post_sync_rejects_invalid_part_image_mode(
+    api_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")
+
+    response = api_client.post(
+        "/api/imports/rebrickable/sync",
+        json={"part_image_download_mode": "everything"},
+    )
+
+    assert response.status_code == 422
+    assert "part_image_download_mode" in response.text

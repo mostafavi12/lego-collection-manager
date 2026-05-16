@@ -37,6 +37,61 @@ describe("SetDetailPage", () => {
     expect(screen.getByText(/Plate 1 x 1/)).toBeInTheDocument();
     expect(screen.getByText("302400, 6252045")).toBeInTheDocument();
     expect(screen.getByLabelText(/missing quantity for 3024/i)).toHaveValue(1);
+    const syncPanel = screen
+      .getByText(/sync from rebrickable/i)
+      .closest("details");
+    expect(syncPanel).not.toHaveAttribute("open");
+  });
+
+  it("sync panel sends default set images and selected part image mode", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => setCopyDetailFixture,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          sets_synced: 1,
+          sets_failed: [],
+          parts_upserted: 2,
+          inventory_lines_written: 3,
+          set_images_downloaded: 1,
+          part_images_downloaded: 2,
+          image_downloads_failed: [],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => setCopyDetailFixture,
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Copy details");
+    await user.click(screen.getByText(/sync from rebrickable/i));
+    expect(screen.getByLabelText(/download set images/i)).toBeChecked();
+    expect(screen.getByLabelText(/do not download images for parts/i)).toBeChecked();
+
+    await user.click(screen.getByLabelText(/download part images for all sets/i));
+    await user.click(screen.getByRole("button", { name: /sync this set/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/imports/rebrickable/sync"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            owned_set_ids: [1],
+            download_set_images: true,
+            part_image_download_mode: "all",
+          }),
+        }),
+      );
+    });
   });
 
   it("opens add part modal from toolbar", async () => {

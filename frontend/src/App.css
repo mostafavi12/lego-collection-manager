@@ -84,8 +84,16 @@
 }
 
 .sync-panel h2 {
-  margin: 0 0 0.35rem;
+  margin: 0;
   font-size: 1rem;
+}
+
+.sync-panel summary {
+  cursor: pointer;
+}
+
+.sync-panel summary + .form-hint {
+  margin-top: 0.35rem;
 }
 
 .sync-panel__controls {
@@ -93,6 +101,21 @@
   flex-wrap: wrap;
   gap: 0.75rem 1rem;
   align-items: center;
+}
+
+.sync-panel__radio-group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+
+.sync-panel__radio-group legend {
+  width: 100%;
+  color: var(--color-muted);
+  font-size: 0.9rem;
 }
 
 .inventory-controls {

@@ -78,13 +78,19 @@ def import_rebrickable_sync(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     owned_set_ids = body.owned_set_ids if body is not None else None
+    part_image_mode = body.part_image_download_mode if body is not None else "none"
     result = sync_rebrickable(
         db,
         owned_set_ids=owned_set_ids,
         download_set_images=body.download_set_images if body is not None else False,
         download_missing_part_images=(
-            body.download_missing_part_images if body is not None else False
+            part_image_mode == "missing"
+            or (
+                part_image_mode == "none"
+                and (body.download_missing_part_images if body is not None else False)
+            )
         ),
+        download_all_part_images=part_image_mode == "all",
     )
     return RebrickableSyncResponse(
         sets_synced=result.sets_synced,
