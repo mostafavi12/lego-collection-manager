@@ -117,7 +117,8 @@ export function listSetCopies(params: {
   limit?: number;
   offset?: number;
   investigated?: boolean;
-  theme?: string;
+  themes?: string[];
+  missing_only?: boolean;
   sort_by?: "created" | "set_num" | "name" | "theme" | "num_parts" | "age";
   sort_dir?: "asc" | "desc";
 }): Promise<SetCopyListResponse> {
@@ -131,8 +132,13 @@ export function listSetCopies(params: {
   if (params.investigated != null) {
     search.set("investigated", String(params.investigated));
   }
-  if (params.theme) {
-    search.set("theme", params.theme);
+  for (const theme of params.themes ?? []) {
+    if (theme) {
+      search.append("theme", theme);
+    }
+  }
+  if (params.missing_only) {
+    search.set("missing_only", "true");
   }
   if (params.sort_by) {
     search.set("sort_by", params.sort_by);

@@ -78,7 +78,8 @@ def get_owned_sets(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     investigated: bool | None = None,
-    theme: str | None = Query(None),
+    theme: list[str] = Query(default_factory=list),
+    missing_only: bool = False,
     sort_by: str = Query(
         "created",
         pattern="^(created|set_num|name|theme|num_parts|age)$",
@@ -91,7 +92,8 @@ def get_owned_sets(
         limit=limit,
         offset=offset,
         investigated=investigated,
-        theme=theme,
+        themes=theme,
+        missing_only=missing_only,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )

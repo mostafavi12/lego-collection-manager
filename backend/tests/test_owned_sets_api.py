@@ -84,6 +84,47 @@ def test_list_filter_theme_and_sort(api_client, db_session) -> None:
     assert body["items"][0]["set_num"] == 1000
 
 
+def test_list_filter_multiple_themes_and_missing_only(api_client, db_session) -> None:
+    town = add_theme(db_session, external_id=67, name="Town")
+    space = add_theme(db_session, external_id=88, name="Space")
+    castle = add_theme(db_session, external_id=99, name="Castle")
+    catalog_town = add_catalog_set(db_session, set_number=1000, theme=town)
+    catalog_space = add_catalog_set(db_session, set_number=2000, theme=space)
+    catalog_castle = add_catalog_set(db_session, set_number=3000, theme=castle)
+    owned_town = add_owned_set(db_session, catalog_town)
+    owned_space = add_owned_set(db_session, catalog_space)
+    add_owned_set(db_session, catalog_castle)
+    part = add_part(db_session, part_num="3024")
+    color = add_color(db_session)
+    line = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog_space,
+        part=part,
+        color=color,
+    )
+    add_missing_item_for_set_line(db_session, owned_set=owned_space, line=line)
+    db_session.commit()
+
+    multi_theme = api_client.get(
+        "/api/owned-sets",
+        params=[("theme", "Town"), ("theme", "Space"), ("sort_by", "set_num")],
+    )
+    assert multi_theme.status_code == 200
+    assert [item["id"] for item in multi_theme.json()["items"]] == [
+        owned_town.id,
+        owned_space.id,
+    ]
+
+    missing_only = api_client.get(
+        "/api/owned-sets",
+        params=[("theme", "Town"), ("theme", "Space"), ("missing_only", "true")],
+    )
+    assert missing_only.status_code == 200
+    body = missing_only.json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == owned_space.id
+
+
 def test_list_theme_options_include_whole_collection(api_client, db_session) -> None:
     town = add_theme(db_session, external_id=67, name="Town")
     space = add_theme(db_session, external_id=88, name="Space")

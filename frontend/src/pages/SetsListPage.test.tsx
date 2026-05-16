@@ -108,7 +108,7 @@ describe("SetsListPage", () => {
     });
   });
 
-  it("passes sort/theme filters and can group by theme and age", async () => {
+  it("passes sort/theme/missing filters and can group by theme and age", async () => {
     const fetchMock = mockCollectionFetch();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -124,15 +124,27 @@ describe("SetsListPage", () => {
       );
     });
 
-    await user.selectOptions(screen.getByLabelText(/^theme$/i), "Town");
+    await user.click(screen.getByRole("checkbox", { name: "All" }));
+    await user.click(screen.getByRole("checkbox", { name: "Space" }));
+    await user.click(screen.getByRole("checkbox", { name: "Town" }));
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenLastCalledWith(
-        expect.stringContaining("theme=Town"),
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/theme=Space.*theme=Town|theme=Town.*theme=Space/),
         undefined,
       );
     });
 
-    await user.click(screen.getByLabelText(/group by theme and age/i));
+    await user.click(screen.getByLabelText(/missing parts only/i));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("missing_only=true"),
+        undefined,
+      );
+    });
+
+    await user.click(screen.getByRole("checkbox", { name: "None" }));
+    await user.click(screen.getByRole("checkbox", { name: "Theme" }));
+    await user.click(screen.getByRole("checkbox", { name: "Age" }));
     expect(screen.getByRole("heading", { name: "Town" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Age unknown" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Age 8" })).toBeInTheDocument();
@@ -144,8 +156,10 @@ describe("SetsListPage", () => {
 
     renderPage();
 
-    expect(await screen.findByRole("option", { name: "Space" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Town" })).toBeInTheDocument();
+    expect(await screen.findByRole("checkbox", { name: "Space" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Town" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "All" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "None" })).toBeInTheDocument();
   });
 
   it("shows direct page navigation when there are more than two pages", async () => {

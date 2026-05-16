@@ -13,6 +13,7 @@ const PAGE_SIZE = 20;
 type InvestigatedFilter = "all" | "true" | "false";
 type SetSortBy = "created" | "set_num" | "name" | "theme" | "num_parts" | "age";
 type SortDir = "asc" | "desc";
+type GroupBy = "theme" | "age";
 
 function formatMeta(item: SetCopyListItem): string {
   const theme = item.theme_name?.trim() || "Unknown theme";
@@ -30,6 +31,19 @@ function offsetForPage(page: number): number {
   return (page - 1) * PAGE_SIZE;
 }
 
+function toggleValue<T extends string>(values: T[], value: T): T[] {
+  return values.includes(value)
+    ? values.filter((item) => item !== value)
+    : [...values, value];
+}
+
+function groupLabel(item: SetCopyListItem, groupBy: GroupBy): string {
+  if (groupBy === "theme") {
+    return item.theme_name?.trim() || "Unknown theme";
+  }
+  return item.age != null ? `Age ${item.age}` : "Age unknown";
+}
+
 export function SetsListPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,10 +54,11 @@ export function SetsListPage() {
     offsetForPage(pageFromSearch(location.search)),
   );
   const [filter, setFilter] = useState<InvestigatedFilter>("all");
-  const [themeFilter, setThemeFilter] = useState("");
+  const [themeFilter, setThemeFilter] = useState<string[]>([]);
+  const [missingOnly, setMissingOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SetSortBy>("created");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [categorized, setCategorized] = useState(false);
+  const [groupBy, setGroupBy] = useState<GroupBy[]>([]);
   const [pageInput, setPageInput] = useState(() =>
     String(pageFromSearch(location.search)),
   );
@@ -62,7 +77,8 @@ export function SetsListPage() {
         limit: PAGE_SIZE,
         offset,
         investigated,
-        theme: themeFilter || undefined,
+        themes: themeFilter,
+        missing_only: missingOnly,
         sort_by: sortBy,
         sort_dir: sortDir,
       });
@@ -73,7 +89,7 @@ export function SetsListPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, offset, sortBy, sortDir, themeFilter]);
+  }, [filter, missingOnly, offset, sortBy, sortDir, themeFilter]);
 
   useEffect(() => {
     void load();
@@ -153,18 +169,34 @@ export function SetsListPage() {
     goToPage(1, { replace: true });
   }
   const groupedItems = useMemo(() => {
-    const byTheme = new Map<string, Map<string, SetCopyListItem[]>>();
-    for (const item of items) {
-      const theme = item.theme_name?.trim() || "Unknown theme";
-      const age = item.age != null ? `Age ${item.age}` : "Age unknown";
-      const ageMap = byTheme.get(theme) ?? new Map<string, SetCopyListItem[]>();
-      const bucket = ageMap.get(age) ?? [];
-      bucket.push(item);
-      ageMap.set(age, bucket);
-      byTheme.set(theme, ageMap);
+    if (groupBy.length === 0) {
+      return [];
     }
-    return Array.from(byTheme.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [items]);
+    const primary = groupBy[0]!;
+    const secondary = groupBy[1];
+    const groups = new Map<string, Map<string, SetCopyListItem[]>>();
+    for (const item of items) {
+      const primaryLabel = groupLabel(item, primary);
+      const secondaryLabel = secondary ? groupLabel(item, secondary) : "";
+      const secondaryMap = groups.get(primaryLabel) ?? new Map<string, SetCopyListItem[]>();
+      const bucket = secondaryMap.get(secondaryLabel) ?? [];
+      bucket.push(item);
+      secondaryMap.set(secondaryLabel, bucket);
+      groups.set(primaryLabel, secondaryMap);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [groupBy, items]);
+
+  const themeFilterLabel =
+    themeFilter.length === 0
+      ? "All"
+      : themeFilter.length === 1
+        ? themeFilter[0]
+        : `${themeFilter.length} themes`;
+  const groupByLabel =
+    groupBy.length === 0
+      ? "None"
+      : groupBy.map((group) => (group === "theme" ? "Theme" : "Age")).join(", ");
 
   function renderSetCard(item: SetCopyListItem) {
     return (
@@ -245,22 +277,48 @@ export function SetsListPage() {
             <option value="true">Investigated</option>
           </select>
         </label>
-        <label className="toolbar__field">
-          Theme
-          <select
-            value={themeFilter}
+        <div className="toolbar__field">
+          <span>Theme</span>
+          <details className="multi-select">
+            <summary>{themeFilterLabel}</summary>
+            <div className="multi-select__menu">
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={themeFilter.length === 0}
+                  onChange={() => {
+                    resetToFirstPage();
+                    setThemeFilter([]);
+                  }}
+                />
+                All
+              </label>
+              {themeOptions.map((theme) => (
+                <label key={theme} className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={themeFilter.includes(theme)}
+                    onChange={() => {
+                      resetToFirstPage();
+                      setThemeFilter((current) => toggleValue(current, theme));
+                    }}
+                  />
+                  {theme}
+                </label>
+              ))}
+            </div>
+          </details>
+        </div>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={missingOnly}
             onChange={(e) => {
               resetToFirstPage();
-              setThemeFilter(e.target.value);
+              setMissingOnly(e.target.checked);
             }}
-          >
-            <option value="">All themes</option>
-            {themeOptions.map((theme) => (
-              <option key={theme} value={theme}>
-                {theme}
-              </option>
-            ))}
-          </select>
+          />
+          Missing parts only
         </label>
         <label className="toolbar__field">
           Sort by
@@ -292,14 +350,40 @@ export function SetsListPage() {
             <option value="desc">Descending</option>
           </select>
         </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={categorized}
-            onChange={(e) => setCategorized(e.target.checked)}
-          />
-          Group by theme and age
-        </label>
+        <div className="toolbar__field">
+          <span>Group by</span>
+          <details className="multi-select">
+            <summary>{groupByLabel}</summary>
+            <div className="multi-select__menu">
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={groupBy.length === 0}
+                  onChange={() => setGroupBy([])}
+                />
+                None
+              </label>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={groupBy.includes("theme")}
+                  onChange={() =>
+                    setGroupBy((current) => toggleValue(current, "theme"))
+                  }
+                />
+                Theme
+              </label>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={groupBy.includes("age")}
+                  onChange={() => setGroupBy((current) => toggleValue(current, "age"))}
+                />
+                Age
+              </label>
+            </div>
+          </details>
+        </div>
       </div>
 
       <AsyncMessage error={error} loading={loading && items.length === 0} />
@@ -318,14 +402,17 @@ export function SetsListPage() {
         </p>
       )}
 
-      {categorized ? (
-        <div className="set-categories" aria-label="Sets grouped by theme and age">
-          {groupedItems.map(([theme, ageMap]) => (
-            <section key={theme} className="set-category">
-              <h2>{theme}</h2>
-              {Array.from(ageMap.entries()).map(([age, bucket]) => (
-                <section key={`${theme}-${age}`} className="set-category__age">
-                  <h3>{age}</h3>
+      {groupBy.length > 0 ? (
+        <div className="set-categories" aria-label="Sets grouped by selected fields">
+          {groupedItems.map(([primaryLabel, secondaryMap]) => (
+            <section key={primaryLabel} className="set-category">
+              <h2>{primaryLabel}</h2>
+              {Array.from(secondaryMap.entries()).map(([secondaryLabel, bucket]) => (
+                <section
+                  key={`${primaryLabel}-${secondaryLabel || "items"}`}
+                  className="set-category__age"
+                >
+                  {secondaryLabel && <h3>{secondaryLabel}</h3>}
                   <ul className="set-list">{bucket.map(renderSetCard)}</ul>
                 </section>
               ))}

@@ -206,10 +206,12 @@ def list_owned_sets(
     limit: int = 50,
     offset: int = 0,
     investigated: bool | None = None,
-    theme: str | None = None,
+    themes: list[str] | None = None,
+    missing_only: bool = False,
     sort_by: str = "created",
     sort_dir: str = "asc",
 ) -> OwnedSetListResponse:
+    theme_names = [theme for theme in themes or [] if theme]
     base = (
         select(OwnedSet, CatalogSet, Theme.name)
         .join(CatalogSet, OwnedSet.catalog_set_id == CatalogSet.id)
@@ -217,8 +219,12 @@ def list_owned_sets(
     )
     if investigated is not None:
         base = base.where(OwnedSet.investigated == investigated)
-    if theme:
-        base = base.where(Theme.name == theme)
+    if theme_names:
+        base = base.where(Theme.name.in_(theme_names))
+    if missing_only:
+        base = base.where(
+            OwnedSet.id.in_(select(MissingItem.owned_set_id).distinct())
+        )
 
     count_stmt = (
         select(func.count(OwnedSet.id))
@@ -227,8 +233,12 @@ def list_owned_sets(
     )
     if investigated is not None:
         count_stmt = count_stmt.where(OwnedSet.investigated == investigated)
-    if theme:
-        count_stmt = count_stmt.where(Theme.name == theme)
+    if theme_names:
+        count_stmt = count_stmt.where(Theme.name.in_(theme_names))
+    if missing_only:
+        count_stmt = count_stmt.where(
+            OwnedSet.id.in_(select(MissingItem.owned_set_id).distinct())
+        )
     total = session.scalar(count_stmt) or 0
 
     sort_columns = {
