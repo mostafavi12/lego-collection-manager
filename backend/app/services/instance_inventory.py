@@ -101,6 +101,47 @@ def ensure_instance_inventory_for_catalog(session: Session, catalog_set_id: int)
         ensure_instance_inventory(session, owned_set_id)
 
 
+def refresh_instance_quantities_for_catalog(session: Session, catalog_set_id: int) -> None:
+    """Copy catalog quantity changes to set copies without touching missing counts."""
+    set_part_rows = session.execute(
+        select(OwnedSetInventoryLine, SetPartInventoryLine.quantity)
+        .join(
+            SetPartInventoryLine,
+            OwnedSetInventoryLine.set_part_inventory_line_id == SetPartInventoryLine.id,
+        )
+        .join(OwnedSet, OwnedSet.id == OwnedSetInventoryLine.owned_set_id)
+        .where(OwnedSet.catalog_set_id == catalog_set_id)
+    ).all()
+    for instance_line, quantity in set_part_rows:
+        instance_line.quantity = quantity
+
+    minifig_part_rows = session.execute(
+        select(
+            OwnedSetInventoryLine,
+            MinifigPartInventoryLine.quantity * SetMinifigInventoryLine.quantity,
+        )
+        .join(
+            MinifigPartInventoryLine,
+            OwnedSetInventoryLine.minifig_part_inventory_line_id
+            == MinifigPartInventoryLine.id,
+        )
+        .join(OwnedSet, OwnedSet.id == OwnedSetInventoryLine.owned_set_id)
+        .join(
+            SetMinifigInventoryLine,
+            SetMinifigInventoryLine.catalog_set_id == OwnedSet.catalog_set_id,
+        )
+        .where(
+            OwnedSet.catalog_set_id == catalog_set_id,
+            SetMinifigInventoryLine.catalog_minifig_id
+            == MinifigPartInventoryLine.catalog_minifig_id,
+        )
+    ).all()
+    for instance_line, quantity in minifig_part_rows:
+        instance_line.quantity = quantity
+
+    session.flush()
+
+
 def clear_instance_inventory(session: Session, owned_set_id: int) -> None:
     session.execute(
         delete(OwnedSetInventoryLine).where(

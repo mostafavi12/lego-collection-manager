@@ -161,7 +161,7 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 | `set_num` | **This copy only**, after warning + Continue; Cancel restores previous value. |
 | `name`, theme, `num_parts`, `age`, etc. | **All copies** sharing the same `catalog_set_id`. |
 
-**Provenance:** every field in the table above (and `set_num`) may be filled from **Rebrickable** (or left empty after CSV import) **or** entered/edited by the user on set detail—except **`label`**, which is user-only **per copy**. See [data-sources.md — Catalog metadata (dual source)](./data-sources.md#catalog-metadata-dual-source). Re-running Rebrickable sync refreshes catalog fields from the API and may overwrite prior manual values.
+**Provenance:** every field in the table above (and `set_num`) may be filled from **Rebrickable** (or left empty after CSV import) **or** entered/edited by the user on set detail—except **`label`**, which is user-only **per copy**. See [data-sources.md — Catalog metadata (dual source)](./data-sources.md#catalog-metadata-dual-source). Re-running Rebrickable sync refreshes safe source fields (set name, set image, part names/images, part counts, inventory lines, and per-copy part quantities) while preserving theme, year, age, investigated, missing, label, and notes.
 
 Rebrickable may populate age when **`age_range`** appears on the set response (`6+` → store **`6`**). When Rebrickable has no age, the user enters it on the set detail form. Successful sync/import **never clears** existing age solely because `age_range` is missing — only explicit user PATCH clears or changes age. CSV import does **not** rename existing copy labels; duplicate custom labels are allowed.
 
@@ -177,7 +177,7 @@ The database does not store LEGO sets outside what the user tracks in this app. 
 
 When importing or enriching from Rebrickable (CSV import in Phase 12, optional prefill in manual add, and existing sync endpoint):
 
-- **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs. **Age** is applied only when Rebrickable exposes `age_range`; otherwise the user sets it on set detail.
+- **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs. **Age** is applied on first import only when Rebrickable exposes `age_range`; afterwards the user controls age on set detail.
 - **CSV import and manual prefill:** do **not** fetch image bytes from Rebrickable CDN URLs.
 - **Rebrickable sync:** may optionally download set image BLOBs, minifigure image BLOBs, and part image BLOBs into SQLite when the user selects those options. Part image modes are **none**, **missing parts only**, or **all synced inventory parts**; both part modes include minifig BOM parts.
 
@@ -229,6 +229,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 ### 11.9 Sync UX (**Phase 14**)
 
 - **Shipped:** **Import** page includes **Sync entire collection**, calling **`POST /imports/rebrickable/sync`** for the full collection. The UI sends image-option defaults in the request body; API clients may still omit the body for a full sync with default options. **Set detail** includes a collapsed-by-default **Sync from Rebrickable** panel that calls the same endpoint with **`{ "owned_set_ids": [currentCopyId] }`** plus image options.
+- **Preservation policy:** sync updates set/part names, set/part images, number of parts, catalog inventory, and per-copy part quantities. It does not update theme, year, age, investigated, missing quantities/items, labels, or notes.
 - **Image options:** both sync surfaces default to downloading set and minifigure images and default to **not** downloading part images. Users may instead download part images only for currently missing parts or for all synced inventory parts, including minifig BOM parts.
 - **Backlog:** progress and cancellation beyond a simple spinner, documented conflict policy vs manual/instance edits, and richer subset selection from list views — see [development-plan.md](./development-plan.md).
 

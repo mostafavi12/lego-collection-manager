@@ -118,14 +118,14 @@ Rules:
 ### LEGO themes
 
 Rebrickable set responses provide a `theme_id` that can be a subtheme (for
-example `Farm`). Import/sync resolves that id through the local
+example `Farm`). First-time import resolves that id through the local
 `data/themes.csv` file (`id,name,parent_id`) and stores the parent theme when one
 exists (for example `City`). If the CSV is missing or cannot resolve the id, the
 importer falls back to `GET /lego/themes/{id}/`.
 
 Rules:
 
-- `data/themes.csv` is read only during import/sync and Rebrickable draft
+- `data/themes.csv` is read only during first-time import and Rebrickable draft
   preview.
 - Override the import-time path with `THEMES_CSV_PATH` when running from a
   non-standard checkout or in tests.
@@ -158,7 +158,7 @@ Except for the per-copy **`label`** (user-only), set-level metadata may come fro
 
 **User-only instance fields** (not populated from Rebrickable): `label`, `notes`, `investigated`.
 
-**Re-sync behavior:** each successful Rebrickable sync **upserts** catalog fields from the API. When the API returns **`age_range`**, sync copies the parsed integer to **all** owned instances for that catalog set; when **`age_range` is missing**, existing `owned_sets.age` values are left unchanged — so locally entered ages are safe. Sync may still overwrite name, theme, year, parts list, etc. from Rebrickable on each successful run.
+**Re-sync behavior:** each successful Rebrickable sync updates the fields that are safe to refresh from the source: set name, set image URL/BLOB when requested, number of parts, part names/images, catalog inventory lines, and per-copy part quantities. Sync preserves theme, year, age, investigated, missing quantities/items, labels, and notes.
 
 **Other data sources for age:** not integrated in MVP. Optional later: dedicated APIs (e.g. BrickLink/Brickset) or scraping — each has licensing and reliability trade-offs; manual entry covers the gap today.
 

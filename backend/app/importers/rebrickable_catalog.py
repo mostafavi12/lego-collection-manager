@@ -183,6 +183,8 @@ def upsert_catalog_set(
     theme_id: int | None,
     fetched_at: datetime,
     persist_image_urls: bool = True,
+    update_theme: bool = True,
+    update_year: bool = True,
 ) -> CatalogSet:
     lsid = from_rebrickable_set_num(dto.set_num)
     catalog_set = session.scalar(
@@ -207,8 +209,10 @@ def upsert_catalog_set(
         session.add(catalog_set)
     else:
         catalog_set.name = dto.name
-        catalog_set.year = dto.year
-        catalog_set.theme_id = theme_id
+        if update_year:
+            catalog_set.year = dto.year
+        if update_theme:
+            catalog_set.theme_id = theme_id
         catalog_set.num_parts = dto.num_parts
         if persist_image_urls:
             catalog_set.image_url = dto.image_url
