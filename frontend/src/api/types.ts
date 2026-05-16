@@ -97,6 +97,7 @@ export interface SetPartLineDetail {
   color_id: number;
   color_name: string;
   quantity: number;
+  element_ids: string[];
   aliases: string[];
   image_url: string | null;
   part_image_url: string | null;
@@ -114,6 +115,7 @@ export interface MinifigPartLineDetail {
   color_id: number;
   color_name: string;
   quantity: number;
+  element_ids: string[];
   image_url: string | null;
   part_image_url: string | null;
   missing_quantity: number;
@@ -159,6 +161,13 @@ export interface SearchPartSetOccurrence {
   set_num: number;
   quantity: number;
   owned_set_id: number;
+  colors: SearchPartColorOccurrence[];
+}
+
+export interface SearchPartColorOccurrence {
+  color_id: number;
+  color_name: string;
+  quantity: number;
 }
 
 export interface SearchPartDisplayLine {
@@ -173,9 +182,25 @@ export interface SearchPartResult {
   lines: SearchPartDisplayLine[];
 }
 
+export interface SearchElementSetOccurrence {
+  set_num: number;
+  quantity: number;
+  owned_set_id: number;
+}
+
+export interface SearchElementResult {
+  element_ids: string[];
+  part_num: string;
+  part_name: string | null;
+  color_id: number;
+  color_name: string;
+  sets: SearchElementSetOccurrence[];
+}
+
 export interface SearchResponse {
   sets: SearchSetResult[];
   parts: SearchPartResult[];
+  elements: SearchElementResult[];
 }
 
 export interface AddPreviewPartLine {

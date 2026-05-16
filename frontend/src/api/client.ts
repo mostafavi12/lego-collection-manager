@@ -182,7 +182,7 @@ export function deleteSetCopy(
 
 export function searchCatalog(params: {
   q: string;
-  type?: "set" | "part" | "all";
+  type?: "set" | "part" | "element" | "all";
   limit?: number;
 }): Promise<SearchResponse> {
   const search = new URLSearchParams({ q: params.q });

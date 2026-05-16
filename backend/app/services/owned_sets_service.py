@@ -79,6 +79,12 @@ def _aliases_for_part(part: Part) -> list[str]:
     return sorted(a.alias for a in part.aliases if a.alias != part.part_num)
 
 
+def _element_ids_for_inventory_line(
+    line: SetPartInventoryLine | MinifigPartInventoryLine,
+) -> list[str]:
+    return sorted(element.element_id for element in line.element_ids)
+
+
 def _missing_counts(session: Session, owned_set_ids: list[int]) -> dict[int, int]:
     return count_lines_with_missing(session, owned_set_ids)
 
@@ -297,6 +303,7 @@ def get_owned_set_detail(
         .options(
             selectinload(SetPartInventoryLine.part).selectinload(Part.aliases),
             selectinload(SetPartInventoryLine.color),
+            selectinload(SetPartInventoryLine.element_ids),
         )
         .order_by(SetPartInventoryLine.id)
     ).all()
@@ -319,6 +326,7 @@ def get_owned_set_detail(
                 color_id=color.external_id,
                 color_name=color.name,
                 quantity=instance_line.quantity,
+                element_ids=_element_ids_for_inventory_line(line),
                 aliases=_aliases_for_part(part),
                 image_url=resolve_part_image_url(part) or line.image_url,
                 part_image_url=resolve_part_image_url(part),
@@ -347,6 +355,7 @@ def get_owned_set_detail(
             .join(Part, MinifigPartInventoryLine.part_id == Part.id)
             .join(Color, MinifigPartInventoryLine.color_id == Color.id)
             .where(MinifigPartInventoryLine.catalog_minifig_id == catalog_minifig.id)
+            .options(selectinload(MinifigPartInventoryLine.element_ids))
             .order_by(MinifigPartInventoryLine.id)
         ).all()
 
@@ -366,6 +375,7 @@ def get_owned_set_detail(
                     color_id=color.external_id,
                     color_name=color.name,
                     quantity=instance_line.quantity,
+                    element_ids=_element_ids_for_inventory_line(part_line),
                     image_url=resolve_part_image_url(part) or part_line.image_url,
                     part_image_url=resolve_part_image_url(part),
                     missing_quantity=instance_line.quantity_missing,

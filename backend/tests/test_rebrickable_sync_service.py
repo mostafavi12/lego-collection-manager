@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from app.db.models import (
     CatalogMinifig,
     CatalogSet,
+    InventoryLineElementId,
     Part,
     SetMinifigInventoryLine,
     SetPartInventoryLine,
@@ -24,6 +25,7 @@ from app.rebrickable.dto import (
     ThemeDTO,
 )
 from app.rebrickable.exceptions import RebrickableAPIError
+from app.services.element_catalog import clear_element_catalog_cache
 from app.services.image_download import DownloadedImage
 from tests.factories import add_catalog_set, add_instance_line_for_set_part, add_owned_set
 
@@ -136,7 +138,17 @@ def fake_client() -> FakeRebrickableClient:
     )
 
 
-def test_sync_populates_catalog(db_session, fake_client) -> None:
+def test_sync_populates_catalog(db_session, fake_client, tmp_path, monkeypatch) -> None:
+    elements_csv = tmp_path / "elements.csv"
+    elements_csv.write_text(
+        "element_id,part_num,color_id,design_id\n"
+        "302400,3024,0,3024\n"
+        "6252045,3024,0,3024\n"
+        "973000,973,0,973\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ELEMENTS_CSV_PATH", str(elements_csv))
+    clear_element_catalog_cache()
     catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     db_session.commit()
@@ -161,6 +173,12 @@ def test_sync_populates_catalog(db_session, fake_client) -> None:
     assert db_session.scalar(select(func.count()).select_from(SetPartInventoryLine)) == 1
     assert db_session.scalar(select(func.count()).select_from(SetMinifigInventoryLine)) == 1
     assert db_session.scalar(select(func.count()).select_from(CatalogMinifig)) == 1
+    assert db_session.scalars(
+        select(InventoryLineElementId.element_id).order_by(
+            InventoryLineElementId.element_id
+        )
+    ).all() == ["302400", "6252045", "973000"]
+    clear_element_catalog_cache()
 
 
 def test_second_sync_replaces_inventory(db_session, fake_client) -> None:

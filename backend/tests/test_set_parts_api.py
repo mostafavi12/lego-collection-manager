@@ -6,6 +6,7 @@ from app.db.models import OwnedSetInventoryLine, SetPartInventoryLine
 from tests.factories import (
     add_catalog_set,
     add_color,
+    add_element_id_for_set_part_line,
     add_owned_set,
     add_part,
     add_part_alias,
@@ -46,6 +47,8 @@ def test_detail_includes_part_aliases(api_client, db_session) -> None:
     line = add_set_part_inventory_line(
         db_session, catalog_set=catalog, part=part, color=color, quantity=1
     )
+    add_element_id_for_set_part_line(db_session, line=line, element_id="302400")
+    add_element_id_for_set_part_line(db_session, line=line, element_id="6252045")
     owned = add_owned_set(db_session, catalog, with_inventory=True)
     db_session.commit()
 
@@ -53,6 +56,7 @@ def test_detail_includes_part_aliases(api_client, db_session) -> None:
     row = detail["inventory"]["set_parts"][0]
     assert row["part_num"] == "3024"
     assert row["aliases"] == ["3024b"]
+    assert row["element_ids"] == ["302400", "6252045"]
 
 
 def test_patch_set_part_updates_name_and_quantity(api_client, db_session) -> None:

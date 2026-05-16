@@ -70,6 +70,7 @@ export const setCopyDetailFixture: SetCopyDetailResponse = {
         color_id: 0,
         color_name: "Black",
         quantity: 4,
+        element_ids: ["302400", "6252045"],
         aliases: ["3024b"],
         image_url: null,
         part_image_url: null,
@@ -100,9 +101,26 @@ export const searchFixture: SearchResponse = {
       lines: [
         {
           display_part_num: "3024",
-          sets: [{ set_num: 6024, quantity: 4, owned_set_id: 1 }],
+          sets: [
+            {
+              set_num: 6024,
+              quantity: 4,
+              owned_set_id: 1,
+              colors: [{ color_id: 0, color_name: "Black", quantity: 4 }],
+            },
+          ],
         },
       ],
+    },
+  ],
+  elements: [
+    {
+      element_ids: ["302400", "6252045"],
+      part_num: "3024",
+      part_name: "Plate 1 x 1",
+      color_id: 0,
+      color_name: "Black",
+      sets: [{ set_num: 6024, quantity: 4, owned_set_id: 1 }],
     },
   ],
 };

@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
     CatalogSet,
+    Color,
+    InventoryLineElementId,
     MinifigPartInventoryLine,
     OwnedSet,
     Part,
@@ -17,6 +19,9 @@ from app.db.models import (
     SetPartInventoryLine,
 )
 from app.schemas.search import (
+    SearchElementResult,
+    SearchElementSetOccurrence,
+    SearchPartColorOccurrence,
     SearchPartDisplayLine,
     SearchPartResult,
     SearchPartSetOccurrence,
@@ -43,7 +48,11 @@ def search(
     if search_type in ("part", "all"):
         parts = _search_parts(session, q=q, limit=limit, offset=offset)
 
-    return SearchResponse(sets=sets, parts=parts)
+    elements: list[SearchElementResult] = []
+    if search_type in ("element", "all"):
+        elements = _search_elements(session, q=q, limit=limit, offset=offset)
+
+    return SearchResponse(sets=sets, parts=parts, elements=elements)
 
 
 def _search_sets(
@@ -78,33 +87,59 @@ def _owned_catalog_ids_subquery():
     return select(OwnedSet.catalog_set_id).distinct().scalar_subquery()
 
 
-def _quantities_by_catalog_set(session: Session, *, part_id: int) -> dict[int, int]:
-    """Sum template quantities per catalog set (set-level lines + minifig BOM × minifig count)."""
-    owned = _owned_catalog_ids_subquery()
-    totals: dict[int, int] = defaultdict(int)
+def _owned_set_id_for_catalog(session: Session, catalog_set_id: int) -> int | None:
+    return session.scalar(
+        select(OwnedSet.id)
+        .where(OwnedSet.catalog_set_id == catalog_set_id)
+        .order_by(OwnedSet.id)
+        .limit(1)
+    )
 
-    for cid, qty in session.execute(
+
+def _catalogs_by_id(session: Session, catalog_ids: set[int]) -> dict[int, CatalogSet]:
+    if not catalog_ids:
+        return {}
+    cats = session.scalars(select(CatalogSet).where(CatalogSet.id.in_(catalog_ids))).all()
+    return {c.id: c for c in cats}
+
+
+def _occurrences_for_part(
+    session: Session,
+    *,
+    part_id: int,
+) -> list[SearchPartSetOccurrence]:
+    """Sum template quantities per catalog set and expose per-color totals."""
+    owned = _owned_catalog_ids_subquery()
+    color_totals: dict[int, dict[tuple[int, str], int]] = defaultdict(lambda: defaultdict(int))
+
+    for cid, color_id, color_name, qty in session.execute(
         select(
             SetPartInventoryLine.catalog_set_id,
+            Color.external_id,
+            Color.name,
             func.sum(SetPartInventoryLine.quantity),
         )
+        .join(Color, SetPartInventoryLine.color_id == Color.id)
         .where(
             SetPartInventoryLine.part_id == part_id,
             SetPartInventoryLine.catalog_set_id.in_(owned),
         )
-        .group_by(SetPartInventoryLine.catalog_set_id)
+        .group_by(SetPartInventoryLine.catalog_set_id, Color.external_id, Color.name)
     ).all():
         if cid is not None and qty is not None:
-            totals[cid] += int(qty)
+            color_totals[cid][(int(color_id), str(color_name))] += int(qty)
 
-    for cid, qty in session.execute(
+    for cid, color_id, color_name, qty in session.execute(
         select(
             SetMinifigInventoryLine.catalog_set_id,
+            Color.external_id,
+            Color.name,
             func.sum(
                 SetMinifigInventoryLine.quantity * MinifigPartInventoryLine.quantity
             ),
         )
         .select_from(MinifigPartInventoryLine)
+        .join(Color, MinifigPartInventoryLine.color_id == Color.id)
         .join(
             SetMinifigInventoryLine,
             SetMinifigInventoryLine.catalog_minifig_id
@@ -114,44 +149,42 @@ def _quantities_by_catalog_set(session: Session, *, part_id: int) -> dict[int, i
             MinifigPartInventoryLine.part_id == part_id,
             SetMinifigInventoryLine.catalog_set_id.in_(owned),
         )
-        .group_by(SetMinifigInventoryLine.catalog_set_id)
+        .group_by(SetMinifigInventoryLine.catalog_set_id, Color.external_id, Color.name)
     ).all():
         if cid is not None and qty is not None:
-            totals[cid] += int(qty)
+            color_totals[cid][(int(color_id), str(color_name))] += int(qty)
 
-    return {k: v for k, v in totals.items() if v > 0}
-
-
-def _occurrences_for_part(session: Session, *, part_id: int) -> list[SearchPartSetOccurrence]:
-    totals = _quantities_by_catalog_set(session, part_id=part_id)
-    if not totals:
+    if not color_totals:
         return []
 
-    cats = session.scalars(
-        select(CatalogSet).where(CatalogSet.id.in_(totals.keys()))
-    ).all()
-    by_id = {c.id: c for c in cats}
+    by_id = _catalogs_by_id(session, set(color_totals.keys()))
 
     def sort_key(cid: int) -> tuple[int, int]:
         c = by_id[cid]
         return (c.set_number, c.set_variant)
 
     out: list[SearchPartSetOccurrence] = []
-    for cid in sorted(totals.keys(), key=sort_key):
+    for cid in sorted(color_totals.keys(), key=sort_key):
         cat = by_id[cid]
-        owned_set_id = session.scalar(
-            select(OwnedSet.id)
-            .where(OwnedSet.catalog_set_id == cid)
-            .order_by(OwnedSet.id)
-            .limit(1)
-        )
+        owned_set_id = _owned_set_id_for_catalog(session, cid)
         if owned_set_id is None:
             continue
+        colors = [
+            SearchPartColorOccurrence(
+                color_id=color_id,
+                color_name=color_name,
+                quantity=qty,
+            )
+            for (color_id, color_name), qty in sorted(
+                color_totals[cid].items(), key=lambda item: item[0][1].casefold()
+            )
+        ]
         out.append(
             SearchPartSetOccurrence(
                 set_num=cat.set_number,
-                quantity=totals[cid],
+                quantity=sum(color.quantity for color in colors),
                 owned_set_id=owned_set_id,
+                colors=colors,
             )
         )
     return out
@@ -268,4 +301,180 @@ def _search_parts(
             )
         )
 
+    return results
+
+
+def _occurrences_for_part_color(
+    session: Session,
+    *,
+    part_id: int,
+    color_external_id: int,
+) -> list[SearchElementSetOccurrence]:
+    owned = _owned_catalog_ids_subquery()
+    totals: dict[int, int] = defaultdict(int)
+
+    for cid, qty in session.execute(
+        select(
+            SetPartInventoryLine.catalog_set_id,
+            func.sum(SetPartInventoryLine.quantity),
+        )
+        .join(Color, SetPartInventoryLine.color_id == Color.id)
+        .where(
+            SetPartInventoryLine.part_id == part_id,
+            Color.external_id == color_external_id,
+            SetPartInventoryLine.catalog_set_id.in_(owned),
+        )
+        .group_by(SetPartInventoryLine.catalog_set_id)
+    ).all():
+        if cid is not None and qty is not None:
+            totals[cid] += int(qty)
+
+    for cid, qty in session.execute(
+        select(
+            SetMinifigInventoryLine.catalog_set_id,
+            func.sum(
+                SetMinifigInventoryLine.quantity * MinifigPartInventoryLine.quantity
+            ),
+        )
+        .select_from(MinifigPartInventoryLine)
+        .join(Color, MinifigPartInventoryLine.color_id == Color.id)
+        .join(
+            SetMinifigInventoryLine,
+            SetMinifigInventoryLine.catalog_minifig_id
+            == MinifigPartInventoryLine.catalog_minifig_id,
+        )
+        .where(
+            MinifigPartInventoryLine.part_id == part_id,
+            Color.external_id == color_external_id,
+            SetMinifigInventoryLine.catalog_set_id.in_(owned),
+        )
+        .group_by(SetMinifigInventoryLine.catalog_set_id)
+    ).all():
+        if cid is not None and qty is not None:
+            totals[cid] += int(qty)
+
+    by_id = _catalogs_by_id(session, set(totals.keys()))
+    out: list[SearchElementSetOccurrence] = []
+    for cid in sorted(totals, key=lambda key: (by_id[key].set_number, by_id[key].set_variant)):
+        owned_set_id = _owned_set_id_for_catalog(session, cid)
+        if owned_set_id is None:
+            continue
+        out.append(
+            SearchElementSetOccurrence(
+                set_num=by_id[cid].set_number,
+                quantity=totals[cid],
+                owned_set_id=owned_set_id,
+            )
+        )
+    return out
+
+
+def _persisted_element_ids_for_part_color(
+    session: Session,
+    *,
+    part_id: int,
+    color_external_id: int,
+) -> list[str]:
+    set_ids = session.scalars(
+        select(InventoryLineElementId.element_id)
+        .join(
+            SetPartInventoryLine,
+            InventoryLineElementId.set_part_inventory_line_id == SetPartInventoryLine.id,
+        )
+        .join(Color, SetPartInventoryLine.color_id == Color.id)
+        .where(
+            SetPartInventoryLine.part_id == part_id,
+            Color.external_id == color_external_id,
+        )
+    ).all()
+    minifig_ids = session.scalars(
+        select(InventoryLineElementId.element_id)
+        .join(
+            MinifigPartInventoryLine,
+            InventoryLineElementId.minifig_part_inventory_line_id
+            == MinifigPartInventoryLine.id,
+        )
+        .join(Color, MinifigPartInventoryLine.color_id == Color.id)
+        .where(
+            MinifigPartInventoryLine.part_id == part_id,
+            Color.external_id == color_external_id,
+        )
+    ).all()
+    return sorted(set(set_ids) | set(minifig_ids))
+
+
+def _search_elements(
+    session: Session,
+    *,
+    q: str,
+    limit: int,
+    offset: int,
+) -> list[SearchElementResult]:
+    owned = _owned_catalog_ids_subquery()
+    keys: dict[tuple[int, int], tuple[Part, Color]] = {}
+
+    set_rows = session.execute(
+        select(Part, Color)
+        .select_from(InventoryLineElementId)
+        .join(
+            SetPartInventoryLine,
+            InventoryLineElementId.set_part_inventory_line_id == SetPartInventoryLine.id,
+        )
+        .join(Part, SetPartInventoryLine.part_id == Part.id)
+        .join(Color, SetPartInventoryLine.color_id == Color.id)
+        .where(
+            InventoryLineElementId.element_id.startswith(q),
+            SetPartInventoryLine.catalog_set_id.in_(owned),
+        )
+    ).all()
+    for part, color in set_rows:
+        keys[(part.id, color.external_id)] = (part, color)
+
+    minifig_rows = session.execute(
+        select(Part, Color)
+        .select_from(InventoryLineElementId)
+        .join(
+            MinifigPartInventoryLine,
+            InventoryLineElementId.minifig_part_inventory_line_id
+            == MinifigPartInventoryLine.id,
+        )
+        .join(Part, MinifigPartInventoryLine.part_id == Part.id)
+        .join(Color, MinifigPartInventoryLine.color_id == Color.id)
+        .join(
+            SetMinifigInventoryLine,
+            SetMinifigInventoryLine.catalog_minifig_id
+            == MinifigPartInventoryLine.catalog_minifig_id,
+        )
+        .where(
+            InventoryLineElementId.element_id.startswith(q),
+            SetMinifigInventoryLine.catalog_set_id.in_(owned),
+        )
+    ).all()
+    for part, color in minifig_rows:
+        keys[(part.id, color.external_id)] = (part, color)
+
+    ordered = sorted(
+        keys.values(),
+        key=lambda item: (item[0].part_num.casefold(), item[1].name.casefold()),
+    )[offset : offset + limit]
+
+    results: list[SearchElementResult] = []
+    for part, color in ordered:
+        occurrences = _occurrences_for_part_color(
+            session, part_id=part.id, color_external_id=color.external_id
+        )
+        if not occurrences:
+            continue
+        results.append(
+            SearchElementResult(
+                element_ids=_persisted_element_ids_for_part_color(
+                    session, part_id=part.id, color_external_id=color.external_id
+                ),
+                part_num=part.part_num,
+                part_name=part.name,
+                color_id=color.external_id,
+                color_name=color.name,
+                sets=occurrences,
+            )
+        )
     return results
