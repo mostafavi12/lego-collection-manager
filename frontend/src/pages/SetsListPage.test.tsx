@@ -20,6 +20,23 @@ function renderPage(initialEntries: string[] = ["/"]) {
   );
 }
 
+function okJson(body: unknown): Response {
+  return {
+    ok: true,
+    json: async () => body,
+  } as Response;
+}
+
+function mockCollectionFetch(listBody: unknown = setCopyListFixture) {
+  return vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/owned-sets/theme-options")) {
+      return Promise.resolve(okJson({ themes: ["Space", "Town"] }));
+    }
+    return Promise.resolve(okJson(listBody));
+  });
+}
+
 describe("SetsListPage", () => {
   afterEach(() => {
     cleanup();
@@ -27,13 +44,7 @@ describe("SetsListPage", () => {
   });
 
   it("renders display label before set number", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => setCopyListFixture,
-      } as Response),
-    );
+    vi.stubGlobal("fetch", mockCollectionFetch());
 
     renderPage();
 
@@ -43,34 +54,32 @@ describe("SetsListPage", () => {
   });
 
   it("opens make a copy dialog and posts on confirm", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => setCopyListFixture,
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/owned-sets/theme-options")) {
+        return Promise.resolve(okJson({ themes: ["Town"] }));
+      }
+      if (url.includes("/duplicate-preview")) {
+        return Promise.resolve(okJson({
           source_owned_set_id: 1,
           set_num: 6024,
           set_name: "Police Car",
           existing_copy_count: 2,
           suggested_label: "Copy #3",
-        }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 201,
-        json: async () => ({
+        }));
+      }
+      if (url.includes("/duplicate")) {
+        return Promise.resolve(okJson({
           ...setCopyListFixture.items[0],
           id: 9,
           label: "Copy #3",
           display_label: "Copy #3",
           copy_index: 3,
           duplicated_from_owned_set_id: 1,
-        }),
-      } as Response);
+        }));
+      }
+      return Promise.resolve(okJson(setCopyListFixture));
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
@@ -100,10 +109,7 @@ describe("SetsListPage", () => {
   });
 
   it("passes sort/theme filters and can group by theme and age", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => setCopyListFixture,
-    } as Response);
+    const fetchMock = mockCollectionFetch();
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
@@ -132,11 +138,18 @@ describe("SetsListPage", () => {
     expect(screen.getByRole("heading", { name: "Age 8" })).toBeInTheDocument();
   });
 
+  it("loads theme filter options from the whole collection", async () => {
+    const fetchMock = mockCollectionFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+
+    expect(await screen.findByRole("option", { name: "Space" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Town" })).toBeInTheDocument();
+  });
+
   it("shows direct page navigation when there are more than two pages", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ...setCopyListFixture, total: 65 }),
-    } as Response);
+    const fetchMock = mockCollectionFetch({ ...setCopyListFixture, total: 65 });
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
@@ -144,7 +157,7 @@ describe("SetsListPage", () => {
 
     await screen.findByText(/6024 \(Police Car\) - copy A/);
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("offset=20"),
         undefined,
       );
@@ -157,7 +170,7 @@ describe("SetsListPage", () => {
     await user.click(screen.getByRole("button", { name: /go to page #/i }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("offset=60"),
         undefined,
       );
@@ -168,7 +181,7 @@ describe("SetsListPage", () => {
     await user.click(screen.getByRole("button", { name: /go to page #/i }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("offset=0"),
         undefined,
       );
@@ -176,10 +189,7 @@ describe("SetsListPage", () => {
   });
 
   it("keeps the current page in the collection URL before opening a set", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ...setCopyListFixture, total: 65 }),
-    } as Response);
+    const fetchMock = mockCollectionFetch({ ...setCopyListFixture, total: 65 });
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
@@ -189,7 +199,7 @@ describe("SetsListPage", () => {
     await user.click(screen.getByRole("button", { name: /next/i }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("offset=20"),
         undefined,
       );

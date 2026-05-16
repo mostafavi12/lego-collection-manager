@@ -25,6 +25,10 @@ class OwnedSetListResponse(BaseModel):
     total: int
 
 
+class OwnedSetThemeOptionsResponse(BaseModel):
+    themes: list[str]
+
+
 class OwnedSetUpdateRequest(BaseModel):
     investigated: bool | None = None
     label: str | None = None

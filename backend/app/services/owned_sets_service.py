@@ -263,6 +263,18 @@ def list_owned_sets(
     return OwnedSetListResponse(items=items, total=total)
 
 
+def list_owned_set_theme_options(session: Session) -> list[str]:
+    rows = session.scalars(
+        select(Theme.name)
+        .join(CatalogSet, CatalogSet.theme_id == Theme.id)
+        .join(OwnedSet, OwnedSet.catalog_set_id == CatalogSet.id)
+        .where(Theme.name.is_not(None), func.trim(Theme.name) != "")
+        .distinct()
+        .order_by(func.lower(Theme.name))
+    )
+    return list(rows)
+
+
 def get_owned_set_detail(
     session: Session,
     owned_set_id: int,

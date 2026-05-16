@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { listSetCopies } from "../api/client";
+import { listSetCopies, listSetCopyThemeOptions } from "../api/client";
 import type { SetCopyListItem } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { AddSetWizard } from "../components/AddSetWizard";
@@ -35,6 +35,7 @@ export function SetsListPage() {
   const location = useLocation();
   const [items, setItems] = useState<SetCopyListItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [themeOptions, setThemeOptions] = useState<string[]>([]);
   const [offset, setOffset] = useState(() =>
     offsetForPage(pageFromSearch(location.search)),
   );
@@ -77,6 +78,26 @@ export function SetsListPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let ignore = false;
+    async function loadThemeOptions() {
+      try {
+        const data = await listSetCopyThemeOptions();
+        if (!ignore) {
+          setThemeOptions(Array.isArray(data.themes) ? data.themes : []);
+        }
+      } catch {
+        if (!ignore) {
+          setThemeOptions([]);
+        }
+      }
+    }
+    void loadThemeOptions();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     setOffset(offsetForPage(pageFromSearch(location.search)));
@@ -131,17 +152,6 @@ export function SetsListPage() {
   function resetToFirstPage() {
     goToPage(1, { replace: true });
   }
-  const themeOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          items
-            .map((item) => item.theme_name?.trim())
-            .filter((theme): theme is string => Boolean(theme)),
-        ),
-      ).sort((a, b) => a.localeCompare(b)),
-    [items],
-  );
   const groupedItems = useMemo(() => {
     const byTheme = new Map<string, Map<string, SetCopyListItem[]>>();
     for (const item of items) {

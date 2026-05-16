@@ -21,6 +21,7 @@ import type {
   SetCopyDuplicateResponse,
   SetCopyListItem,
   SetCopyListResponse,
+  SetCopyThemeOptionsResponse,
   SetCopyUpdateBody,
   UpdateSetPartLineBody,
 } from "./types";
@@ -141,6 +142,10 @@ export function listSetCopies(params: {
   }
   const qs = search.toString();
   return request(`/owned-sets${qs ? `?${qs}` : ""}`);
+}
+
+export function listSetCopyThemeOptions(): Promise<SetCopyThemeOptionsResponse> {
+  return request("/owned-sets/theme-options");
 }
 
 export function getSetCopy(id: number): Promise<SetCopyDetailResponse> {

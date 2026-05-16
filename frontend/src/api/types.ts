@@ -46,6 +46,10 @@ export interface SetCopyListResponse {
   total: number;
 }
 
+export interface SetCopyThemeOptionsResponse {
+  themes: string[];
+}
+
 export interface SetCopyDuplicateResponse extends SetCopyListItem {
   duplicated_from_owned_set_id: number;
 }

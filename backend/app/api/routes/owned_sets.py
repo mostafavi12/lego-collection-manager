@@ -30,6 +30,7 @@ from app.schemas.owned_sets import (
     OwnedSetDuplicateResponse,
     OwnedSetListItem,
     OwnedSetListResponse,
+    OwnedSetThemeOptionsResponse,
     OwnedSetUpdateRequest,
 )
 from app.importers.rebrickable_sync_service import ensure_api_key_configured
@@ -64,6 +65,7 @@ from app.services.owned_sets_service import (
     duplicate_owned_set,
     get_duplicate_preview,
     get_owned_set_detail,
+    list_owned_set_theme_options,
     list_owned_sets,
     update_owned_set,
 )
@@ -93,6 +95,13 @@ def get_owned_sets(
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
+
+
+@router.get("/theme-options", response_model=OwnedSetThemeOptionsResponse)
+def get_owned_set_theme_options(
+    db: Session = Depends(get_db),
+) -> OwnedSetThemeOptionsResponse:
+    return OwnedSetThemeOptionsResponse(themes=list_owned_set_theme_options(db))
 
 
 @router.get("/add-preview", response_model=OwnedSetAddPreviewResponse)

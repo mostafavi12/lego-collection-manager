@@ -84,6 +84,19 @@ def test_list_filter_theme_and_sort(api_client, db_session) -> None:
     assert body["items"][0]["set_num"] == 1000
 
 
+def test_list_theme_options_include_whole_collection(api_client, db_session) -> None:
+    town = add_theme(db_session, external_id=67, name="Town")
+    space = add_theme(db_session, external_id=88, name="Space")
+    add_owned_set(db_session, add_catalog_set(db_session, set_number=1000, theme=town))
+    add_owned_set(db_session, add_catalog_set(db_session, set_number=2000, theme=space))
+    db_session.commit()
+
+    response = api_client.get("/api/owned-sets/theme-options")
+
+    assert response.status_code == 200
+    assert response.json() == {"themes": ["Space", "Town"]}
+
+
 def test_list_pending_catalog_sync_state(api_client, db_session) -> None:
     stub = add_catalog_stub(db_session)
     add_owned_set(db_session, stub)
