@@ -26,9 +26,10 @@ describe("PartLineModal", () => {
 
     expect(screen.getByText("3024b")).toBeInTheDocument();
     expect(screen.getByLabelText(/part aliases/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^missing$/i)).toHaveValue(1);
   });
 
-  it("patches set part then aliases on update", async () => {
+  it("patches set part then aliases and missing count on update", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -48,6 +49,16 @@ describe("PartLineModal", () => {
           part_num: "3024",
           aliases: ["3024b", "3024pr"],
         }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          instance_line_id: 100,
+          part_id: 42,
+          catalog_line_id: 10,
+          quantity: 5,
+          quantity_missing: 2,
+        }),
       } as Response);
     vi.stubGlobal("fetch", fetchMock);
 
@@ -66,6 +77,9 @@ describe("PartLineModal", () => {
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByPlaceholderText(/add alias/i), "3024pr");
     await user.click(within(dialog).getByRole("button", { name: /add alias/i }));
+    const missingInput = within(dialog).getByLabelText(/^missing$/i);
+    await user.clear(missingInput);
+    await user.type(missingInput, "2");
     await user.click(within(dialog).getByRole("button", { name: /^update$/i }));
 
     await waitFor(() => {
@@ -83,10 +97,17 @@ describe("PartLineModal", () => {
     const aliasIdx = calls.findIndex(
       (c) => c.url.includes("/parts/42/aliases") && c.method === "PATCH",
     );
+    const missingIdx = calls.findIndex(
+      (c) => c.url.includes("/inventory-lines/100") && c.method === "PATCH",
+    );
     expect(setPartIdx).toBeGreaterThanOrEqual(0);
     expect(aliasIdx).toBeGreaterThan(setPartIdx);
+    expect(missingIdx).toBeGreaterThan(aliasIdx);
     expect(calls[aliasIdx]?.body).toBe(
       JSON.stringify({ aliases: ["3024b", "3024pr"] }),
+    );
+    expect(calls[missingIdx]?.body).toBe(
+      JSON.stringify({ quantity_missing: 2 }),
     );
   });
 

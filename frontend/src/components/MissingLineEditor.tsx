@@ -1,10 +1,6 @@
 import { useState } from "react";
 
-import {
-  deleteMissingImage,
-  patchMissing,
-  uploadMissingImage,
-} from "../api/client";
+import { patchMissing } from "../api/client";
 import type { MinifigPartLineDetail, SetPartLineDetail } from "../api/types";
 
 type InventoryLine = SetPartLineDetail | MinifigPartLineDetail;
@@ -42,10 +38,6 @@ export function MissingLineEditor({
   const [qty, setQty] = useState(String(line.missing_quantity));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasImage, setHasImage] = useState(
-    (line.part_image_url ?? line.missing_image_url) != null,
-  );
-  const [missingItemId, setMissingItemId] = useState(line.missing_item_id);
 
   async function saveQuantity() {
     const parsed = Number.parseInt(qty, 10);
@@ -56,53 +48,13 @@ export function MissingLineEditor({
     setBusy(true);
     setError(null);
     try {
-      const result = await patchMissing(
+      await patchMissing(
         setCopyId,
         patchBody(line, inventoryKind, parsed),
       );
-      if (parsed === 0) {
-        setMissingItemId(null);
-        setHasImage(false);
-      } else {
-        setMissingItemId(result.missing_item_id);
-      }
       onUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onFileSelected(file: File | undefined) {
-    if (!file || missingItemId == null) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await uploadMissingImage(setCopyId, missingItemId, file);
-      setHasImage((result.part_image_url ?? result.missing_image_url) != null);
-      onUpdated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function removeImage() {
-    if (missingItemId == null) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await deleteMissingImage(setCopyId, missingItemId);
-      setHasImage(false);
-      onUpdated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setBusy(false);
     }
@@ -130,30 +82,6 @@ export function MissingLineEditor({
       >
         Save
       </button>
-      {Number.parseInt(qty, 10) > 0 && missingItemId != null && (
-        <div className="missing-editor__media">
-          <label className="btn btn--small btn--secondary">
-            Photo
-            <input
-              type="file"
-              accept="image/jpeg,image/png"
-              className="sr-only"
-              disabled={busy}
-              onChange={(e) => void onFileSelected(e.target.files?.[0])}
-            />
-          </label>
-          {hasImage && (
-            <button
-              type="button"
-              className="btn btn--small btn--ghost"
-              disabled={busy}
-              onClick={() => void removeImage()}
-            >
-              Remove photo
-            </button>
-          )}
-        </div>
-      )}
       {error && <span className="missing-editor__error">{error}</span>}
     </div>
   );

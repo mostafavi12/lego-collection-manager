@@ -51,6 +51,9 @@ export function PartLineModal({
   const [quantity, setQuantity] = useState(
     line != null ? String(line.quantity) : "1",
   );
+  const [missingQuantity, setMissingQuantity] = useState(
+    line != null ? String(line.missing_quantity) : "0",
+  );
   const [aliases, setAliases] = useState<string[]>(
     line != null && "aliases" in line ? line.aliases : [],
   );
@@ -67,6 +70,7 @@ export function PartLineModal({
       setColorId(String(line.color_id));
       setColorName(line.color_name);
       setQuantity(String(line.quantity));
+      setMissingQuantity(String(line.missing_quantity));
       setAliases("aliases" in line ? line.aliases : []);
     }
   }, [isEdit, line]);
@@ -97,12 +101,28 @@ export function PartLineModal({
       setError("Quantity must be at least 1");
       return;
     }
+    const parsedMissing = Number.parseInt(missingQuantity, 10);
+    if (
+      !Number.isFinite(parsedMissing) ||
+      parsedMissing < 0 ||
+      parsedMissing > parsedQty
+    ) {
+      setError(`Missing quantity must be between 0 and ${parsedQty}`);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
       if (isEdit && line) {
+        const shouldPatchMissing = parsedMissing !== line.missing_quantity;
+        const patchedMissingBeforeQuantity = parsedMissing < line.missing_quantity;
+        if (shouldPatchMissing && patchedMissingBeforeQuantity) {
+          await patchInstanceInventoryLine(setCopyId, line.instance_line_id, {
+            quantity_missing: parsedMissing,
+          });
+        }
         if (inventoryKind === "set_part") {
           await updateSetPartLine(setCopyId, line.instance_line_id, {
             part_name: partName.trim() || null,
@@ -125,6 +145,11 @@ export function PartLineModal({
           );
           onSaved();
           return;
+        }
+        if (shouldPatchMissing && !patchedMissingBeforeQuantity) {
+          await patchInstanceInventoryLine(setCopyId, line.instance_line_id, {
+            quantity_missing: parsedMissing,
+          });
         }
       } else {
         const trimmedPart = partNum.trim();
@@ -283,6 +308,19 @@ export function PartLineModal({
                 onChange={(e) => setQuantity(e.target.value)}
               />
             </label>
+            {isEdit && (
+              <label className="form-field">
+                Missing
+                <input
+                  type="number"
+                  min={0}
+                  max={quantity}
+                  value={missingQuantity}
+                  disabled={loading}
+                  onChange={(e) => setMissingQuantity(e.target.value)}
+                />
+              </label>
+            )}
           </div>
 
           <AliasChipEditor

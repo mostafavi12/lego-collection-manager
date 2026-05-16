@@ -38,6 +38,8 @@ describe("SetDetailPage", () => {
     expect(screen.getByText("302400, 6252045")).toBeInTheDocument();
     expect(screen.getByLabelText(/missing quantity for 3024/i)).toHaveValue(1);
     expect(screen.queryByAltText(/missing 3024/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^photo$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove photo/i })).not.toBeInTheDocument();
     const syncPanel = screen
       .getByText(/sync from rebrickable/i)
       .closest("details");
@@ -100,6 +102,7 @@ describe("SetDetailPage", () => {
     expect(
       within(dialog).getByRole("heading", { name: /edit part/i }),
     ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/^missing$/i)).toHaveValue(0);
     expect(
       within(dialog).queryByRole("button", { name: /^delete$/i }),
     ).not.toBeInTheDocument();
