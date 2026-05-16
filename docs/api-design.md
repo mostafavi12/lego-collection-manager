@@ -31,9 +31,9 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 
 **`POST /imports/csv`**
 
-- **Body:** `multipart/form-data` with field `file` (plain text per [data-sources.md](./data-sources.md): comma-separated set numbers, no header).
+- **Body:** `multipart/form-data` with field `file` (plain text per [data-sources.md](./data-sources.md): comma-separated set numbers, no header) and optional `existing_set_mode`.
 - **Max size:** 1 MB (MVP default; configurable server-side).
-- **Behavior:** For each valid set-number **token**, ensure a `catalog_sets` stub exists, then insert a **new** `owned_sets` row (`investigated` = `false`). **Every token creates a new physical copy**, including duplicate `set_num` values in the file or already present in the collection.
+- **Behavior:** For each valid set-number **token**, new catalog sets are fetched from Rebrickable and create a first `owned_sets` row (`investigated` = `false`). Existing catalog sets use `existing_set_mode`: `skip` (default) skips the token without updating existing data; `copy` creates a new physical copy from the existing local catalog/inventory without fetching or updating it.
 
 **Response `200`:**
 
@@ -41,6 +41,7 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 {
   "instances_created": 3,
   "catalog_stubs_created": 1,
+  "existing_sets_skipped": 0,
   "errors": [
     { "token_index": 4, "raw": "", "message": "empty set number" }
   ]
@@ -621,6 +622,7 @@ Response **`200`:**
 {
   "instances_created": 3,
   "sets_fetched": 3,
+  "existing_sets_skipped": 0,
   "sets_failed": [
     { "token_index": 2, "set_num": "0000-1", "message": "HTTP 404 from Rebrickable" }
   ],
@@ -629,7 +631,7 @@ Response **`200`:**
 ```
 
 - Requires `REBRICKABLE_API_KEY`; **`400`** if missing.
-- Per token: upsert catalog + template inventory + create **`owned_sets` row** + copy per-copy inventory (Phase 9).
+- Per token: new catalog sets upsert catalog + template inventory + create **`owned_sets` row** + copy per-copy inventory (Phase 9). Existing catalog sets are skipped by default or copied locally when `existing_set_mode=copy`.
 - **No** image HTTP downloads during import.
 
 ### Manual add set (Phase 13)

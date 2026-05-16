@@ -37,7 +37,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 ### API endpoints (FastAPI `TestClient`)
 
-- `POST /imports/csv`: multipart upload, size limit, token errors shape, `instances_created` count.
+- `POST /imports/csv`: multipart upload, size limit, token errors shape, `instances_created` count, and existing-set mode (`skip` default vs `copy`).
 - `POST /imports/rebrickable/sync`: success summary; per-set failure; missing API key.
 - `GET /owned-sets`: pagination, `investigated` filter, multiple rows same `set_num`.
 - `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation, label, age, notes; shared catalog fields (`catalog_name`, `catalog_theme_name`, `catalog_num_parts`, `catalog_year`); `catalog_theme_name` when `theme_id` is NULL (creates/links theme); `age` shared across copies of the same `set_num`; `set_num` re-link (single copy); `display_label` / `copy_index`; `catalog_set_id`, `part_id`, `part_image_url`, `missing_image_url` when BLOB present.

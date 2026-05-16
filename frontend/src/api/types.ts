@@ -272,6 +272,7 @@ export interface CsvImportResponse {
   instances_created: number;
   catalog_stubs_created: number;
   sets_fetched: number;
+  existing_sets_skipped: number;
   sets_failed: CsvImportSetFailure[];
   errors: { token_index: number; raw: string; message: string }[];
 }

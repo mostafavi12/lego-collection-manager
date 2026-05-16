@@ -40,6 +40,7 @@ class CsvImportResult:
     instances_created: int
     catalog_stubs_created: int
     sets_fetched: int
+    existing_sets_skipped: int
     sets_failed: list[CsvImportSetFailure]
     errors: list[ParseError]
 
@@ -67,9 +68,19 @@ def _ensure_catalog_stub(session: Session, lsid: LegoSetId) -> tuple[CatalogSet,
 
 
 def _create_owned_instance(session: Session, catalog_set: CatalogSet) -> OwnedSet:
+    existing_age = session.scalar(
+        select(OwnedSet.age)
+        .where(
+            OwnedSet.catalog_set_id == catalog_set.id,
+            OwnedSet.age.is_not(None),
+        )
+        .order_by(OwnedSet.id)
+        .limit(1)
+    )
     owned = OwnedSet(
         catalog_set_id=catalog_set.id,
         investigated=False,
+        age=existing_age,
         created_at=utc_now(),
     )
     session.add(owned)
@@ -83,11 +94,13 @@ def import_set_list(
     content: str,
     *,
     client: RebrickableReader | None = None,
+    existing_set_mode: str = "skip",
 ) -> CsvImportResult:
     valid_entries, errors = parse_set_list_entries(content)
     instances_created = 0
     catalog_stubs_created = 0
     sets_fetched = 0
+    existing_sets_skipped = 0
     sets_failed: list[CsvImportSetFailure] = []
 
     logger.info(
@@ -98,9 +111,25 @@ def import_set_list(
 
     def process_token(token_index: int, raw_token: str, rb_client: RebrickableReader) -> None:
         nonlocal instances_created, catalog_stubs_created, sets_fetched
+        nonlocal existing_sets_skipped
 
         lsid = parse_user_set_number(raw_token)
         rb_key = to_rebrickable_set_num(lsid)
+        existing_catalog = session.scalar(
+            select(CatalogSet).where(
+                CatalogSet.set_number == lsid.number,
+                CatalogSet.set_variant == lsid.variant,
+            )
+        )
+        if existing_catalog is not None:
+            if existing_set_mode == "copy":
+                _create_owned_instance(session, existing_catalog)
+                instances_created += 1
+                logger.info("CSV import token_existing_copy rb_key=%s", rb_key)
+            else:
+                existing_sets_skipped += 1
+                logger.info("CSV import token_existing_skipped rb_key=%s", rb_key)
+            return
 
         try:
             recommended_age: int | None = None
@@ -195,15 +224,17 @@ def import_set_list(
         instances_created=instances_created,
         catalog_stubs_created=catalog_stubs_created,
         sets_fetched=sets_fetched,
+        existing_sets_skipped=existing_sets_skipped,
         sets_failed=sets_failed,
         errors=errors,
     )
     logger.info(
         "CSV import finished instances_created=%s sets_fetched=%s "
-        "catalog_stubs_created=%s sets_failed=%s token_errors=%s",
+        "catalog_stubs_created=%s existing_sets_skipped=%s sets_failed=%s token_errors=%s",
         result.instances_created,
         result.sets_fetched,
         result.catalog_stubs_created,
+        result.existing_sets_skipped,
         len(result.sets_failed),
         len(result.errors),
     )

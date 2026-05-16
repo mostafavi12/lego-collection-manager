@@ -6,6 +6,7 @@ import type { CsvImportResponse, RebrickableSyncResponse } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 
 type PartImageDownloadMode = "none" | "missing" | "all";
+type ExistingSetMode = "skip" | "copy";
 
 export function ImportPage() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -16,6 +17,7 @@ export function ImportPage() {
   const [downloadSetImages, setDownloadSetImages] = useState(true);
   const [partImageDownloadMode, setPartImageDownloadMode] =
     useState<PartImageDownloadMode>("none");
+  const [existingSetMode, setExistingSetMode] = useState<ExistingSetMode>("skip");
 
   async function onCsvSubmit(event: FormEvent) {
     event.preventDefault();
@@ -28,7 +30,7 @@ export function ImportPage() {
     setError(null);
     setCsvResult(null);
     try {
-      const result = await importCsv(file);
+      const result = await importCsv(file, existingSetMode);
       setCsvResult(result);
       if (fileRef.current) {
         fileRef.current.value = "";
@@ -87,6 +89,31 @@ export function ImportPage() {
           set detail page after import if you want it.
         </p>
         <form onSubmit={(e) => void onCsvSubmit(e)}>
+          <fieldset className="sync-panel__radio-group">
+            <legend>Existing LEGO sets</legend>
+            <label className="checkbox">
+              <input
+                type="radio"
+                name="existing-set-mode"
+                value="skip"
+                checked={existingSetMode === "skip"}
+                disabled={loading === "csv"}
+                onChange={() => setExistingSetMode("skip")}
+              />
+              Skip already existing LEGO Sets
+            </label>
+            <label className="checkbox">
+              <input
+                type="radio"
+                name="existing-set-mode"
+                value="copy"
+                checked={existingSetMode === "copy"}
+                disabled={loading === "csv"}
+                onChange={() => setExistingSetMode("copy")}
+              />
+              Create a new copy for already existing LEGO Sets
+            </label>
+          </fieldset>
           <input ref={fileRef} type="file" accept=".csv,.txt,text/plain" />
           <button
             type="submit"
@@ -102,6 +129,13 @@ export function ImportPage() {
               Created <strong>{csvResult.instances_created}</strong> instance
               {csvResult.instances_created === 1 ? "" : "s"}; fetched{" "}
               <strong>{csvResult.sets_fetched}</strong> from Rebrickable
+              {csvResult.existing_sets_skipped > 0 && (
+                <>
+                  {" "}
+                  ({csvResult.existing_sets_skipped} existing set
+                  {csvResult.existing_sets_skipped === 1 ? "" : "s"} skipped)
+                </>
+              )}
               {csvResult.catalog_stubs_created > 0 && (
                 <>
                   {" "}
