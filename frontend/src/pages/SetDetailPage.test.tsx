@@ -119,6 +119,84 @@ describe("SetDetailPage", () => {
     });
   });
 
+  it("refreshes part row image after updating photo in part view", async () => {
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:updated-part-preview"),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.spyOn(Date, "now").mockReturnValue(12345);
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            part_image_url: "/api/parts/42/image",
+          },
+        ],
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => detail,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          instance_line_id: 100,
+          part_id: 42,
+          catalog_line_id: 10,
+          quantity: 4,
+          quantity_missing: 1,
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          part_id: 42,
+          part_num: "3024",
+          aliases: ["3024b"],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ image_url: "/api/parts/42/image" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => detail,
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText(/Plate 1 x 1/);
+    const rowImage = document.querySelector(".part-cell__img");
+    expect(rowImage).toHaveAttribute("src", "/api/parts/42/image");
+
+    await user.click(screen.getByText("3024", { selector: "strong" }));
+    const dialog = await screen.findByRole("dialog");
+    const file = new File(["new pixels"], "new-part.png", { type: "image/png" });
+    await user.upload(within(dialog).getByLabelText(/^part photo$/i), file);
+    expect(within(dialog).getByAltText("Part 3024")).toHaveAttribute(
+      "src",
+      "blob:updated-part-preview",
+    );
+    await user.click(within(dialog).getByRole("button", { name: /^update$/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(document.querySelector(".part-cell__img")).toHaveAttribute(
+      "src",
+      "/api/parts/42/image?v=12345",
+    );
+  });
+
   it("sync panel sends default set images and selected part image mode", async () => {
     const fetchMock = vi
       .fn()

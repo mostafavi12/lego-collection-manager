@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import {
   addSetPartLine,
   deletePartImage,
+  mediaUrl,
   deleteSetPartLine,
   patchPartAliases,
   patchInstanceInventoryLine,
@@ -15,11 +16,13 @@ import {
   normalizePartAliases,
 } from "./AliasChipEditor";
 import { AsyncMessage } from "./AsyncMessage";
-import { ImageBlobEditor } from "./ImageBlobEditor";
 import { Modal } from "./Modal";
 
 type InventoryPartLineDetail = SetPartLineDetail | MinifigPartLineDetail;
 type InventoryKind = "set_part" | "minifig_part";
+export interface PartLineModalSaveResult {
+  imageChanged: boolean;
+}
 
 interface PartLineModalProps {
   mode: "create" | "edit";
@@ -27,7 +30,7 @@ interface PartLineModalProps {
   inventoryKind?: InventoryKind;
   line?: InventoryPartLineDetail;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (result?: PartLineModalSaveResult) => void;
 }
 
 export function PartLineModal({
@@ -59,6 +62,7 @@ export function PartLineModal({
   );
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
+  const [removeCurrentImage, setRemoveCurrentImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -72,6 +76,8 @@ export function PartLineModal({
       setQuantity(String(line.quantity));
       setMissingQuantity(String(line.missing_quantity));
       setAliases("aliases" in line ? line.aliases : []);
+      setPendingImage(null);
+      setRemoveCurrentImage(false);
     }
   }, [isEdit, line]);
 
@@ -87,6 +93,14 @@ export function PartLineModal({
 
   function onPendingFileSelected(file: File | undefined) {
     setPendingImage(file ?? null);
+    if (file) {
+      setRemoveCurrentImage(false);
+    }
+  }
+
+  function onRemovePendingOrCurrentImage() {
+    setPendingImage(null);
+    setRemoveCurrentImage(true);
   }
 
   async function saveAliases(partId: number, canonicalPartNum: string) {
@@ -116,6 +130,7 @@ export function PartLineModal({
 
     try {
       if (isEdit && line) {
+        const imageChanged = pendingImage != null || removeCurrentImage;
         const shouldPatchMissing = parsedMissing !== line.missing_quantity;
         const patchedMissingBeforeQuantity = parsedMissing < line.missing_quantity;
         if (shouldPatchMissing && patchedMissingBeforeQuantity) {
@@ -143,13 +158,38 @@ export function PartLineModal({
               ? `${aliasErr.message} (line was updated; retry aliases)`
               : "Alias update failed (line was updated)",
           );
-          onSaved();
+          onSaved({ imageChanged });
           return;
         }
         if (shouldPatchMissing && !patchedMissingBeforeQuantity) {
           await patchInstanceInventoryLine(setCopyId, line.instance_line_id, {
             quantity_missing: parsedMissing,
           });
+        }
+        if (pendingImage) {
+          try {
+            await uploadPartImage(line.part_id, pendingImage);
+          } catch (uploadErr) {
+            setError(
+              uploadErr instanceof Error
+                ? `${uploadErr.message} (line was updated; retry image)`
+                : "Image upload failed (line was updated)",
+            );
+            onSaved({ imageChanged });
+            return;
+          }
+        } else if (removeCurrentImage) {
+          try {
+            await deletePartImage(line.part_id);
+          } catch (deleteErr) {
+            setError(
+              deleteErr instanceof Error
+                ? `${deleteErr.message} (line was updated; retry image removal)`
+                : "Image removal failed (line was updated)",
+            );
+            onSaved({ imageChanged });
+            return;
+          }
         }
       } else {
         const trimmedPart = partNum.trim();
@@ -173,7 +213,7 @@ export function PartLineModal({
               ? `${aliasErr.message} (part was added; retry aliases from edit)`
               : "Alias update failed (part was added)",
           );
-          onSaved();
+          onSaved({ imageChanged: pendingImage != null });
           return;
         }
         if (pendingImage) {
@@ -185,12 +225,16 @@ export function PartLineModal({
                 ? `${uploadErr.message} (part was added; retry image from edit)`
                 : "Image upload failed (part was added)",
             );
-            onSaved();
+            onSaved({ imageChanged: false });
             return;
           }
         }
       }
-      onSaved();
+      onSaved({
+        imageChanged:
+          (isEdit && (pendingImage != null || removeCurrentImage)) ||
+          (!isEdit && pendingImage != null),
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save part");
@@ -219,6 +263,7 @@ export function PartLineModal({
 
   const title = isEdit ? "Edit part" : "Add part";
   const imageUrl = line?.part_image_url ?? line?.image_url ?? null;
+  const displayImageUrl = pendingPreview ?? (removeCurrentImage ? null : mediaUrl(imageUrl));
   const canonicalPartNum = isEdit ? (line?.part_num ?? "") : partNum.trim();
 
   return (
@@ -333,14 +378,41 @@ export function PartLineModal({
           <div className="part-line-modal__image">
             <p className="form-hint">Part image (shared across all sets)</p>
             {isEdit && line ? (
-              <ImageBlobEditor
-                imageUrl={imageUrl}
-                alt={`Part ${line.part_num}`}
-                uploadLabel="Part photo"
-                onUpload={(file) => uploadPartImage(line.part_id, file)}
-                onDelete={() => deletePartImage(line.part_id)}
-                onUpdated={onSaved}
-              />
+              <div className="image-blob-editor">
+                {displayImageUrl ? (
+                  <img
+                    src={displayImageUrl}
+                    alt={`Part ${line.part_num}`}
+                    className="image-blob-editor__preview"
+                  />
+                ) : (
+                  <div className="image-blob-editor__placeholder" aria-hidden />
+                )}
+                <div className="image-blob-editor__actions">
+                  <label className="btn btn--small btn--secondary">
+                    Part photo
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      className="sr-only"
+                      disabled={loading}
+                      onChange={(e) =>
+                        onPendingFileSelected(e.target.files?.[0])
+                      }
+                    />
+                  </label>
+                  {displayImageUrl && (
+                    <button
+                      type="button"
+                      className="btn btn--small btn--ghost"
+                      disabled={loading}
+                      onClick={onRemovePendingOrCurrentImage}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
             ) : (
               <div className="image-blob-editor">
                 {pendingPreview ? (

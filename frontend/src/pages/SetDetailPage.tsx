@@ -19,7 +19,10 @@ import { Modal } from "../components/Modal";
 import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
 import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
 import { MissingLineEditor } from "../components/MissingLineEditor";
-import { PartLineModal } from "../components/PartLineModal";
+import {
+  PartLineModal,
+  type PartLineModalSaveResult,
+} from "../components/PartLineModal";
 import { formatSetCopyTitle } from "../utils/setCopyTitle";
 
 interface InstanceForm {
@@ -54,6 +57,13 @@ function formFromDetail(detail: SetCopyDetailResponse): InstanceForm {
   };
 }
 
+function withRefreshToken(url: string | null, token: number): string | null {
+  if (!url || token === 0 || !url.startsWith("/api/")) {
+    return url;
+  }
+  return `${url}${url.includes("?") ? "&" : "?"}v=${token}`;
+}
+
 export function SetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const setCopyId = Number(id);
@@ -70,6 +80,7 @@ export function SetDetailPage() {
   const [syncPartImageDownloadMode, setSyncPartImageDownloadMode] =
     useState<PartImageDownloadMode>("none");
   const [showMissingOnly, setShowMissingOnly] = useState(false);
+  const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const [partSort, setPartSort] = useState<PartInventorySort>("element_id");
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -99,6 +110,13 @@ export function SetDetailPage() {
       setLoading(false);
     }
   }, [setCopyId]);
+
+  function onPartModalSaved(result?: PartLineModalSaveResult) {
+    if (result?.imageChanged) {
+      setImageRefreshToken(Date.now());
+    }
+    void load();
+  }
 
   useEffect(() => {
     void load();
@@ -539,7 +557,10 @@ export function SetDetailPage() {
             </thead>
             <tbody>
               {visibleSetParts.map((line) => {
-                const thumb = mediaUrl(line.part_image_url ?? line.image_url);
+                const thumb = withRefreshToken(
+                  mediaUrl(line.part_image_url ?? line.image_url),
+                  imageRefreshToken,
+                );
                 return (
                   <tr
                     key={line.instance_line_id}
@@ -624,7 +645,10 @@ export function SetDetailPage() {
                   </thead>
                   <tbody>
                     {mf.parts.map((line) => {
-                      const thumb = mediaUrl(line.part_image_url ?? line.image_url);
+                      const thumb = withRefreshToken(
+                        mediaUrl(line.part_image_url ?? line.image_url),
+                        imageRefreshToken,
+                      );
                       return (
                         <tr
                           key={line.instance_line_id}
@@ -688,7 +712,7 @@ export function SetDetailPage() {
           }
           line={partModal.mode === "edit" ? partModal.line : undefined}
           onClose={() => setPartModal(null)}
-          onSaved={() => void load()}
+          onSaved={onPartModalSaved}
         />
       )}
 

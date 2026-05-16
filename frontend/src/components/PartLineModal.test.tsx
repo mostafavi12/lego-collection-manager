@@ -111,6 +111,85 @@ describe("PartLineModal", () => {
     );
   });
 
+  it("previews edited part image locally and uploads on update", async () => {
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:updated-part-preview"),
+      revokeObjectURL: vi.fn(),
+    });
+    const lineWithImage = {
+      ...line,
+      part_image_url: "/api/parts/42/image",
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          instance_line_id: 100,
+          part_id: 42,
+          catalog_line_id: 10,
+          quantity: 4,
+          quantity_missing: 1,
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          part_id: 42,
+          part_num: "3024",
+          aliases: ["3024b"],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ image_url: "/api/parts/42/image" }),
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    render(
+      <PartLineModal
+        mode="edit"
+        setCopyId={1}
+        line={lineWithImage}
+        onClose={vi.fn()}
+        onSaved={onSaved}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByAltText("Part 3024")).toHaveAttribute(
+      "src",
+      "/api/parts/42/image",
+    );
+
+    const file = new File(["new pixels"], "new-part.png", { type: "image/png" });
+    await user.upload(within(dialog).getByLabelText(/^part photo$/i), file);
+
+    expect(within(dialog).getByAltText("Part 3024")).toHaveAttribute(
+      "src",
+      "blob:updated-part-preview",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole("button", { name: /^update$/i }));
+
+    await waitFor(() => {
+      expect(onSaved).toHaveBeenCalled();
+    });
+    const calls = fetchMock.mock.calls.map(([url, init]) => ({
+      url: String(url),
+      method: init?.method ?? "GET",
+    }));
+    expect(calls[0]?.url).toContain("/set-parts/100");
+    expect(calls[0]?.method).toBe("PATCH");
+    expect(calls[1]?.url).toContain("/parts/42/aliases");
+    expect(calls[1]?.method).toBe("PATCH");
+    expect(calls[2]?.url).toContain("/parts/42/image");
+    expect(calls[2]?.method).toBe("PUT");
+  });
+
   it("creates set part then patches aliases then uploads image", async () => {
     vi.stubGlobal("URL", {
       createObjectURL: vi.fn(() => "blob:test-preview"),
