@@ -132,9 +132,6 @@ export function SetsListPage() {
                   {item.missing_count} missing
                 </span>
               )}
-              <span className="badge badge--muted">
-                Sync: {item.catalog_sync_state}
-              </span>
             </div>
           </div>
         </Link>

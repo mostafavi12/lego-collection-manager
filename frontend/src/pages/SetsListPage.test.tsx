@@ -33,6 +33,7 @@ describe("SetsListPage", () => {
 
     expect(await screen.findByText(/6024 \(Police Car\) - copy A/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /make a copy/i })).toHaveLength(2);
+    expect(screen.queryByText(/sync:/i)).not.toBeInTheDocument();
   });
 
   it("opens make a copy dialog and posts on confirm", async () => {
