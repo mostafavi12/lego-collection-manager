@@ -21,17 +21,31 @@ function formatMeta(item: SetCopyListItem): string {
   return `${theme} · ${parts} parts · Age ${age}`;
 }
 
+function pageFromSearch(search: string): number {
+  const value = Number(new URLSearchParams(search).get("page") ?? "1");
+  return Number.isInteger(value) && value > 0 ? value : 1;
+}
+
+function offsetForPage(page: number): number {
+  return (page - 1) * PAGE_SIZE;
+}
+
 export function SetsListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [items, setItems] = useState<SetCopyListItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(() =>
+    offsetForPage(pageFromSearch(location.search)),
+  );
   const [filter, setFilter] = useState<InvestigatedFilter>("all");
   const [themeFilter, setThemeFilter] = useState("");
   const [sortBy, setSortBy] = useState<SetSortBy>("created");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [categorized, setCategorized] = useState(false);
+  const [pageInput, setPageInput] = useState(() =>
+    String(pageFromSearch(location.search)),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copyDialogId, setCopyDialogId] = useState<number | null>(null);
@@ -65,15 +79,58 @@ export function SetsListPage() {
   }, [load]);
 
   useEffect(() => {
+    setOffset(offsetForPage(pageFromSearch(location.search)));
+  }, [location.search]);
+
+  useEffect(() => {
     const state = location.state as { openAddSet?: boolean } | null;
     if (state?.openAddSet) {
       setAddSetOpen(true);
-      navigate("/", { replace: true, state: {} });
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
     }
-  }, [location.state, navigate]);
+  }, [location.pathname, location.search, location.state, navigate]);
 
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  useEffect(() => {
+    setPageInput(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    if (total === 0) {
+      return;
+    }
+    if (page > totalPages) {
+      goToPage(totalPages, { replace: true });
+    }
+  }, [page, total, totalPages]);
+
+  function goToPage(nextPage: number, options?: { replace?: boolean }) {
+    if (!Number.isFinite(nextPage)) {
+      return;
+    }
+    const clampedPage = Math.min(Math.max(nextPage, 1), totalPages);
+    setOffset(offsetForPage(clampedPage));
+    const search = new URLSearchParams(location.search);
+    if (clampedPage === 1) {
+      search.delete("page");
+    } else {
+      search.set("page", String(clampedPage));
+    }
+    const searchText = search.toString();
+    navigate(
+      {
+        pathname: location.pathname,
+        search: searchText ? `?${searchText}` : "",
+      },
+      { replace: options?.replace ?? false },
+    );
+  }
+
+  function resetToFirstPage() {
+    goToPage(1, { replace: true });
+  }
   const themeOptions = useMemo(
     () =>
       Array.from(
@@ -169,7 +226,7 @@ export function SetsListPage() {
           <select
             value={filter}
             onChange={(e) => {
-              setOffset(0);
+              resetToFirstPage();
               setFilter(e.target.value as InvestigatedFilter);
             }}
           >
@@ -183,7 +240,7 @@ export function SetsListPage() {
           <select
             value={themeFilter}
             onChange={(e) => {
-              setOffset(0);
+              resetToFirstPage();
               setThemeFilter(e.target.value);
             }}
           >
@@ -200,7 +257,7 @@ export function SetsListPage() {
           <select
             value={sortBy}
             onChange={(e) => {
-              setOffset(0);
+              resetToFirstPage();
               setSortBy(e.target.value as SetSortBy);
             }}
           >
@@ -217,7 +274,7 @@ export function SetsListPage() {
           <select
             value={sortDir}
             onChange={(e) => {
-              setOffset(0);
+              resetToFirstPage();
               setSortDir(e.target.value as SortDir);
             }}
           >
@@ -273,25 +330,46 @@ export function SetsListPage() {
 
       {total > PAGE_SIZE && (
         <div className="pagination">
-          <button
-            type="button"
-            className="btn btn--ghost"
-            disabled={offset === 0 || loading}
-            onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-          >
-            Previous
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            disabled={offset + PAGE_SIZE >= total || loading}
-            onClick={() => setOffset((o) => o + PAGE_SIZE)}
-          >
-            Next
-          </button>
+          <div className="pagination__main">
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={offset === 0 || loading}
+              onClick={() => goToPage(page - 1)}
+            >
+              Previous
+            </button>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={offset + PAGE_SIZE >= total || loading}
+              onClick={() => goToPage(page + 1)}
+            >
+              Next
+            </button>
+          </div>
+          {totalPages > 2 && (
+            <div className="pagination__goto">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                disabled={loading}
+                onClick={() => goToPage(Number(pageInput))}
+              >
+                Go to page #
+              </button>
+              <input
+                type="number"
+                value={pageInput}
+                disabled={loading}
+                aria-label="Page number"
+                onChange={(e) => setPageInput(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       )}
 
