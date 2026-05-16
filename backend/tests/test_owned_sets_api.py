@@ -51,6 +51,39 @@ def test_list_filter_investigated(api_client, db_session) -> None:
     assert body["items"][0]["investigated"] is False
 
 
+def test_list_filter_theme_and_sort(api_client, db_session) -> None:
+    town = add_theme(db_session, external_id=67, name="Town")
+    space = add_theme(db_session, external_id=88, name="Space")
+    catalog_b = add_catalog_set(db_session, set_number=2000, theme=space)
+    catalog_b.name = "Beta"
+    catalog_b.num_parts = 10
+    catalog_a = add_catalog_set(db_session, set_number=1000, theme=town)
+    catalog_a.name = "Alpha"
+    catalog_a.num_parts = 20
+    owned_b = add_owned_set(db_session, catalog_b)
+    owned_a = add_owned_set(db_session, catalog_a)
+    owned_b.age = 12
+    owned_a.age = 6
+    db_session.commit()
+
+    by_name = api_client.get(
+        "/api/owned-sets",
+        params={"sort_by": "name", "sort_dir": "asc"},
+    )
+    assert by_name.status_code == 200
+    assert [item["name"] for item in by_name.json()["items"]] == ["Alpha", "Beta"]
+
+    town_only = api_client.get(
+        "/api/owned-sets",
+        params={"theme": "Town", "sort_by": "set_num", "sort_dir": "desc"},
+    )
+    assert town_only.status_code == 200
+    body = town_only.json()
+    assert body["total"] == 1
+    assert body["items"][0]["theme_name"] == "Town"
+    assert body["items"][0]["set_num"] == 1000
+
+
 def test_list_pending_catalog_sync_state(api_client, db_session) -> None:
     stub = add_catalog_stub(db_session)
     add_owned_set(db_session, stub)

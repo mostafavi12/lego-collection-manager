@@ -199,6 +199,9 @@ def list_owned_sets(
     limit: int = 50,
     offset: int = 0,
     investigated: bool | None = None,
+    theme: str | None = None,
+    sort_by: str = "created",
+    sort_dir: str = "asc",
 ) -> OwnedSetListResponse:
     base = (
         select(OwnedSet, CatalogSet, Theme.name)
@@ -207,16 +210,32 @@ def list_owned_sets(
     )
     if investigated is not None:
         base = base.where(OwnedSet.investigated == investigated)
+    if theme:
+        base = base.where(Theme.name == theme)
 
-    count_stmt = select(func.count(OwnedSet.id)).join(
-        CatalogSet, OwnedSet.catalog_set_id == CatalogSet.id
+    count_stmt = (
+        select(func.count(OwnedSet.id))
+        .join(CatalogSet, OwnedSet.catalog_set_id == CatalogSet.id)
+        .outerjoin(Theme, CatalogSet.theme_id == Theme.id)
     )
     if investigated is not None:
         count_stmt = count_stmt.where(OwnedSet.investigated == investigated)
+    if theme:
+        count_stmt = count_stmt.where(Theme.name == theme)
     total = session.scalar(count_stmt) or 0
 
+    sort_columns = {
+        "created": OwnedSet.id,
+        "set_num": CatalogSet.set_number,
+        "name": func.lower(func.coalesce(CatalogSet.name, "")),
+        "theme": func.lower(func.coalesce(Theme.name, "")),
+        "num_parts": func.coalesce(CatalogSet.num_parts, -1),
+        "age": func.coalesce(OwnedSet.age, -1),
+    }
+    sort_column = sort_columns.get(sort_by, OwnedSet.id)
+    order = sort_column.desc() if sort_dir == "desc" else sort_column.asc()
     rows = session.execute(
-        base.order_by(OwnedSet.id).limit(limit).offset(offset)
+        base.order_by(order, OwnedSet.id).limit(limit).offset(offset)
     ).all()
 
     owned_ids = [row[0].id for row in rows]

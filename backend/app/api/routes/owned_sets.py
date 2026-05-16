@@ -76,9 +76,23 @@ def get_owned_sets(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     investigated: bool | None = None,
+    theme: str | None = Query(None),
+    sort_by: str = Query(
+        "created",
+        pattern="^(created|set_num|name|theme|num_parts|age)$",
+    ),
+    sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
 ) -> OwnedSetListResponse:
-    return list_owned_sets(db, limit=limit, offset=offset, investigated=investigated)
+    return list_owned_sets(
+        db,
+        limit=limit,
+        offset=offset,
+        investigated=investigated,
+        theme=theme,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
 
 
 @router.get("/add-preview", response_model=OwnedSetAddPreviewResponse)

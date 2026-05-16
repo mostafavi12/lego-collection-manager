@@ -1,9 +1,12 @@
 from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.importers.rebrickable_sync_service import RebrickableSyncResult, SetSyncFailure
+from app.importers.rebrickable_sync_service import (
+    ImageSyncFailure,
+    RebrickableSyncResult,
+    SetSyncFailure,
+)
 from tests.factories import add_catalog_set, add_owned_set
 
 
@@ -43,9 +46,14 @@ def test_post_sync_success(api_client, db_session, monkeypatch: pytest.MonkeyPat
         "sets_failed": [],
         "parts_upserted": 3,
         "inventory_lines_written": 5,
+        "set_images_downloaded": 0,
+        "part_images_downloaded": 0,
+        "image_downloads_failed": [],
     }
     mock_sync.assert_called_once()
     assert mock_sync.call_args.kwargs["owned_set_ids"] == [owned.id]
+    assert mock_sync.call_args.kwargs["download_set_images"] is False
+    assert mock_sync.call_args.kwargs["download_missing_part_images"] is False
 
 
 def test_post_sync_empty_body_syncs_all(
@@ -84,4 +92,47 @@ def test_post_sync_returns_failures(api_client, monkeypatch: pytest.MonkeyPatch)
     body = response.json()
     assert body["sets_failed"] == [
         {"set_num": "bad-1", "message": "HTTP 404 from Rebrickable"}
+    ]
+
+
+def test_post_sync_passes_image_options(api_client, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")
+    mock_result = RebrickableSyncResult(
+        set_images_downloaded=1,
+        part_images_downloaded=2,
+        image_downloads_failed=[
+            ImageSyncFailure(
+                target="part:1",
+                url="https://cdn.example/part.png",
+                message="HTTP 404",
+            )
+        ],
+    )
+
+    with patch(
+        "app.api.routes.imports.sync_rebrickable",
+        return_value=mock_result,
+    ) as mock_sync:
+        response = api_client.post(
+            "/api/imports/rebrickable/sync",
+            json={
+                "owned_set_ids": [10],
+                "download_set_images": True,
+                "download_missing_part_images": True,
+            },
+        )
+
+    assert response.status_code == 200
+    assert mock_sync.call_args.kwargs["owned_set_ids"] == [10]
+    assert mock_sync.call_args.kwargs["download_set_images"] is True
+    assert mock_sync.call_args.kwargs["download_missing_part_images"] is True
+    body = response.json()
+    assert body["set_images_downloaded"] == 1
+    assert body["part_images_downloaded"] == 2
+    assert body["image_downloads_failed"] == [
+        {
+            "target": "part:1",
+            "url": "https://cdn.example/part.png",
+            "message": "HTTP 404",
+        }
     ]

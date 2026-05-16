@@ -5,9 +5,14 @@ import {
   deleteSetCopy,
   getSetCopy,
   mediaUrl,
+  syncRebrickable,
   updateSetCopy,
 } from "../api/client";
-import type { SetCopyDetailResponse, SetPartLineDetail } from "../api/types";
+import type {
+  RebrickableSyncResponse,
+  SetCopyDetailResponse,
+  SetPartLineDetail,
+} from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { Modal } from "../components/Modal";
 import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
@@ -26,6 +31,8 @@ interface InstanceForm {
   catalogParts: string;
   catalogYear: string;
 }
+
+type PartInventorySort = "part_num" | "color" | "missing";
 
 function formFromDetail(detail: SetCopyDetailResponse): InstanceForm {
   return {
@@ -51,6 +58,12 @@ export function SetDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<RebrickableSyncResponse | null>(null);
+  const [syncDownloadSetImages, setSyncDownloadSetImages] = useState(false);
+  const [syncDownloadMissingPartImages, setSyncDownloadMissingPartImages] = useState(false);
+  const [showMissingOnly, setShowMissingOnly] = useState(false);
+  const [partSort, setPartSort] = useState<PartInventorySort>("part_num");
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [partModal, setPartModal] = useState<
@@ -167,6 +180,27 @@ export function SetDetailPage() {
     }
   }
 
+  async function onSyncThisSet() {
+    if (!detail) {
+      return;
+    }
+    setSyncing(true);
+    setError(null);
+    setSyncResult(null);
+    try {
+      const result = await syncRebrickable([detail.id], {
+        download_set_images: syncDownloadSetImages,
+        download_missing_part_images: syncDownloadMissingPartImages,
+      });
+      setSyncResult(result);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   if (loading && !detail) {
     return <AsyncMessage loading />;
   }
@@ -186,6 +220,23 @@ export function SetDetailPage() {
     catalog.name,
     detail.display_label,
   );
+  const visibleSetParts = [...inventory.set_parts]
+    .filter((line) => !showMissingOnly || line.missing_quantity > 0)
+    .sort((a, b) => {
+      if (partSort === "missing") {
+        return (
+          b.missing_quantity - a.missing_quantity ||
+          a.part_num.localeCompare(b.part_num, undefined, { numeric: true })
+        );
+      }
+      if (partSort === "color") {
+        return (
+          a.color_name.localeCompare(b.color_name, undefined, { numeric: true }) ||
+          a.part_num.localeCompare(b.part_num, undefined, { numeric: true })
+        );
+      }
+      return a.part_num.localeCompare(b.part_num, undefined, { numeric: true });
+    });
 
   return (
     <section className="page page--detail">
@@ -206,6 +257,81 @@ export function SetDetailPage() {
       </header>
 
       <AsyncMessage error={error} />
+
+      <section className="sync-panel">
+        <h2>Sync from Rebrickable</h2>
+        <p className="form-hint">
+          Refresh shared catalog and inventory data for this set copy’s catalog set.
+        </p>
+        <div className="sync-panel__controls">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={syncDownloadSetImages}
+              disabled={syncing || saving}
+              onChange={(e) => setSyncDownloadSetImages(e.target.checked)}
+            />
+            Download set image
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={syncDownloadMissingPartImages}
+              disabled={syncing || saving}
+              onChange={(e) => setSyncDownloadMissingPartImages(e.target.checked)}
+            />
+            Download images for missing parts only
+          </label>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            disabled={syncing || saving}
+            onClick={() => void onSyncThisSet()}
+          >
+            {syncing ? "Syncing…" : "Sync this set"}
+          </button>
+        </div>
+        {syncResult && (
+          <div className="import-result" role="status">
+            Synced {syncResult.sets_synced} set
+            {syncResult.sets_synced === 1 ? "" : "s"};{" "}
+            {syncResult.inventory_lines_written} inventory lines;{" "}
+            {syncResult.parts_upserted} parts upserted.
+            {syncResult.set_images_downloaded > 0 && (
+              <>
+                {" "}
+                Downloaded {syncResult.set_images_downloaded} set image
+                {syncResult.set_images_downloaded === 1 ? "" : "s"}.
+              </>
+            )}
+            {syncResult.part_images_downloaded > 0 && (
+              <>
+                {" "}
+                Downloaded {syncResult.part_images_downloaded} missing-part image
+                {syncResult.part_images_downloaded === 1 ? "" : "s"}.
+              </>
+            )}
+            {syncResult.sets_failed.length > 0 && (
+              <ul className="import-errors">
+                {syncResult.sets_failed.map((fail) => (
+                  <li key={fail.set_num}>
+                    {fail.set_num}: {fail.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {syncResult.image_downloads_failed.length > 0 && (
+              <ul className="import-errors">
+                {syncResult.image_downloads_failed.map((fail) => (
+                  <li key={`${fail.target}-${fail.url}`}>
+                    {fail.target}: {fail.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </section>
 
       <form className="instance-form" onSubmit={(e) => void onSubmit(e)}>
         <h2>Copy details</h2>
@@ -337,6 +463,27 @@ export function SetDetailPage() {
           </button>
           <h2>Parts inventory</h2>
         </div>
+        <div className="inventory-controls">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={showMissingOnly}
+              onChange={(e) => setShowMissingOnly(e.target.checked)}
+            />
+            Missing parts only
+          </label>
+          <label className="toolbar__field">
+            Sort parts
+            <select
+              value={partSort}
+              onChange={(e) => setPartSort(e.target.value as PartInventorySort)}
+            >
+              <option value="part_num">Part number</option>
+              <option value="color">Color</option>
+              <option value="missing">Missing quantity</option>
+            </select>
+          </label>
+        </div>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
@@ -349,7 +496,7 @@ export function SetDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {inventory.set_parts.map((line) => {
+              {visibleSetParts.map((line) => {
                 const thumb = mediaUrl(line.part_image_url ?? line.image_url);
                 return (
                   <tr
@@ -396,6 +543,11 @@ export function SetDetailPage() {
                   </tr>
                 );
               })}
+              {visibleSetParts.length === 0 && (
+                <tr>
+                  <td colSpan={5}>No matching set parts.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

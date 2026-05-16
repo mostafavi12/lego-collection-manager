@@ -11,7 +11,15 @@ logger = logging.getLogger(__name__)
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.db.models import CatalogSet, OwnedSet, SetMinifigInventoryLine
+from app.db.models import (
+    CatalogSet,
+    MinifigPartInventoryLine,
+    OwnedSet,
+    OwnedSetInventoryLine,
+    Part,
+    SetMinifigInventoryLine,
+    SetPartInventoryLine,
+)
 from app.services.instance_inventory import ensure_instance_inventory_for_catalog
 from app.importers.rebrickable_catalog import (
     SOURCE,
@@ -26,6 +34,13 @@ from app.domain.lego_set_number import LegoSetId, to_rebrickable_set_num
 from app.rebrickable.client import RebrickableClient
 from app.rebrickable.dto import CatalogSetDTO, ThemeDTO
 from app.rebrickable.exceptions import RebrickableAPIError
+from app.services.image_download import (
+    HttpxImageDownloader,
+    ImageDownloadError,
+    ImageDownloader,
+    download_catalog_set_image,
+    download_part_image,
+)
 
 
 class RebrickableReader(Protocol):
@@ -47,11 +62,21 @@ class SetSyncFailure:
 
 
 @dataclass
+class ImageSyncFailure:
+    target: str
+    url: str
+    message: str
+
+
+@dataclass
 class RebrickableSyncResult:
     sets_synced: int = 0
     sets_failed: list[SetSyncFailure] = field(default_factory=list)
     parts_upserted: int = 0
     inventory_lines_written: int = 0
+    set_images_downloaded: int = 0
+    part_images_downloaded: int = 0
+    image_downloads_failed: list[ImageSyncFailure] = field(default_factory=list)
 
 
 def resolve_set_nums(session: Session, owned_set_ids: list[int] | None) -> list[str]:
@@ -78,8 +103,13 @@ def sync_catalog_for_set_nums(
     session: Session,
     client: RebrickableReader,
     set_nums: list[str],
+    *,
+    download_set_images: bool = False,
+    download_missing_part_images: bool = False,
+    image_downloader: ImageDownloader | None = None,
 ) -> RebrickableSyncResult:
     result = RebrickableSyncResult()
+    downloader = image_downloader or HttpxImageDownloader()
     logger.info("Rebrickable sync started set_count=%s", len(set_nums))
     for set_num in set_nums:
         try:
@@ -94,6 +124,11 @@ def sync_catalog_for_set_nums(
                 parts,
                 lines,
             )
+            catalog = _catalog_for_rebrickable_key(session, set_num)
+            if catalog is not None and download_set_images:
+                _download_catalog_image(session, catalog, downloader, result)
+            if catalog is not None and download_missing_part_images:
+                _download_missing_part_images(session, catalog.id, downloader, result)
         except RebrickableAPIError as exc:
             session.rollback()
             message = _format_api_error(exc)
@@ -130,6 +165,9 @@ def sync_rebrickable(
     *,
     owned_set_ids: list[int] | None = None,
     client: RebrickableReader | None = None,
+    download_set_images: bool = False,
+    download_missing_part_images: bool = False,
+    image_downloader: ImageDownloader | None = None,
 ) -> RebrickableSyncResult:
     """Sync catalog data for set copies (dedup by `set_num`). Opens client when not provided."""
     set_nums = resolve_set_nums(session, owned_set_ids)
@@ -138,10 +176,24 @@ def sync_rebrickable(
         return RebrickableSyncResult()
 
     if client is not None:
-        return sync_catalog_for_set_nums(session, client, set_nums)
+        return sync_catalog_for_set_nums(
+            session,
+            client,
+            set_nums,
+            download_set_images=download_set_images,
+            download_missing_part_images=download_missing_part_images,
+            image_downloader=image_downloader,
+        )
 
     with RebrickableClient() as rb_client:
-        return sync_catalog_for_set_nums(session, rb_client, set_nums)
+        return sync_catalog_for_set_nums(
+            session,
+            rb_client,
+            set_nums,
+            download_set_images=download_set_images,
+            download_missing_part_images=download_missing_part_images,
+            image_downloader=image_downloader,
+        )
 
 
 def sync_one_catalog_set(
@@ -233,6 +285,102 @@ def _format_api_error(exc: RebrickableAPIError) -> str:
     if exc.status_code is not None:
         return f"HTTP {exc.status_code} from Rebrickable"
     return str(exc)
+
+
+def _catalog_for_rebrickable_key(session: Session, set_num: str) -> CatalogSet | None:
+    number, variant = set_num.split("-", 1)
+    if not number.isdigit() or not variant.isdigit():
+        return None
+    return session.scalar(
+        select(CatalogSet).where(
+            CatalogSet.set_number == int(number),
+            CatalogSet.set_variant == int(variant),
+        )
+    )
+
+
+def _download_catalog_image(
+    session: Session,
+    catalog: CatalogSet,
+    downloader: ImageDownloader,
+    result: RebrickableSyncResult,
+) -> None:
+    if not catalog.image_url:
+        return
+    try:
+        if download_catalog_set_image(session, catalog, downloader):
+            result.set_images_downloaded += 1
+    except ImageDownloadError as exc:
+        result.image_downloads_failed.append(
+            ImageSyncFailure(
+                target=f"catalog_set:{catalog.id}",
+                url=catalog.image_url,
+                message=str(exc),
+            )
+        )
+
+
+def _missing_parts_for_catalog(session: Session, catalog_set_id: int) -> list[Part]:
+    set_part_rows = (
+        select(Part)
+        .join(SetPartInventoryLine, SetPartInventoryLine.part_id == Part.id)
+        .join(
+            OwnedSetInventoryLine,
+            OwnedSetInventoryLine.set_part_inventory_line_id == SetPartInventoryLine.id,
+        )
+        .where(
+            SetPartInventoryLine.catalog_set_id == catalog_set_id,
+            OwnedSetInventoryLine.quantity_missing > 0,
+        )
+    )
+    minifig_rows = (
+        select(Part)
+        .join(MinifigPartInventoryLine, MinifigPartInventoryLine.part_id == Part.id)
+        .join(
+            OwnedSetInventoryLine,
+            OwnedSetInventoryLine.minifig_part_inventory_line_id
+            == MinifigPartInventoryLine.id,
+        )
+        .join(OwnedSet, OwnedSet.id == OwnedSetInventoryLine.owned_set_id)
+        .where(
+            OwnedSet.catalog_set_id == catalog_set_id,
+            OwnedSetInventoryLine.quantity_missing > 0,
+        )
+    )
+    parts = [
+        *session.scalars(set_part_rows).all(),
+        *session.scalars(minifig_rows).all(),
+    ]
+    seen: set[int] = set()
+    unique: list[Part] = []
+    for part in parts:
+        if part.id in seen:
+            continue
+        seen.add(part.id)
+        unique.append(part)
+    return unique
+
+
+def _download_missing_part_images(
+    session: Session,
+    catalog_set_id: int,
+    downloader: ImageDownloader,
+    result: RebrickableSyncResult,
+) -> None:
+    for part in _missing_parts_for_catalog(session, catalog_set_id):
+        if not part.image_url:
+            continue
+        try:
+            if download_part_image(session, part, downloader):
+                result.part_images_downloaded += 1
+        except ImageDownloadError as exc:
+            result.image_downloads_failed.append(
+                ImageSyncFailure(
+                    target=f"part:{part.id}",
+                    url=part.image_url,
+                    message=str(exc),
+                )
+            )
 
 
 def ensure_api_key_configured() -> None:

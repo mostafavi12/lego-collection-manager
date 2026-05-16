@@ -115,6 +115,9 @@ export function listSetCopies(params: {
   limit?: number;
   offset?: number;
   investigated?: boolean;
+  theme?: string;
+  sort_by?: "created" | "set_num" | "name" | "theme" | "num_parts" | "age";
+  sort_dir?: "asc" | "desc";
 }): Promise<SetCopyListResponse> {
   const search = new URLSearchParams();
   if (params.limit != null) {
@@ -125,6 +128,15 @@ export function listSetCopies(params: {
   }
   if (params.investigated != null) {
     search.set("investigated", String(params.investigated));
+  }
+  if (params.theme) {
+    search.set("theme", params.theme);
+  }
+  if (params.sort_by) {
+    search.set("sort_by", params.sort_by);
+  }
+  if (params.sort_dir) {
+    search.set("sort_dir", params.sort_dir);
   }
   const qs = search.toString();
   return request(`/owned-sets${qs ? `?${qs}` : ""}`);
@@ -191,13 +203,24 @@ export function importCsv(file: File): Promise<CsvImportResponse> {
 
 export function syncRebrickable(
   setCopyIds?: number[],
+  options?: {
+    download_set_images?: boolean;
+    download_missing_part_images?: boolean;
+  },
 ): Promise<RebrickableSyncResponse> {
+  const body = {
+    ...(setCopyIds?.length ? { owned_set_ids: setCopyIds } : {}),
+    ...(options?.download_set_images
+      ? { download_set_images: options.download_set_images }
+      : {}),
+    ...(options?.download_missing_part_images
+      ? { download_missing_part_images: options.download_missing_part_images }
+      : {}),
+  };
   return request("/imports/rebrickable/sync", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(
-      setCopyIds?.length ? { owned_set_ids: setCopyIds } : {},
-    ),
+    body: JSON.stringify(body),
   });
 }
 

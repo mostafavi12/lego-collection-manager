@@ -254,6 +254,9 @@ export interface RebrickableSyncResponse {
   sets_failed: { set_num: string; message: string }[];
   parts_upserted: number;
   inventory_lines_written: number;
+  set_images_downloaded: number;
+  part_images_downloaded: number;
+  image_downloads_failed: { target: string; url: string; message: string }[];
 }
 
 export interface MissingUpsertResponse {

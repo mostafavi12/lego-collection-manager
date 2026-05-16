@@ -24,7 +24,8 @@ from app.rebrickable.dto import (
     ThemeDTO,
 )
 from app.rebrickable.exceptions import RebrickableAPIError
-from tests.factories import add_catalog_set, add_owned_set
+from app.services.image_download import DownloadedImage
+from tests.factories import add_catalog_set, add_instance_line_for_set_part, add_owned_set
 
 
 def utc_now() -> datetime:
@@ -67,6 +68,15 @@ class FakeRebrickableClient:
         yield from self.minifig_parts.get(minifig_num, [])
 
 
+class FakeImageDownloader:
+    def __init__(self) -> None:
+        self.urls: list[str] = []
+
+    def download(self, url: str) -> DownloadedImage:
+        self.urls.append(url)
+        return DownloadedImage(content=b"image-bytes", content_type="image/png")
+
+
 def _sample_set() -> CatalogSetDTO:
     return CatalogSetDTO(
         set_num="6024-1",
@@ -83,9 +93,10 @@ def _sample_part_line(
     part_num: str = "3024",
     *,
     is_spare: bool = False,
+    image_url: str | None = None,
 ) -> SetPartLineDTO:
     return SetPartLineDTO(
-        part=PartDTO(part_num=part_num, name="Plate", image_url=None, aliases=()),
+        part=PartDTO(part_num=part_num, name="Plate", image_url=image_url, aliases=()),
         color=ColorDTO(external_id=0, name="Black", rgb="05131D"),
         quantity=4,
         is_spare=is_spare,
@@ -205,3 +216,71 @@ def test_sync_records_failure_without_corrupting_other_set(db_session, fake_clie
     )
     assert ok_set is not None
     assert ok_set.name == "Police Car"
+
+
+def test_sync_can_download_set_images(db_session, fake_client) -> None:
+    catalog = add_catalog_set(db_session)
+    add_owned_set(db_session, catalog)
+    db_session.commit()
+    downloader = FakeImageDownloader()
+
+    result = sync_catalog_for_set_nums(
+        db_session,
+        fake_client,
+        ["6024-1"],
+        download_set_images=True,
+        image_downloader=downloader,
+    )
+    db_session.commit()
+
+    assert result.set_images_downloaded == 1
+    assert result.image_downloads_failed == []
+    assert downloader.urls == ["https://cdn.rebrickable.com/media/sets/6024-1.jpg"]
+    db_session.expire_all()
+    updated = db_session.get(CatalogSet, catalog.id)
+    assert updated is not None
+    assert updated.image_blob == b"image-bytes"
+    assert updated.image_content_type == "image/png"
+
+
+def test_sync_downloads_only_missing_part_images(db_session, fake_client) -> None:
+    catalog = add_catalog_set(db_session)
+    owned = add_owned_set(db_session, catalog)
+    fake_client.set_parts["6024-1"] = [
+        _sample_part_line("3024", image_url="https://cdn.example/3024.png"),
+        _sample_part_line("3001", image_url="https://cdn.example/3001.png"),
+    ]
+    db_session.commit()
+    sync_catalog_for_set_nums(db_session, fake_client, ["6024-1"])
+    line = db_session.scalar(
+        select(SetPartInventoryLine)
+        .join(Part, SetPartInventoryLine.part_id == Part.id)
+        .where(Part.part_num == "3024")
+    )
+    assert line is not None
+    add_instance_line_for_set_part(
+        db_session,
+        owned_set=owned,
+        catalog_line=line,
+        quantity_missing=1,
+    )
+    db_session.commit()
+    downloader = FakeImageDownloader()
+
+    result = sync_catalog_for_set_nums(
+        db_session,
+        fake_client,
+        ["6024-1"],
+        download_missing_part_images=True,
+        image_downloader=downloader,
+    )
+    db_session.commit()
+
+    assert result.part_images_downloaded == 1
+    assert downloader.urls == ["https://cdn.example/3024.png"]
+    missing_part = db_session.scalar(select(Part).where(Part.part_num == "3024"))
+    other_part = db_session.scalar(select(Part).where(Part.part_num == "3001"))
+    assert missing_part is not None
+    assert other_part is not None
+    assert missing_part.image_blob == b"image-bytes"
+    assert other_part.image_blob is None

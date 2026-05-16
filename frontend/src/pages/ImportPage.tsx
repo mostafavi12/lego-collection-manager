@@ -11,6 +11,8 @@ export function ImportPage() {
   const [syncResult, setSyncResult] = useState<RebrickableSyncResponse | null>(null);
   const [loading, setLoading] = useState<"csv" | "sync" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadSetImages, setDownloadSetImages] = useState(false);
+  const [downloadMissingPartImages, setDownloadMissingPartImages] = useState(false);
 
   async function onCsvSubmit(event: FormEvent) {
     event.preventDefault();
@@ -40,7 +42,10 @@ export function ImportPage() {
     setError(null);
     setSyncResult(null);
     try {
-      const result = await syncRebrickable();
+      const result = await syncRebrickable(undefined, {
+        download_set_images: downloadSetImages,
+        download_missing_part_images: downloadMissingPartImages,
+      });
       setSyncResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
@@ -134,6 +139,24 @@ export function ImportPage() {
           edits or if a CSV token failed. Requires{" "}
           <code>REBRICKABLE_API_KEY</code> on the server.
         </p>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={downloadSetImages}
+            disabled={loading === "sync"}
+            onChange={(e) => setDownloadSetImages(e.target.checked)}
+          />
+          Download set images into the local database
+        </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={downloadMissingPartImages}
+            disabled={loading === "sync"}
+            onChange={(e) => setDownloadMissingPartImages(e.target.checked)}
+          />
+          Download part images for currently missing parts only
+        </label>
         <button
           type="button"
           className="btn btn--secondary"
@@ -149,12 +172,35 @@ export function ImportPage() {
               {syncResult.sets_synced === 1 ? "" : "s"};{" "}
               {syncResult.inventory_lines_written} inventory lines;{" "}
               {syncResult.parts_upserted} parts upserted.
+              {syncResult.set_images_downloaded > 0 && (
+                <>
+                  {" "}
+                  Downloaded {syncResult.set_images_downloaded} set image
+                  {syncResult.set_images_downloaded === 1 ? "" : "s"}.
+                </>
+              )}
+              {syncResult.part_images_downloaded > 0 && (
+                <>
+                  {" "}
+                  Downloaded {syncResult.part_images_downloaded} missing-part image
+                  {syncResult.part_images_downloaded === 1 ? "" : "s"}.
+                </>
+              )}
             </p>
             {syncResult.sets_failed.length > 0 && (
               <ul className="import-errors">
                 {syncResult.sets_failed.map((fail) => (
                   <li key={fail.set_num}>
                     {fail.set_num}: {fail.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {syncResult.image_downloads_failed.length > 0 && (
+              <ul className="import-errors">
+                {syncResult.image_downloads_failed.map((fail) => (
+                  <li key={`${fail.target}-${fail.url}`}>
+                    {fail.target}: {fail.message}
                   </li>
                 ))}
               </ul>

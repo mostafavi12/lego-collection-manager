@@ -217,6 +217,56 @@ describe("SetDetailPage", () => {
     expect(setNumInput).toHaveValue("6024");
   });
 
+  it("filters set parts to missing-only and sorts by color", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            instance_line_id: 100,
+            part_num: "3024",
+            color_name: "Black",
+            missing_quantity: 1,
+          },
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            instance_line_id: 101,
+            catalog_line_id: 11,
+            part_id: 43,
+            part_num: "3001",
+            color_name: "Red",
+            missing_quantity: 0,
+            missing_item_id: null,
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole("heading", { name: /parts inventory/i });
+    expect(screen.getByText("3001", { selector: "strong" })).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Missing parts only"));
+    expect(screen.queryByText(/3001/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Missing parts only"));
+    await user.selectOptions(screen.getByLabelText(/sort parts/i), "color");
+    const partLabels = screen.getAllByText(/^(3024|3001)$/, { selector: "strong" });
+    expect(partLabels[0]).toHaveTextContent("3024");
+    expect(partLabels[1]).toHaveTextContent("3001");
+  });
+
   it("deletes copy after confirmation", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "DELETE") {

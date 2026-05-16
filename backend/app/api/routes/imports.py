@@ -14,6 +14,7 @@ from app.schemas.imports import (
     CsvImportResponse,
     CsvImportSetFailure,
     CsvTokenError,
+    ImageDownloadFailure,
     RebrickableSetSyncFailure,
     RebrickableSyncRequest,
     RebrickableSyncResponse,
@@ -77,7 +78,14 @@ def import_rebrickable_sync(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     owned_set_ids = body.owned_set_ids if body is not None else None
-    result = sync_rebrickable(db, owned_set_ids=owned_set_ids)
+    result = sync_rebrickable(
+        db,
+        owned_set_ids=owned_set_ids,
+        download_set_images=body.download_set_images if body is not None else False,
+        download_missing_part_images=(
+            body.download_missing_part_images if body is not None else False
+        ),
+    )
     return RebrickableSyncResponse(
         sets_synced=result.sets_synced,
         sets_failed=[
@@ -86,4 +94,14 @@ def import_rebrickable_sync(
         ],
         parts_upserted=result.parts_upserted,
         inventory_lines_written=result.inventory_lines_written,
+        set_images_downloaded=result.set_images_downloaded,
+        part_images_downloaded=result.part_images_downloaded,
+        image_downloads_failed=[
+            ImageDownloadFailure(
+                target=f.target,
+                url=f.url,
+                message=f.message,
+            )
+            for f in result.image_downloads_failed
+        ],
     )

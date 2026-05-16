@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ function renderPage() {
 
 describe("SetsListPage", () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -89,5 +90,38 @@ describe("SetsListPage", () => {
         }),
       );
     });
+  });
+
+  it("passes sort/theme filters and can group by theme and age", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => setCopyListFixture,
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/6024 \(Police Car\) - copy A/);
+
+    await user.selectOptions(screen.getByLabelText(/sort by/i), "theme");
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        expect.stringContaining("sort_by=theme"),
+        undefined,
+      );
+    });
+
+    await user.selectOptions(screen.getByLabelText(/^theme$/i), "Town");
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        expect.stringContaining("theme=Town"),
+        undefined,
+      );
+    });
+
+    await user.click(screen.getByLabelText(/group by theme and age/i));
+    expect(screen.getByRole("heading", { name: "Town" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Age unknown" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Age 8" })).toBeInTheDocument();
   });
 });

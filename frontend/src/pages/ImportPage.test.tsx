@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ import { ImportPage } from "./ImportPage";
 
 describe("ImportPage", () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -47,5 +48,46 @@ describe("ImportPage", () => {
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("2");
     expect(status).toHaveTextContent("instance");
+  });
+
+  it("passes selected image options to sync endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sets_synced: 1,
+        sets_failed: [],
+        parts_upserted: 2,
+        inventory_lines_written: 3,
+        set_images_downloaded: 1,
+        part_images_downloaded: 1,
+        image_downloads_failed: [],
+      }),
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ImportPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByLabelText(/download set images/i));
+    await user.click(screen.getByLabelText(/download part images/i));
+    await user.click(screen.getByRole("button", { name: /sync entire collection/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/imports/rebrickable/sync"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            download_set_images: true,
+            download_missing_part_images: true,
+          }),
+        }),
+      );
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent("Downloaded 1 set image");
   });
 });

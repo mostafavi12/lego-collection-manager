@@ -23,10 +23,18 @@ class CsvImportResponse(BaseModel):
 
 class RebrickableSyncRequest(BaseModel):
     owned_set_ids: list[int] | None = None
+    download_set_images: bool = False
+    download_missing_part_images: bool = False
 
 
 class RebrickableSetSyncFailure(BaseModel):
     set_num: str
+    message: str
+
+
+class ImageDownloadFailure(BaseModel):
+    target: str
+    url: str
     message: str
 
 
@@ -35,3 +43,6 @@ class RebrickableSyncResponse(BaseModel):
     sets_failed: list[RebrickableSetSyncFailure] = Field(default_factory=list)
     parts_upserted: int
     inventory_lines_written: int
+    set_images_downloaded: int = 0
+    part_images_downloaded: int = 0
+    image_downloads_failed: list[ImageDownloadFailure] = Field(default_factory=list)
