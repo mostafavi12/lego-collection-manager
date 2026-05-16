@@ -72,7 +72,7 @@ The following **REST** resources are in scope for MVP. Exact paths and query par
 | Set minifigs | `GET /lego/sets/{set_num}/minifigs/` | Minifigs included in set | `catalog_minifigs`, `set_minifig_inventory_lines` |
 | Minifig parts | `GET /lego/minifigs/{minifig_num}/parts/` | BOM for one minifig | `parts`, `colors`, `minifig_part_inventory_lines` |
 | Colors (optional batch) | `GET /lego/colors/` | Full color list for FK resolution and display | `colors` |
-| Themes (optional) | `GET /lego/themes/{id}/` or list endpoint per docs | Theme name for display | `themes` or denormalized field on `catalog_sets` |
+| Themes | Local `data/themes.csv`, with API fallback when missing | Parent theme name for display | `themes` + `catalog_sets.theme_id` |
 
 **Pagination:** Rebrickable list endpoints are paginated; the importer must follow `next` links or page cursors until exhaustion (per official response schema).
 
@@ -115,6 +115,23 @@ Rules:
 - Set detail and search read persisted Element IDs from SQLite; they do not read
   the CSV at request time.
 
+### LEGO themes
+
+Rebrickable set responses provide a `theme_id` that can be a subtheme (for
+example `Farm`). Import/sync resolves that id through the local
+`data/themes.csv` file (`id,name,parent_id`) and stores the parent theme when one
+exists (for example `City`). If the CSV is missing or cannot resolve the id, the
+importer falls back to `GET /lego/themes/{id}/`.
+
+Rules:
+
+- `data/themes.csv` is read only during import/sync and Rebrickable draft
+  preview.
+- Override the import-time path with `THEMES_CSV_PATH` when running from a
+  non-standard checkout or in tests.
+- Set detail reads the persisted theme from SQLite; it does not read the CSV at
+  request time.
+
 ### Source metadata
 
 Every upserted row that originates from Rebrickable should set at least:
@@ -133,7 +150,7 @@ Except for the per-copy **`label`** (user-only), set-level metadata may come fro
 |-------|---------|------------------|---------------------------|
 | Set number | `catalog_sets.set_num` | Set API | `set_num` (this copy only; UI warning) |
 | Name | `catalog_sets.name` | Set API | `catalog_name` |
-| Theme | `themes` + `catalog_sets.theme_id` | Set + theme APIs | `catalog_theme_name` (creates/links theme when none) |
+| Theme | `themes` + `catalog_sets.theme_id` | Set API `theme_id`, resolved through `themes.csv` parent when available | `catalog_theme_name` (creates/links theme when none) |
 | Year | `catalog_sets.year` | Set API | `catalog_year` |
 | Part count | `catalog_sets.num_parts` | Set API | `catalog_num_parts` |
 | Age | `owned_sets.age` (shared per `catalog_set_id`) | Set API **`age_range` only when present** (parsed to integer, e.g. `6+` → `6`). **Often absent** on older sets and many API payloads — sync/import **never overwrites** a user-entered age with NULL. | **`age`** on set detail (`PATCH`): user enters minimum age manually (box, LEGO product page, etc.) |

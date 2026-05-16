@@ -12,6 +12,7 @@ from app.db.models import (
     Part,
     SetMinifigInventoryLine,
     SetPartInventoryLine,
+    Theme,
 )
 from app.importers.rebrickable_sync_service import (
     RebrickableSyncResult,
@@ -29,6 +30,7 @@ from app.rebrickable.dto import (
 from app.rebrickable.exceptions import RebrickableAPIError
 from app.services.element_catalog import clear_element_catalog_cache
 from app.services.image_download import DownloadedImage
+from app.services.theme_catalog import clear_theme_catalog_cache
 from tests.factories import add_catalog_set, add_instance_line_for_set_part, add_owned_set
 
 
@@ -185,6 +187,51 @@ def test_sync_populates_catalog(db_session, fake_client, tmp_path, monkeypatch) 
         )
     ).all() == ["302400", "6252045", "973000"]
     clear_element_catalog_cache()
+
+
+def test_sync_uses_parent_theme_from_csv(db_session, tmp_path, monkeypatch) -> None:
+    themes_csv = tmp_path / "themes.csv"
+    themes_csv.write_text(
+        "id,name,parent_id\n"
+        "52,City,\n"
+        "57,Farm,52\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("THEMES_CSV_PATH", str(themes_csv))
+    clear_theme_catalog_cache()
+    catalog = add_catalog_set(db_session, set_number=60181)
+    add_owned_set(db_session, catalog)
+    db_session.commit()
+    client = FakeRebrickableClient(
+        sets={
+            "60181-1": CatalogSetDTO(
+                set_num="60181-1",
+                name="Forest Tractor",
+                year=2018,
+                theme_external_id=57,
+                num_parts=174,
+                image_url=None,
+            )
+        },
+        set_parts={"60181-1": []},
+    )
+
+    result = sync_catalog_for_set_nums(db_session, client, ["60181-1"])
+    db_session.commit()
+
+    assert result.sets_synced == 1
+    theme = db_session.scalar(select(Theme).where(Theme.external_id == 52))
+    assert theme is not None
+    assert theme.name == "City"
+    updated = db_session.scalar(
+        select(CatalogSet).where(
+            CatalogSet.set_number == 60181,
+            CatalogSet.set_variant == 1,
+        )
+    )
+    assert updated is not None
+    assert updated.theme_id == theme.id
+    clear_theme_catalog_cache()
 
 
 def test_second_sync_replaces_inventory(db_session, fake_client) -> None:

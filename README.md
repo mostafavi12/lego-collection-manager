@@ -46,6 +46,7 @@ Configuration is read from the environment (see [`backend/.env.example`](backend
 | `REBRICKABLE_API_KEY` | — | Required for Rebrickable sync (not for tests) |
 | `LOG_LEVEL` | `INFO` | Importer and application log verbosity |
 | `ELEMENTS_CSV_PATH` | `../data/elements.csv` | Optional Rebrickable Element ID mapping used during import/sync enrichment |
+| `THEMES_CSV_PATH` | `../data/themes.csv` | Optional Rebrickable theme mapping used to display parent themes during import/sync |
 
 User-uploaded **part** and **set** images are stored as JPEG/PNG BLOBs in SQLite (see [docs/data-sources.md](docs/data-sources.md)); no upload directory is required.
 

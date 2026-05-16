@@ -11,6 +11,7 @@ from app.schemas.manual_add import (
     OwnedSetRebrickableDraftResponse,
 )
 from app.services.manual_add_service import normalize_set_num
+from app.services.theme_catalog import display_theme_for
 
 
 def fetch_manual_add_rebrickable_draft(
@@ -22,7 +23,10 @@ def fetch_manual_add_rebrickable_draft(
     set_dto = reader.get_set(rb_key)
     theme_name: str | None = None
     if set_dto.theme_external_id is not None:
-        theme_name = reader.get_theme(set_dto.theme_external_id).name
+        theme_dto = display_theme_for(set_dto.theme_external_id)
+        if theme_dto is None:
+            theme_dto = reader.get_theme(set_dto.theme_external_id)
+        theme_name = theme_dto.name
 
     catalog = ManualAddCatalogInput(
         name=set_dto.name,

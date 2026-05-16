@@ -43,6 +43,7 @@ from app.services.image_download import (
     download_catalog_set_image,
     download_part_image,
 )
+from app.services.theme_catalog import display_theme_for
 
 
 class RebrickableReader(Protocol):
@@ -219,7 +220,9 @@ def sync_one_catalog_set(
 
     theme_id = None
     if set_dto.theme_external_id is not None:
-        theme_dto = client.get_theme(set_dto.theme_external_id)
+        theme_dto = display_theme_for(set_dto.theme_external_id)
+        if theme_dto is None:
+            theme_dto = client.get_theme(set_dto.theme_external_id)
         theme = upsert_theme(session, theme_dto, fetched_at=fetched_at)
         theme_id = theme.id
 
