@@ -49,6 +49,8 @@ Configuration is read from the environment (see [`backend/.env.example`](backend
 | `IMPORT_FAILURE_LOG_PATH` | `./data/import_failures.log` | Dedicated JSON-lines text file for failed imports/syncs/image downloads |
 | `ELEMENTS_CSV_PATH` | `../data/elements.csv` | Optional Rebrickable Element ID mapping used during import/sync enrichment |
 | `THEMES_CSV_PATH` | `../data/themes.csv` | Optional Rebrickable theme mapping used to display parent themes during import/sync |
+| `AGE_CSV_PATH` | `../data/age.csv` | Optional local age mapping used by the Import page metadata update |
+| `SETS_CSV_PATH` | `../data/sets.csv` | Optional Rebrickable set catalog CSV used by the Import page metadata update |
 
 User-uploaded **part** and **set** images are stored as JPEG/PNG BLOBs in SQLite (see [docs/data-sources.md](docs/data-sources.md)); no upload directory is required.
 

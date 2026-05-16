@@ -7,6 +7,7 @@ import type {
   ImageUploadResponse,
   InstanceInventoryLineResponse,
   InstanceInventoryLineUpdate,
+  LocalMetadataUpdateResponse,
   MissingImageResponse,
   MissingUpsertResponse,
   PartAliasesReplaceBody,
@@ -230,6 +231,10 @@ export function syncRebrickable(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+export function updateLocalMetadata(): Promise<LocalMetadataUpdateResponse> {
+  return request("/imports/local-metadata", { method: "POST" });
 }
 
 export function addSetPartLine(

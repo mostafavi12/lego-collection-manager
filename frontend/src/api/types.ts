@@ -288,6 +288,13 @@ export interface RebrickableSyncResponse {
   image_downloads_failed: { target: string; url: string; message: string }[];
 }
 
+export interface LocalMetadataUpdateResponse {
+  owned_set_ages_updated: number;
+  catalog_themes_updated: number;
+  age_values_available: number;
+  theme_values_available: number;
+}
+
 export interface MissingUpsertResponse {
   /** Set copy this missing row belongs to (`owned_sets.id`). */
   owned_set_id: number;

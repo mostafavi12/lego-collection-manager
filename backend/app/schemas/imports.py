@@ -54,3 +54,10 @@ class RebrickableSyncResponse(BaseModel):
     minifig_images_downloaded: int = 0
     part_images_downloaded: int = 0
     image_downloads_failed: list[ImageDownloadFailure] = Field(default_factory=list)
+
+
+class LocalMetadataUpdateResponse(BaseModel):
+    owned_set_ages_updated: int
+    catalog_themes_updated: int
+    age_values_available: int
+    theme_values_available: int

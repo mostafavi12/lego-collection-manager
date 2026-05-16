@@ -105,6 +105,27 @@ Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at leas
 
 **Environment:** Requires `REBRICKABLE_API_KEY`; if missing, return **`400`** with clear `detail`.
 
+### Local metadata update — synchronous
+
+**`POST /imports/local-metadata`**
+
+Fills missing local metadata without calling Rebrickable. The Import page exposes this below Rebrickable sync.
+
+- Updates `owned_sets.age` only where age is currently missing (`NULL` / displayed as `?`), using `data/age.csv`; values such as `7+` are stored as `7`.
+- Updates `catalog_sets.theme_id` only where the theme is currently unknown (`NULL` / displayed as `Unknown theme`), using `data/sets.csv` for the set theme id and `data/themes.csv` to resolve the display theme. If `parent_id` exists, the parent theme is stored.
+- Existing age and theme values are preserved.
+
+**Response `200`:**
+
+```json
+{
+  "owned_set_ages_updated": 42,
+  "catalog_themes_updated": 3,
+  "age_values_available": 410,
+  "theme_values_available": 26827
+}
+```
+
 ## Set copies (`GET/POST /owned-sets`, …)
 
 Everything under this path is **a physical copy** in the user’s collection (table `owned_sets`). **`catalog_sets`** is shared metadata/template for the LEGO `set_num` and may be removed when the **last** copy is deleted.

@@ -16,10 +16,12 @@ from app.schemas.imports import (
     CsvTokenError,
     ExistingSetImportMode,
     ImageDownloadFailure,
+    LocalMetadataUpdateResponse,
     RebrickableSetSyncFailure,
     RebrickableSyncRequest,
     RebrickableSyncResponse,
 )
+from app.services.local_metadata import update_missing_local_metadata
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -114,4 +116,15 @@ def import_rebrickable_sync(
             )
             for f in result.image_downloads_failed
         ],
+    )
+
+
+@router.post("/local-metadata", response_model=LocalMetadataUpdateResponse)
+def update_local_metadata(db: Session = Depends(get_db)) -> LocalMetadataUpdateResponse:
+    result = update_missing_local_metadata(db)
+    return LocalMetadataUpdateResponse(
+        owned_set_ages_updated=result.owned_set_ages_updated,
+        catalog_themes_updated=result.catalog_themes_updated,
+        age_values_available=result.age_values_available,
+        theme_values_available=result.theme_values_available,
     )

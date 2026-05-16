@@ -160,7 +160,12 @@ Except for the per-copy **`label`** (user-only), set-level metadata may come fro
 
 **Re-sync behavior:** each successful Rebrickable sync updates the fields that are safe to refresh from the source: set name, set image URL/BLOB when requested, number of parts, part names/images, catalog inventory lines, and per-copy part quantities. Sync preserves theme, year, age, investigated, missing quantities/items, labels, and notes.
 
-**Other data sources for age:** not integrated in MVP. Optional later: dedicated APIs (e.g. BrickLink/Brickset) or scraping — each has licensing and reliability trade-offs; manual entry covers the gap today.
+**Local metadata update:** the Import page includes a no-network maintenance action
+that fills only missing fields. `data/age.csv` supplies `owned_sets.age` for
+copies where age is currently unknown (`?`); values such as `7+` are stored as
+`7`. `data/sets.csv` supplies a set's `theme_id`, and `data/themes.csv` resolves
+that id to the stored theme, using the parent theme when `parent_id` is present.
+Existing age and theme values are preserved.
 
 ## User-provided images (Phase 10+)
 

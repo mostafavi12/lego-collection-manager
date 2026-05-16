@@ -130,3 +130,32 @@ def test_post_csv_rejects_oversized_file(api_client, monkeypatch) -> None:
         files={"file": ("sets.txt", b"0" * 20, "text/plain")},
     )
     assert response.status_code == 413
+
+
+def test_post_local_metadata_updates_missing_values(api_client) -> None:
+    from app.api.routes import imports as imports_route
+    from app.services.local_metadata import LocalMetadataUpdateResult
+
+    seen_session = None
+
+    def stub(session):
+        nonlocal seen_session
+        seen_session = session
+        return LocalMetadataUpdateResult(
+            owned_set_ages_updated=2,
+            catalog_themes_updated=3,
+            age_values_available=4,
+            theme_values_available=5,
+        )
+
+    with patch.object(imports_route, "update_missing_local_metadata", stub):
+        response = api_client.post("/api/imports/local-metadata")
+
+    assert response.status_code == 200
+    assert seen_session is not None
+    assert response.json() == {
+        "owned_set_ages_updated": 2,
+        "catalog_themes_updated": 3,
+        "age_values_available": 4,
+        "theme_values_available": 5,
+    }

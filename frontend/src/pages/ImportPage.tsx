@@ -1,8 +1,12 @@
 import { FormEvent, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { importCsv, syncRebrickable } from "../api/client";
-import type { CsvImportResponse, RebrickableSyncResponse } from "../api/types";
+import { importCsv, syncRebrickable, updateLocalMetadata } from "../api/client";
+import type {
+  CsvImportResponse,
+  LocalMetadataUpdateResponse,
+  RebrickableSyncResponse,
+} from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 
 type PartImageDownloadMode = "none" | "missing" | "all";
@@ -12,7 +16,9 @@ export function ImportPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [csvResult, setCsvResult] = useState<CsvImportResponse | null>(null);
   const [syncResult, setSyncResult] = useState<RebrickableSyncResponse | null>(null);
-  const [loading, setLoading] = useState<"csv" | "sync" | null>(null);
+  const [metadataResult, setMetadataResult] =
+    useState<LocalMetadataUpdateResponse | null>(null);
+  const [loading, setLoading] = useState<"csv" | "sync" | "metadata" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadSetImages, setDownloadSetImages] = useState(true);
   const [partImageDownloadMode, setPartImageDownloadMode] =
@@ -59,6 +65,19 @@ export function ImportPage() {
     }
   }
 
+  async function onLocalMetadataUpdate() {
+    setLoading("metadata");
+    setError(null);
+    setMetadataResult(null);
+    try {
+      setMetadataResult(await updateLocalMetadata());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Metadata update failed");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   return (
     <section className="page">
       <header className="page__header">
@@ -75,7 +94,7 @@ export function ImportPage() {
 
       <AsyncMessage
         error={error}
-        loading={loading === "sync" && !syncResult}
+        loading={(loading === "sync" && !syncResult) || loading === "metadata"}
       />
 
       <article className="import-card">
@@ -83,10 +102,10 @@ export function ImportPage() {
         <p>
           Upload a plain text file with comma-separated LEGO set numbers (no
           header). Each token creates a <strong>new physical copy</strong> in your
-          loads set metadata and parts from Rebrickable when the API key is
-          configured. Images are not downloaded. Recommended{" "}
-          <strong>age</strong> is often missing from Rebrickable — set it on the
-          set detail page after import if you want it.
+          collection and loads set metadata and parts from Rebrickable when the API
+          key is configured. Images are not downloaded. Recommended{" "}
+          <strong>age</strong> is often missing from Rebrickable — use the local
+          metadata update below or set it on the set detail page.
         </p>
         <form onSubmit={(e) => void onCsvSubmit(e)}>
           <fieldset className="sync-panel__radio-group">
@@ -276,6 +295,36 @@ export function ImportPage() {
                 ))}
               </ul>
             )}
+          </div>
+        )}
+      </article>
+
+      <article className="import-card import-card--secondary">
+        <h2>Local metadata update</h2>
+        <p>
+          Fill missing ages and unknown themes from local CSV files. Ages come
+          from <code>data/age.csv</code> and are stored as numbers without{" "}
+          <code>+</code>. Themes use <code>data/sets.csv</code> and{" "}
+          <code>data/themes.csv</code>, resolving subthemes to parent themes.
+          Existing age and theme values are preserved.
+        </p>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={loading === "metadata"}
+          onClick={() => void onLocalMetadataUpdate()}
+        >
+          {loading === "metadata" ? "Updating…" : "Update missing ages and themes"}
+        </button>
+        {metadataResult && (
+          <div className="import-result" role="status">
+            <p>
+              Updated <strong>{metadataResult.owned_set_ages_updated}</strong>{" "}
+              age value
+              {metadataResult.owned_set_ages_updated === 1 ? "" : "s"} and{" "}
+              <strong>{metadataResult.catalog_themes_updated}</strong> theme
+              {metadataResult.catalog_themes_updated === 1 ? "" : "s"}.
+            </p>
           </div>
         )}
       </article>

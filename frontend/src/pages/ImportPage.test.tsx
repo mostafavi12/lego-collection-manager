@@ -132,4 +132,35 @@ describe("ImportPage", () => {
     });
     expect(await screen.findByRole("status")).toHaveTextContent("Downloaded 1 set image");
   });
+
+  it("can update missing ages and themes from local metadata", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        owned_set_ages_updated: 2,
+        catalog_themes_updated: 1,
+        age_values_available: 400,
+        theme_values_available: 26000,
+      }),
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ImportPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /update missing ages and themes/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/imports/local-metadata"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Updated 2 age values and 1 theme");
+  });
 });
