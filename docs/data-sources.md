@@ -98,6 +98,21 @@ General rules (details in [database-schema.md](./database-schema.md)):
 | Minifig `minifig_num` | Upsert `catalog_minifigs`; set-level minifig rows go to `set_minifig_inventory_lines`; BOM rows go to `minifig_part_inventory_lines`. |
 | Aliases | When the API exposes alternate part IDs or legacy numbers, populate `part_aliases` so search remains accurate. |
 
+### LEGO Element IDs
+
+LEGO instruction manuals commonly identify a specific part/color combination by
+**Element ID**. Rebrickable set inventory responses provide `part_num` and
+`color_id` separately, so import/sync enriches inventory lines from the local
+`data/elements.csv` file (`element_id,part_num,color_id,design_id`).
+
+Rules:
+
+- `data/elements.csv` is read only during import/sync or migration backfill.
+- Matching uses Rebrickable `part_num` plus Rebrickable external `color_id`.
+- Multiple Element IDs for one part/color are valid and are stored as a list.
+- Set detail and search read persisted Element IDs from SQLite; they do not read
+  the CSV at request time.
+
 ### Source metadata
 
 Every upserted row that originates from Rebrickable should set at least:

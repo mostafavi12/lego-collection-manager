@@ -35,7 +35,7 @@ describe("SetDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: /6024 \(Police Car\) - copy A/i })).toBeInTheDocument();
     expect(screen.getByText(/Plate 1 x 1/)).toBeInTheDocument();
-    expect(screen.getByText("3024b")).toBeInTheDocument();
+    expect(screen.getByText("302400, 6252045")).toBeInTheDocument();
     expect(screen.getByLabelText(/missing quantity for 3024/i)).toHaveValue(1);
   });
 
@@ -217,7 +217,7 @@ describe("SetDetailPage", () => {
     expect(setNumInput).toHaveValue("6024");
   });
 
-  it("filters set parts to missing-only and sorts by color", async () => {
+  it("filters set parts to missing-only and sorts by element id", async () => {
     const detail = {
       ...setCopyDetailFixture,
       inventory: {
@@ -228,6 +228,7 @@ describe("SetDetailPage", () => {
             instance_line_id: 100,
             part_num: "3024",
             color_name: "Black",
+            element_ids: ["302400"],
             missing_quantity: 1,
           },
           {
@@ -237,6 +238,7 @@ describe("SetDetailPage", () => {
             part_id: 43,
             part_num: "3001",
             color_name: "Red",
+            element_ids: ["300121"],
             missing_quantity: 0,
             missing_item_id: null,
           },
@@ -261,10 +263,10 @@ describe("SetDetailPage", () => {
     expect(screen.queryByText(/3001/)).not.toBeInTheDocument();
 
     await user.click(screen.getByLabelText("Missing parts only"));
-    await user.selectOptions(screen.getByLabelText(/sort parts/i), "color");
+    await user.selectOptions(screen.getByLabelText(/sort parts/i), "element_id");
     const partLabels = screen.getAllByText(/^(3024|3001)$/, { selector: "strong" });
-    expect(partLabels[0]).toHaveTextContent("3024");
-    expect(partLabels[1]).toHaveTextContent("3001");
+    expect(partLabels[0]).toHaveTextContent("3001");
+    expect(partLabels[1]).toHaveTextContent("3024");
   });
 
   it("deletes copy after confirmation", async () => {

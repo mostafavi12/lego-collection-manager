@@ -32,11 +32,13 @@ erDiagram
   CatalogSet ||--o{ SetPartInventoryLine : hasPartLines
   Part ||--o{ SetPartInventoryLine : references
   Color ||--o{ SetPartInventoryLine : tints
+  SetPartInventoryLine ||--o{ InventoryLineElementId : hasElementIds
   CatalogSet ||--o{ SetMinifigInventoryLine : includesMinifigs
   CatalogMinifig ||--o{ SetMinifigInventoryLine : instanceOf
   CatalogMinifig ||--o{ MinifigPartInventoryLine : hasBomLines
   Part ||--o{ MinifigPartInventoryLine : references
   Color ||--o{ MinifigPartInventoryLine : tints
+  MinifigPartInventoryLine ||--o{ InventoryLineElementId : hasElementIds
   Part ||--o{ PartAlias : alsoKnownAs
   OwnedSet ||--o{ OwnedSetInventoryLine : instanceQty
   OwnedSet ||--o{ MissingItem : tracksGaps
@@ -200,6 +202,23 @@ BOM: parts belonging to a minifig design.
 | `fetched_at` | TIMESTAMP NOT NULL | |
 | **UNIQUE** | | `(catalog_minifig_id, part_id, color_id)` |
 
+### `inventory_line_element_ids`
+
+Persisted LEGO Element IDs for concrete inventory lines. Element IDs are derived
+from `data/elements.csv` at Rebrickable import/sync or migration backfill time,
+then served from SQLite for detail and search.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | |
+| `set_part_inventory_line_id` | INTEGER FK NULL | Exactly one inventory line FK is set. |
+| `minifig_part_inventory_line_id` | INTEGER FK NULL | |
+| `element_id` | TEXT NOT NULL | LEGO Element ID, specific to part/color/print. |
+
+**Unique:** `(set_part_inventory_line_id, element_id)` when set-line FK is set,
+and `(minifig_part_inventory_line_id, element_id)` when minifig-line FK is set.
+Multiple Element IDs can exist for one inventory line.
+
 ### `missing_items`
 
 Per **set copy**, links to **one** `owned_set_inventory_lines` row when the user has marked that line as missing (photo optional; stored on `parts.image_blob`).
@@ -222,6 +241,7 @@ Per **set copy**, links to **one** `owned_set_inventory_lines` row when the user
 | `catalog_sets` | `(set_number, set_variant)` | Unique lookup; search by set number prefix on `set_number`. |
 | `parts` | `part_num` | Lookup; prefix search helper. |
 | `part_aliases` | `alias` | Search by alternate id. |
+| `inventory_line_element_ids` | `element_id` | Element ID search. |
 | `set_part_inventory_lines` | `(catalog_set_id)` | Set detail parts query. |
 | `set_minifig_inventory_lines` | `(catalog_set_id)` | Set detail minifigs. |
 | `minifig_part_inventory_lines` | `(catalog_minifig_id)` | Expand minifig BOM. |

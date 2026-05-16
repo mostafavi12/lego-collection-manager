@@ -5,6 +5,7 @@ from tests.factories import (
     add_part_alias,
     add_set_part_inventory_line,
     add_color,
+    add_element_id_for_set_part_line,
 )
 
 
@@ -42,7 +43,8 @@ def test_search_parts_by_part_num_and_alias(api_client, db_session) -> None:
     part = add_part(db_session, part_num="3024")
     add_part_alias(db_session, part, "alias-3024")
     color = add_color(db_session)
-    add_set_part_inventory_line(db_session, catalog_set=catalog, part=part, color=color)
+    line = add_set_part_inventory_line(db_session, catalog_set=catalog, part=part, color=color)
+    add_element_id_for_set_part_line(db_session, line=line, element_id="302400")
     db_session.commit()
 
     by_num = api_client.get("/api/search", params={"q": "3024", "type": "part"})
@@ -50,9 +52,17 @@ def test_search_parts_by_part_num_and_alias(api_client, db_session) -> None:
     p0 = by_num.json()["parts"][0]
     assert p0["lines"][0]["display_part_num"] == "3024"
     assert len(p0["lines"][0]["sets"]) == 1
+    assert p0["lines"][0]["sets"][0]["colors"] == [
+        {"color_id": 0, "color_name": "Black", "quantity": 4}
+    ]
 
     by_alias = api_client.get("/api/search", params={"q": "alias", "type": "part"})
     assert len(by_alias.json()["parts"]) == 1
+
+    by_element = api_client.get("/api/search", params={"q": "3024", "type": "element"})
+    assert by_element.status_code == 200
+    assert by_element.json()["elements"][0]["element_ids"] == ["302400"]
+    assert by_element.json()["elements"][0]["part_num"] == "3024"
 
 
 def test_search_parts_groups_aliases_by_original_part_number(api_client, db_session) -> None:

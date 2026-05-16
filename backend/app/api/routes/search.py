@@ -11,7 +11,7 @@ router = APIRouter(tags=["search"])
 @router.get("/search", response_model=SearchResponse)
 def get_search(
     q: str = Query(...),
-    search_type: str = Query("all", alias="type", pattern="^(set|part|all)$"),
+    search_type: str = Query("all", alias="type", pattern="^(set|part|element|all)$"),
     limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),

@@ -5,7 +5,11 @@ import { mediaUrl, searchCatalog } from "../api/client";
 import type { SearchResponse } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 
-type SearchType = "all" | "set" | "part";
+type SearchType = "all" | "set" | "part" | "element";
+
+function formatElementIds(elementIds: string[]): string {
+  return elementIds.length > 0 ? elementIds.join(", ") : "No Element ID";
+}
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
@@ -39,7 +43,8 @@ export function SearchPage() {
       <header className="page__header">
         <h1>Search</h1>
         <p className="page__lede">
-          Find LEGO sets or parts that appear in your collection.
+          Find LEGO sets, part numbers, or Element IDs that appear in your
+          collection.
         </p>
       </header>
 
@@ -47,7 +52,7 @@ export function SearchPage() {
         <input
           type="search"
           value={query}
-          placeholder="Set number or part number…"
+          placeholder="Set number, part number, or Element ID…"
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search query"
         />
@@ -58,7 +63,8 @@ export function SearchPage() {
         >
           <option value="all">Sets and parts</option>
           <option value="set">Sets only</option>
-          <option value="part">Parts only</option>
+          <option value="part">Part number</option>
+          <option value="element">Element ID</option>
         </select>
         <button type="submit" className="btn btn--primary" disabled={loading}>
           Search
@@ -95,7 +101,7 @@ export function SearchPage() {
 
           {(searchType === "all" || searchType === "part") && (
             <section>
-              <h2>Parts ({results.parts.length})</h2>
+              <h2>Part Numbers ({results.parts.length})</h2>
               {results.parts.length === 0 ? (
                 <p className="empty-hint">No matching parts in owned inventories.</p>
               ) : (
@@ -127,13 +133,66 @@ export function SearchPage() {
                                     <Link to={`/sets/${occ.owned_set_id}`}>
                                       {occ.set_num}
                                     </Link>
-                                    <span> ({occ.quantity})</span>
+                                    <span>
+                                      {" "}
+                                      ({occ.quantity}
+                                      {occ.colors.length > 0
+                                        ? `; ${occ.colors
+                                            .map(
+                                              (color) =>
+                                                `${color.color_name} x${color.quantity}`,
+                                            )
+                                            .join(", ")}`
+                                        : ""}
+                                      )
+                                    </span>
                                   </Fragment>
                                 ))
                               )}
                             </li>
                           ))}
                         </ul>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+
+          {(searchType === "all" || searchType === "element") && (
+            <section>
+              <h2>Element IDs ({results.elements.length})</h2>
+              {results.elements.length === 0 ? (
+                <p className="empty-hint">No matching Element IDs in owned inventories.</p>
+              ) : (
+                <ul className="result-list result-list--parts">
+                  {results.elements.map((element) => (
+                    <li
+                      key={`${element.part_num}-${element.color_id}-${element.element_ids.join("-")}`}
+                      className="result-list__part-hit"
+                    >
+                      <div className="result-list__part-body">
+                        <p className="result-list__part-name">
+                          <strong>{formatElementIds(element.element_ids)}</strong>
+                          {" — "}
+                          {element.part_num}
+                          {element.part_name ? `, ${element.part_name}` : ""}
+                          {` (${element.color_name})`}
+                        </p>
+                        {element.sets.length === 0 ? (
+                          <span className="empty-hint">No sets in collection</span>
+                        ) : (
+                          element.sets.map((occ, i) => (
+                            <Fragment key={`${element.part_num}-${occ.owned_set_id}-${occ.set_num}`}>
+                              {i > 0 ? ", " : null}
+                              <Link to={`/sets/${occ.owned_set_id}`}>
+                                {occ.set_num}
+                              </Link>
+                              <span> ({occ.quantity})</span>
+                            </Fragment>
+                          ))
+                        )}
                       </div>
                     </li>
                   ))}

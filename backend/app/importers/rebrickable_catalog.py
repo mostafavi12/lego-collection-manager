@@ -5,16 +5,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
-
-from app.db.models import OwnedSetInventoryLine
 from sqlalchemy.orm import Session
 
 from app.db.models import (
     CatalogMinifig,
     CatalogSet,
     Color,
-    MissingItem,
+    InventoryLineElementId,
     MinifigPartInventoryLine,
+    OwnedSetInventoryLine,
     Part,
     PartAlias,
     SetMinifigInventoryLine,
@@ -35,6 +34,7 @@ from app.rebrickable.dto import (
     ThemeDTO,
 )
 from app.domain.lego_set_number import from_rebrickable_set_num
+from app.services.element_catalog import element_ids_for
 
 SOURCE = "rebrickable"
 
@@ -45,6 +45,44 @@ def _stored_image_url(url: str | None, *, persist_image_urls: bool) -> str | Non
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _replace_set_part_element_ids(
+    session: Session,
+    line_id: int,
+    element_ids: tuple[str, ...],
+) -> None:
+    session.execute(
+        delete(InventoryLineElementId).where(
+            InventoryLineElementId.set_part_inventory_line_id == line_id
+        )
+    )
+    for element_id in element_ids:
+        session.add(
+            InventoryLineElementId(
+                set_part_inventory_line_id=line_id,
+                element_id=element_id,
+            )
+        )
+
+
+def _replace_minifig_part_element_ids(
+    session: Session,
+    line_id: int,
+    element_ids: tuple[str, ...],
+) -> None:
+    session.execute(
+        delete(InventoryLineElementId).where(
+            InventoryLineElementId.minifig_part_inventory_line_id == line_id
+        )
+    )
+    for element_id in element_ids:
+        session.add(
+            InventoryLineElementId(
+                minifig_part_inventory_line_id=line_id,
+                element_id=element_id,
+            )
+        )
 
 
 def upsert_theme(session: Session, dto: ThemeDTO, *, fetched_at: datetime) -> Theme:
@@ -240,24 +278,29 @@ def replace_set_part_inventory(
         source_ref = str(line.inventory_id) if line.inventory_id is not None else None
         stored_line_image = line_image(line.image_url)
         if existing is None:
-            session.add(
-                SetPartInventoryLine(
-                    catalog_set_id=catalog_set_id,
-                    part_id=part.id,
-                    color_id=color.id,
-                    quantity=line.quantity,
-                    image_url=stored_line_image,
-                    source=SOURCE,
-                    source_ref=source_ref,
-                    fetched_at=fetched_at,
-                )
+            existing = SetPartInventoryLine(
+                catalog_set_id=catalog_set_id,
+                part_id=part.id,
+                color_id=color.id,
+                quantity=line.quantity,
+                image_url=stored_line_image,
+                source=SOURCE,
+                source_ref=source_ref,
+                fetched_at=fetched_at,
             )
+            session.add(existing)
         else:
             existing.quantity = line.quantity
             if persist_image_urls:
                 existing.image_url = line.image_url
             existing.source_ref = source_ref
             existing.fetched_at = fetched_at
+        session.flush()
+        _replace_set_part_element_ids(
+            session,
+            existing.id,
+            element_ids_for(part.part_num, color.external_id),
+        )
         lines_written += 1
 
     existing_lines = session.scalars(
@@ -347,22 +390,27 @@ def replace_minifig_part_inventory(
         )
         stored_line_image = line_image(line.image_url)
         if existing is None:
-            session.add(
-                MinifigPartInventoryLine(
-                    catalog_minifig_id=catalog_minifig_id,
-                    part_id=part.id,
-                    color_id=color.id,
-                    quantity=line.quantity,
-                    image_url=stored_line_image,
-                    source=SOURCE,
-                    fetched_at=fetched_at,
-                )
+            existing = MinifigPartInventoryLine(
+                catalog_minifig_id=catalog_minifig_id,
+                part_id=part.id,
+                color_id=color.id,
+                quantity=line.quantity,
+                image_url=stored_line_image,
+                source=SOURCE,
+                fetched_at=fetched_at,
             )
+            session.add(existing)
         else:
             existing.quantity = line.quantity
             if persist_image_urls:
                 existing.image_url = line.image_url
             existing.fetched_at = fetched_at
+        session.flush()
+        _replace_minifig_part_element_ids(
+            session,
+            existing.id,
+            element_ids_for(part.part_num, color.external_id),
+        )
         lines_written += 1
 
     existing_lines = session.scalars(
