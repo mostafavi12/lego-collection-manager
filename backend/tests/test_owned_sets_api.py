@@ -106,6 +106,36 @@ def test_get_owned_set_detail(api_client, db_session) -> None:
     assert len(body["inventory"]["minifigs"][0]["parts"]) == 1
 
 
+def test_get_owned_set_detail_prefers_line_image_urls(api_client, db_session) -> None:
+    catalog = add_catalog_set(db_session)
+    owned = add_owned_set(db_session, catalog)
+    part = add_part(db_session, part_num="3024")
+    part.image_url = "https://cdn.example/generic-3024.png"
+    color = add_color(db_session, external_id=4, name="Red")
+    line = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part,
+        color=color,
+    )
+    line.image_url = "https://cdn.example/elements/3024-red.png"
+    _, _, minifig_line = add_minifig_with_parts(db_session, catalog_set=catalog)
+    minifig_line.part.image_url = "https://cdn.example/generic-973.png"
+    minifig_line.image_url = "https://cdn.example/elements/973-yellow.png"
+    db_session.commit()
+
+    response = api_client.get(f"/api/owned-sets/{owned.id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    set_part = body["inventory"]["set_parts"][0]
+    assert set_part["image_url"] == "https://cdn.example/elements/3024-red.png"
+    assert set_part["part_image_url"] == "https://cdn.example/generic-3024.png"
+    minifig_part = body["inventory"]["minifigs"][0]["parts"][0]
+    assert minifig_part["image_url"] == "https://cdn.example/elements/973-yellow.png"
+    assert minifig_part["part_image_url"] == "https://cdn.example/generic-973.png"
+
+
 def test_get_owned_set_not_found(api_client) -> None:
     assert api_client.get("/api/owned-sets/9999").status_code == 404
 

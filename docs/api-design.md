@@ -231,7 +231,7 @@ Multiple `items` may share the same `set_num` with different `id`.
 }
 ```
 
-`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state. When a part has a user BLOB, `part_image_url` is `/api/parts/{part_id}/image`; `missing_image_url` is the same URL when `missing_quantity` > 0 and a part image exists, otherwise null.
+`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state. Inventory line `image_url` is the color-specific Rebrickable element image for that part/color when available; clients should prefer it for row thumbnails. When a part has a user BLOB, `part_image_url` is `/api/parts/{part_id}/image`; `missing_image_url` is the same URL when `missing_quantity` > 0 and a part image exists, otherwise null.
 
 `aliases` (Phase **11A**): other identifiers for this `part_id` from `part_aliases`, excluding strings equal to `part_num`. Omitted or empty when none. Read-only in detail until Phase **11B** enables editing via `PATCH /parts/{part_id}/aliases`.
 
