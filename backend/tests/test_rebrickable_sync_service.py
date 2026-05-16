@@ -364,6 +364,9 @@ def test_sync_records_failure_without_corrupting_other_set(db_session, fake_clie
 
 def test_sync_can_download_set_images(db_session, fake_client) -> None:
     catalog = add_catalog_set(db_session)
+    catalog.image_blob = b"dummy-set-image"
+    catalog.image_content_type = "image/png"
+    catalog.image_byte_size = len(catalog.image_blob)
     add_owned_set(db_session, catalog)
     db_session.commit()
     downloader = FakeImageDownloader()
@@ -486,6 +489,12 @@ def test_sync_downloads_all_part_images(db_session, fake_client) -> None:
     ]
     db_session.commit()
     sync_catalog_for_set_nums(db_session, fake_client, ["6024-1"])
+    db_session.commit()
+    stale_part = db_session.scalar(select(Part).where(Part.part_num == "3024"))
+    assert stale_part is not None
+    stale_part.image_blob = b"dummy-part-image"
+    stale_part.image_content_type = "image/png"
+    stale_part.image_byte_size = len(stale_part.image_blob)
     db_session.commit()
     downloader = FakeImageDownloader()
 
