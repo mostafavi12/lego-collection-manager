@@ -43,6 +43,7 @@ from app.services.image_download import (
     download_catalog_set_image,
     download_part_image,
 )
+from app.services.failure_log import record_import_failure
 from app.services.theme_catalog import display_theme_for
 
 
@@ -138,21 +139,33 @@ def sync_catalog_for_set_nums(
             if catalog is not None and download_all_part_images:
                 _download_all_part_images(session, catalog.id, downloader, result)
         except RebrickableAPIError as exc:
-            session.rollback()
             message = _format_api_error(exc)
             logger.warning(
                 "Rebrickable sync set_failed set_num=%s error=%s",
                 set_num,
                 message,
             )
+            record_import_failure(
+                operation="rebrickable_sync",
+                rb_key=set_num,
+                set_num=set_num,
+                message=message,
+                error_type=type(exc).__name__,
+            )
             result.sets_failed.append(
                 SetSyncFailure(set_num=set_num, message=message)
             )
         except Exception as exc:
-            session.rollback()
             logger.exception(
                 "Rebrickable sync set_failed set_num=%s",
                 set_num,
+            )
+            record_import_failure(
+                operation="rebrickable_sync",
+                rb_key=set_num,
+                set_num=set_num,
+                message=str(exc),
+                error_type=type(exc).__name__,
             )
             result.sets_failed.append(
                 SetSyncFailure(set_num=set_num, message=str(exc))
@@ -324,6 +337,12 @@ def _download_catalog_image(
         if download_catalog_set_image(session, catalog, downloader):
             result.set_images_downloaded += 1
     except ImageDownloadError as exc:
+        record_import_failure(
+            operation="image_download",
+            message=str(exc),
+            error_type=type(exc).__name__,
+            extra={"target": f"catalog_set:{catalog.id}", "url": catalog.image_url},
+        )
         result.image_downloads_failed.append(
             ImageSyncFailure(
                 target=f"catalog_set:{catalog.id}",
@@ -358,6 +377,15 @@ def _download_minifig_images(
             if download_catalog_minifig_image(session, minifig, downloader):
                 result.minifig_images_downloaded += 1
         except ImageDownloadError as exc:
+            record_import_failure(
+                operation="image_download",
+                message=str(exc),
+                error_type=type(exc).__name__,
+                extra={
+                    "target": f"catalog_minifig:{minifig.id}",
+                    "url": minifig.image_url,
+                },
+            )
             result.image_downloads_failed.append(
                 ImageSyncFailure(
                     target=f"catalog_minifig:{minifig.id}",
@@ -451,6 +479,12 @@ def _download_missing_part_images(
             if download_part_image(session, part, downloader):
                 result.part_images_downloaded += 1
         except ImageDownloadError as exc:
+            record_import_failure(
+                operation="image_download",
+                message=str(exc),
+                error_type=type(exc).__name__,
+                extra={"target": f"part:{part.id}", "url": part.image_url},
+            )
             result.image_downloads_failed.append(
                 ImageSyncFailure(
                     target=f"part:{part.id}",
@@ -473,6 +507,12 @@ def _download_all_part_images(
             if download_part_image(session, part, downloader):
                 result.part_images_downloaded += 1
         except ImageDownloadError as exc:
+            record_import_failure(
+                operation="image_download",
+                message=str(exc),
+                error_type=type(exc).__name__,
+                extra={"target": f"part:{part.id}", "url": part.image_url},
+            )
             result.image_downloads_failed.append(
                 ImageSyncFailure(
                     target=f"part:{part.id}",
