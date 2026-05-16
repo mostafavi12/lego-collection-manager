@@ -6,6 +6,7 @@ import pytest
 
 from app.importers.csv_import_service import import_set_list
 from app.importers.rebrickable_sync_service import sync_catalog_for_set_nums
+from app.logging_config import configure_logging
 from tests.factories import add_catalog_set, add_owned_set
 from app.rebrickable.dto import ThemeDTO
 from tests.test_rebrickable_sync_service import FakeRebrickableClient, _sample_set
@@ -47,3 +48,26 @@ def test_rebrickable_sync_logs_set_summary(
 
     assert "Rebrickable sync set_ok set_num=6024-1" in caplog.text
     assert "your-api-key" not in caplog.text.lower()
+
+
+def test_configure_logging_writes_local_log_file(tmp_path, monkeypatch) -> None:
+    log_path = tmp_path / "server.log"
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_path))
+    monkeypatch.setenv("LOG_FILE_MAX_BYTES", "1024")
+    monkeypatch.setenv("LOG_FILE_BACKUP_COUNT", "1")
+
+    configure_logging()
+    logging.getLogger("app.importers.csv_import_service").warning(
+        "CSV import token_failed token_index=%s rb_key=%s error=%s",
+        3,
+        "9999-1",
+        "not found",
+    )
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+
+    assert log_path.exists()
+    content = log_path.read_text(encoding="utf-8")
+    assert "CSV import token_failed" in content
+    assert "9999-1" in content
+    assert "not found" in content
