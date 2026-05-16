@@ -72,8 +72,9 @@ describe("ImportPage", () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByLabelText(/download set images/i));
-    await user.click(screen.getByLabelText(/download part images/i));
+    expect(screen.getByLabelText(/download set images/i)).toBeChecked();
+    expect(screen.getByLabelText(/do not download images for parts/i)).toBeChecked();
+    await user.click(screen.getByLabelText(/download part images for all sets/i));
     await user.click(screen.getByRole("button", { name: /sync entire collection/i }));
 
     await waitFor(() => {
@@ -83,7 +84,7 @@ describe("ImportPage", () => {
           method: "POST",
           body: JSON.stringify({
             download_set_images: true,
-            download_missing_part_images: true,
+            part_image_download_mode: "all",
           }),
         }),
       );

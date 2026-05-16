@@ -206,6 +206,7 @@ export function syncRebrickable(
   options?: {
     download_set_images?: boolean;
     download_missing_part_images?: boolean;
+    part_image_download_mode?: "none" | "missing" | "all";
   },
 ): Promise<RebrickableSyncResponse> {
   const body = {
@@ -215,6 +216,9 @@ export function syncRebrickable(
       : {}),
     ...(options?.download_missing_part_images
       ? { download_missing_part_images: options.download_missing_part_images }
+      : {}),
+    ...(options?.part_image_download_mode
+      ? { part_image_download_mode: options.part_image_download_mode }
       : {}),
   };
   return request("/imports/rebrickable/sync", {

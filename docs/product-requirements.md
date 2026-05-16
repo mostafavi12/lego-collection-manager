@@ -167,20 +167,21 @@ Rebrickable may populate age when **`age_range`** appears on the set response (`
 
 ## 11. Post-MVP collection semantics (Phases 9–14)
 
-The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order and **Phase 14a vs 14b** sync scope. **Phases 9–10** and core **11A, 11B, 12,** and **13** are implemented on **`main`**; finer-grained Rebrickable **sync UX** (**14b**) remains the main post-**13** backlog.
+The following extends MVP after Phase 8. See [development-plan.md](./development-plan.md) for delivery order and current **Phase 14** sync scope. **Phases 9–10** and core **11A, 11B, 12,** and **13** are implemented on **`main`**; **Phase 14** now includes bulk sync, current-set scoped sync, and optional image download controls.
 
 ### 11.1 Collection invariant (everything is your collection)
 
 The database does not store LEGO sets outside what the user tracks in this app. Every `catalog_sets` row has at least one `owned_sets` row. Deleting the **last copy** for a `set_num` removes shared catalog and inventory for that number (existing delete rule).
 
-### 11.2 Rebrickable fetch without images
+### 11.2 Rebrickable fetch and image policy
 
 When importing or enriching from Rebrickable (CSV import in Phase 12, optional prefill in manual add, and existing sync endpoint):
 
 - **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs. **Age** is applied only when Rebrickable exposes `age_range`; otherwise the user sets it on set detail.
-- **Do not fetch:** image bytes from Rebrickable CDN URLs (no local cache folders, no automatic BLOB population from URLs in these flows).
+- **CSV import and manual prefill:** do **not** fetch image bytes from Rebrickable CDN URLs.
+- **Rebrickable sync:** may optionally download set image BLOBs and part image BLOBs into SQLite when the user selects those options. Part image modes are **none**, **missing parts only**, or **all synced inventory parts**.
 
-User-uploaded images are stored in SQLite (Phase 10).
+User-uploaded and sync-downloaded images are stored in SQLite (Phase 10). There are no local cache folders.
 
 ### 11.3 Shared vs per-copy fields
 
@@ -217,7 +218,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 
 1. User enters **set number** (only required field).
 2. If set number **already exists:** message that a **new copy** is being created; read-only catalog summary + optional template **parts** preview; user sets **label**; **submit** creates the copy (**two-step** wizard; no standalone “confirm-only” third step today).
-3. If set number **is new:** user enters **shared catalog** metadata (name, theme, year, part count, optional **age**), **copy label**, optional **manual part rows**, and optional **Fetch from Rebrickable** (**`GET /owned-sets/add-rebrickable-draft`**; no image bytes)—which fills metadata and **set-level** inventory lines (**spares/alternates omitted**); minifigs and full BOM still come from **CSV** (§11.6), **sync** (**14a**), or later refinement. User **submits** to create **`source=user`** catalog + **first** copy. Omitting part rows yields an empty template; inventory can still be added via **PartLineModal** or **`POST /owned-sets`** with **`parts`**. (**Two-step** wizard; no standalone “confirm-only” third step.)
+3. If set number **is new:** user enters **shared catalog** metadata (name, theme, year, part count, optional **age**), **copy label**, optional **manual part rows**, and optional **Fetch from Rebrickable** (**`GET /owned-sets/add-rebrickable-draft`**; no image bytes)—which fills metadata and **set-level** inventory lines (**spares/alternates omitted**); minifigs and full BOM still come from **CSV** (§11.6), **sync** (Phase **14**), or later refinement. User **submits** to create **`source=user`** catalog + **first** copy. Omitting part rows yields an empty template; inventory can still be added via **PartLineModal** or **`POST /owned-sets`** with **`parts`**. (**Two-step** wizard; no standalone “confirm-only” third step.)
 
 ### 11.8 Part alias editing in modal (Phase 11B)
 
@@ -225,17 +226,18 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 - API: `PATCH /parts/{part_id}/aliases` with replace-list body; server enforces symmetric closure (§11.5).
 - Alias edits are **global** for the equivalence class (like part images): all sets using any member part reflect the updated alias group in search and detail.
 
-### 11.9 Sync UX (**Phase 14a** baseline vs **14b** backlog)
+### 11.9 Sync UX (**Phase 14**)
 
-- **14a (shipped):** **Import** page includes **Sync entire collection**, calling **`POST /imports/rebrickable/sync`** with **no body** (full collection). The API optionally accepts **`{ "owned_set_ids": [...] }`** (ids of **set copies**) for a scoped sync; **no UI** exposes that picker yet.
-- **14b (backlog):** subset sync from list/detail, progress and cancellation, documented conflict policy vs manual/instance edits, optional CDN → BLOB image backfill — see [development-plan.md](./development-plan.md).
+- **Shipped:** **Import** page includes **Sync entire collection**, calling **`POST /imports/rebrickable/sync`** with **no body** (full collection). **Set detail** includes a collapsed-by-default **Sync from Rebrickable** panel that calls the same endpoint with **`{ "owned_set_ids": [currentCopyId] }`**.
+- **Image options:** both sync surfaces default to downloading set images and default to **not** downloading part images. Users may instead download part images only for currently missing parts or for all synced inventory parts.
+- **Backlog:** progress and cancellation beyond a simple spinner, documented conflict policy vs manual/instance edits, and richer subset selection from list views — see [development-plan.md](./development-plan.md).
 
 ## UX surfaces (MVP)
 
 1. **Sets list** — layout per [§4](#4-sets-list); **Make a copy** with confirmation dialog per row.
 2. **Set detail** — per-copy fields + shared catalog fields + inventory + missing panel; **delete this copy**; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
-4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Sync entire collection** (Phase **14a**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
+4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Sync entire collection** with image options (Phase **14**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
 
 ## Non-goals (MVP)
 

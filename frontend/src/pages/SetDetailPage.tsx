@@ -33,6 +33,7 @@ interface InstanceForm {
 }
 
 type PartInventorySort = "element_id" | "part_num" | "missing";
+type PartImageDownloadMode = "none" | "missing" | "all";
 
 function formatElementIds(elementIds: string[]): string {
   return elementIds.length > 0 ? elementIds.join(", ") : "No Element ID";
@@ -64,8 +65,9 @@ export function SetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<RebrickableSyncResponse | null>(null);
-  const [syncDownloadSetImages, setSyncDownloadSetImages] = useState(false);
-  const [syncDownloadMissingPartImages, setSyncDownloadMissingPartImages] = useState(false);
+  const [syncDownloadSetImages, setSyncDownloadSetImages] = useState(true);
+  const [syncPartImageDownloadMode, setSyncPartImageDownloadMode] =
+    useState<PartImageDownloadMode>("none");
   const [showMissingOnly, setShowMissingOnly] = useState(false);
   const [partSort, setPartSort] = useState<PartInventorySort>("element_id");
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
@@ -194,7 +196,7 @@ export function SetDetailPage() {
     try {
       const result = await syncRebrickable([detail.id], {
         download_set_images: syncDownloadSetImages,
-        download_missing_part_images: syncDownloadMissingPartImages,
+        part_image_download_mode: syncPartImageDownloadMode,
       });
       setSyncResult(result);
       await load();
@@ -259,8 +261,10 @@ export function SetDetailPage() {
 
       <AsyncMessage error={error} />
 
-      <section className="sync-panel">
-        <h2>Sync from Rebrickable</h2>
+      <details className="sync-panel">
+        <summary>
+          <h2>Sync from Rebrickable</h2>
+        </summary>
         <p className="form-hint">
           Refresh shared catalog and inventory data for this set copy’s catalog set.
         </p>
@@ -272,17 +276,44 @@ export function SetDetailPage() {
               disabled={syncing || saving}
               onChange={(e) => setSyncDownloadSetImages(e.target.checked)}
             />
-            Download set image
+            Download set images into the local database
           </label>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={syncDownloadMissingPartImages}
-              disabled={syncing || saving}
-              onChange={(e) => setSyncDownloadMissingPartImages(e.target.checked)}
-            />
-            Download images for missing parts only
-          </label>
+          <fieldset className="sync-panel__radio-group">
+            <legend>Part image downloads</legend>
+            <label className="checkbox">
+              <input
+                type="radio"
+                name="set-detail-part-image-download-mode"
+                value="none"
+                checked={syncPartImageDownloadMode === "none"}
+                disabled={syncing || saving}
+                onChange={() => setSyncPartImageDownloadMode("none")}
+              />
+              Do not download images for parts
+            </label>
+            <label className="checkbox">
+              <input
+                type="radio"
+                name="set-detail-part-image-download-mode"
+                value="missing"
+                checked={syncPartImageDownloadMode === "missing"}
+                disabled={syncing || saving}
+                onChange={() => setSyncPartImageDownloadMode("missing")}
+              />
+              Download part images only for missing parts
+            </label>
+            <label className="checkbox">
+              <input
+                type="radio"
+                name="set-detail-part-image-download-mode"
+                value="all"
+                checked={syncPartImageDownloadMode === "all"}
+                disabled={syncing || saving}
+                onChange={() => setSyncPartImageDownloadMode("all")}
+              />
+              Download part images for all sets
+            </label>
+          </fieldset>
           <button
             type="button"
             className="btn btn--secondary"
@@ -308,7 +339,7 @@ export function SetDetailPage() {
             {syncResult.part_images_downloaded > 0 && (
               <>
                 {" "}
-                Downloaded {syncResult.part_images_downloaded} missing-part image
+                Downloaded {syncResult.part_images_downloaded} part image
                 {syncResult.part_images_downloaded === 1 ? "" : "s"}.
               </>
             )}
@@ -332,7 +363,7 @@ export function SetDetailPage() {
             )}
           </div>
         )}
-      </section>
+      </details>
 
       <form className="instance-form" onSubmit={(e) => void onSubmit(e)}>
         <h2>Copy details</h2>
