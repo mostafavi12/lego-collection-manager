@@ -558,7 +558,7 @@ export function SetDetailPage() {
             <tbody>
               {visibleSetParts.map((line) => {
                 const thumb = withRefreshToken(
-                  mediaUrl(line.part_image_url ?? line.image_url),
+                  mediaUrl(line.image_url ?? line.part_image_url),
                   imageRefreshToken,
                 );
                 return (
@@ -646,7 +646,7 @@ export function SetDetailPage() {
                   <tbody>
                     {mf.parts.map((line) => {
                       const thumb = withRefreshToken(
-                        mediaUrl(line.part_image_url ?? line.image_url),
+                        mediaUrl(line.image_url ?? line.part_image_url),
                         imageRefreshToken,
                       );
                       return (

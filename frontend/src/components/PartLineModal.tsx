@@ -264,7 +264,7 @@ export function PartLineModal({
   }
 
   const title = isEdit ? "Edit part" : "Add part";
-  const imageUrl = line?.part_image_url ?? line?.image_url ?? null;
+  const imageUrl = line?.image_url ?? line?.part_image_url ?? null;
   const displayImageUrl = pendingPreview ?? (removeCurrentImage ? null : mediaUrl(imageUrl));
   const canonicalPartNum = isEdit ? (line?.part_num ?? "") : partNum.trim();
 

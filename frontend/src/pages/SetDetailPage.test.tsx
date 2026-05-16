@@ -123,6 +123,41 @@ describe("SetDetailPage", () => {
     );
   });
 
+  it("prefers color-specific inventory image URLs over generic part images", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            image_url: "https://cdn.example/elements/3024-red.png",
+            part_image_url: "/api/parts/42/image",
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    renderDetail();
+
+    await screen.findByText("302400, 6252045");
+    const partCell = screen
+      .getByText("3024", { selector: "strong" })
+      .closest(".part-cell");
+    expect(partCell).not.toBeNull();
+    expect(partCell?.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://cdn.example/elements/3024-red.png",
+    );
+  });
+
   it("refreshes part row image after updating photo in part view", async () => {
     vi.stubGlobal("URL", {
       createObjectURL: vi.fn(() => "blob:updated-part-preview"),
