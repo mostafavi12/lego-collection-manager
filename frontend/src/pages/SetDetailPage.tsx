@@ -333,7 +333,7 @@ export function SetDetailPage() {
                 disabled={syncing || saving}
                 onChange={() => setSyncPartImageDownloadMode("all")}
               />
-              Download part images for all sets
+              Download all part images
             </label>
           </fieldset>
           <button

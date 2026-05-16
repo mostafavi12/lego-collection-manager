@@ -231,7 +231,7 @@ describe("SetDetailPage", () => {
     expect(screen.getByLabelText(/download set images/i)).toBeChecked();
     expect(screen.getByLabelText(/do not download images for parts/i)).toBeChecked();
 
-    await user.click(screen.getByLabelText(/download part images for all sets/i));
+    await user.click(screen.getByLabelText(/download all part images/i));
     await user.click(screen.getByRole("button", { name: /sync this set/i }));
 
     await waitFor(() => {
