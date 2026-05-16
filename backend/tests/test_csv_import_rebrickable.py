@@ -130,11 +130,11 @@ def test_csv_import_second_token_creates_second_instance(db_session) -> None:
     client = _client_for_6024()
     import_set_list(db_session, "6024-1", client=client)
     db_session.commit()
-    result = import_set_list(db_session, "6024-1", client=client)
+    result = import_set_list(db_session, "6024-1", client=client, existing_set_mode="copy")
     db_session.commit()
 
     assert result.instances_created == 1
-    assert result.sets_fetched == 1
+    assert result.sets_fetched == 0
     assert db_session.scalar(select(func.count()).select_from(OwnedSet)) == 2
 
 
@@ -155,7 +155,7 @@ def test_csv_import_second_instance_gets_age(db_session) -> None:
     import_set_list(db_session, "6024-1", client=client)
     db_session.commit()
 
-    result = import_set_list(db_session, "6024-1", client=client)
+    result = import_set_list(db_session, "6024-1", client=client, existing_set_mode="copy")
     db_session.commit()
 
     assert result.instances_created == 1

@@ -195,9 +195,13 @@ export function searchCatalog(params: {
   return request(`/search?${search}`);
 }
 
-export function importCsv(file: File): Promise<CsvImportResponse> {
+export function importCsv(
+  file: File,
+  existingSetMode: "skip" | "copy" = "skip",
+): Promise<CsvImportResponse> {
   const form = new FormData();
   form.append("file", file);
+  form.append("existing_set_mode", existingSetMode);
   return request("/imports/csv", { method: "POST", body: form });
 }
 

@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 PartImageDownloadMode = Literal["none", "missing", "all"]
+ExistingSetImportMode = Literal["skip", "copy"]
 
 
 class CsvTokenError(BaseModel):
@@ -21,6 +22,7 @@ class CsvImportResponse(BaseModel):
     instances_created: int
     catalog_stubs_created: int
     sets_fetched: int = 0
+    existing_sets_skipped: int = 0
     sets_failed: list[CsvImportSetFailure] = Field(default_factory=list)
     errors: list[CsvTokenError]
 

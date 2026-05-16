@@ -18,6 +18,7 @@ describe("ImportPage", () => {
         instances_created: 2,
         catalog_stubs_created: 0,
         sets_fetched: 2,
+        existing_sets_skipped: 0,
         sets_failed: [],
         errors: [],
       }),
@@ -44,10 +45,49 @@ describe("ImportPage", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
+    const requestInit = fetchMock.mock.calls[0][1] as RequestInit;
+    const body = requestInit.body as FormData;
+    expect(body.get("existing_set_mode")).toBe("skip");
 
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("2");
     expect(status).toHaveTextContent("instance");
+  });
+
+  it("can import existing sets as new copies", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        instances_created: 1,
+        catalog_stubs_created: 0,
+        sets_fetched: 0,
+        existing_sets_skipped: 0,
+        sets_failed: [],
+        errors: [],
+      }),
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ImportPage />
+      </MemoryRouter>,
+    );
+
+    const file = new File(["6024-1"], "sets.csv", { type: "text/plain" });
+    const fileInput = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    await user.upload(fileInput, file);
+    await user.click(screen.getByLabelText(/create a new copy/i));
+    await user.click(screen.getByRole("button", { name: /import csv/i }));
+
+    await waitFor(() => {
+      const requestInit = fetchMock.mock.calls[0][1] as RequestInit;
+      const body = requestInit.body as FormData;
+      expect(body.get("existing_set_mode")).toBe("copy");
+    });
   });
 
   it("passes selected image options to sync endpoint", async () => {

@@ -26,8 +26,13 @@ def _csv_fake_client() -> FakeRebrickableClient:
 def _patch_csv_import(fake: FakeRebrickableClient):
     from app.importers.csv_import_service import import_set_list
 
-    def stub(session, content, *, client=None):
-        return import_set_list(session, content, client=fake)
+    def stub(session, content, *, client=None, existing_set_mode="skip"):
+        return import_set_list(
+            session,
+            content,
+            client=fake,
+            existing_set_mode=existing_set_mode,
+        )
 
     return patch("app.api.routes.imports.import_set_list", stub)
 
@@ -55,8 +60,37 @@ def test_post_csv_import_creates_instances(api_client, monkeypatch) -> None:
     body = response.json()
     assert body["instances_created"] == 3
     assert body["sets_fetched"] == 3
+    assert body["existing_sets_skipped"] == 0
     assert body["catalog_stubs_created"] == 0
     assert body["errors"] == []
+
+
+def test_post_csv_import_passes_existing_set_mode(api_client, monkeypatch) -> None:
+    monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")
+    content = "6024-1"
+    seen_mode = None
+
+    def stub(session, content, *, existing_set_mode="skip", client=None):
+        nonlocal seen_mode
+        seen_mode = existing_set_mode
+        from app.importers.csv_import_service import import_set_list
+
+        return import_set_list(
+            session,
+            content,
+            client=_csv_fake_client(),
+            existing_set_mode=existing_set_mode,
+        )
+
+    with patch("app.api.routes.imports.import_set_list", stub):
+        response = api_client.post(
+            "/api/imports/csv",
+            data={"existing_set_mode": "copy"},
+            files={"file": ("sets.txt", content.encode("utf-8"), "text/plain")},
+        )
+
+    assert response.status_code == 200
+    assert seen_mode == "copy"
 
 
 def test_post_csv_returns_token_errors(api_client, monkeypatch) -> None:

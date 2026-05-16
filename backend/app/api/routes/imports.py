@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
@@ -14,6 +14,7 @@ from app.schemas.imports import (
     CsvImportResponse,
     CsvImportSetFailure,
     CsvTokenError,
+    ExistingSetImportMode,
     ImageDownloadFailure,
     RebrickableSetSyncFailure,
     RebrickableSyncRequest,
@@ -28,6 +29,7 @@ MAX_CSV_BYTES = int(os.environ.get("CSV_IMPORT_MAX_BYTES", 1_048_576))
 @router.post("/csv", response_model=CsvImportResponse)
 async def import_csv(
     file: UploadFile = File(...),
+    existing_set_mode: ExistingSetImportMode = Form("skip"),
     db: Session = Depends(get_db),
 ) -> CsvImportResponse:
     raw = await file.read()
@@ -43,11 +45,12 @@ async def import_csv(
     except RebrickableConfigError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    result = import_set_list(db, content)
+    result = import_set_list(db, content, existing_set_mode=existing_set_mode)
     return CsvImportResponse(
         instances_created=result.instances_created,
         catalog_stubs_created=result.catalog_stubs_created,
         sets_fetched=result.sets_fetched,
+        existing_sets_skipped=result.existing_sets_skipped,
         sets_failed=[
             CsvImportSetFailure(
                 token_index=f.token_index,
