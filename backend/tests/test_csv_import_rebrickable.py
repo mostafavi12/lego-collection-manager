@@ -83,6 +83,49 @@ def test_csv_import_reports_rebrickable_failure_but_creates_stub(db_session) -> 
     assert catalog.source == "csv_import"
 
 
+def test_csv_import_failure_preserves_previous_successes(db_session) -> None:
+    client = FakeRebrickableClient(
+        sets={
+            "6024-1": _sample_set(),
+            "10281-1": CatalogSetDTO(
+                set_num="10281-1",
+                name="Bonsai",
+                year=2021,
+                theme_external_id=67,
+                num_parts=100,
+                image_url=None,
+            ),
+            "9999-1": CatalogSetDTO(
+                set_num="9999-1",
+                name="Will Fail",
+                year=1999,
+                theme_external_id=67,
+                num_parts=1,
+                image_url=None,
+            ),
+        },
+        themes={67: ThemeDTO(external_id=67, name="Town")},
+        set_parts={
+            "6024-1": [_sample_part_line()],
+            "10281-1": [_sample_part_line("3001")],
+        },
+        fail_set_nums={"9999-1"},
+    )
+
+    result = import_set_list(db_session, "6024-1,9999-1,10281-1", client=client)
+    db_session.commit()
+
+    assert result.instances_created == 3
+    assert result.sets_fetched == 2
+    assert result.catalog_stubs_created == 1
+    assert len(result.sets_failed) == 1
+    assert db_session.scalar(select(func.count()).select_from(OwnedSet)) == 3
+    set_numbers = db_session.scalars(
+        select(CatalogSet.set_number).order_by(CatalogSet.set_number)
+    ).all()
+    assert set_numbers == [6024, 9999, 10281]
+
+
 def test_csv_import_second_token_creates_second_instance(db_session) -> None:
     client = _client_for_6024()
     import_set_list(db_session, "6024-1", client=client)

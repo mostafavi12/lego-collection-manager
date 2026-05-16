@@ -125,17 +125,18 @@ def import_set_list(
             sets_fetched += 1
             logger.info("CSV import token_ok rb_key=%s", rb_key)
         except RebrickableAPIError as exc:
-            session.rollback()
             message = _format_api_error(exc)
             logger.warning(
-                "CSV import token_failed rb_key=%s error=%s",
+                "CSV import token_failed token_index=%s rb_key=%s error=%s",
+                token_index,
                 rb_key,
                 message,
             )
-            catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
-            if created_stub:
-                catalog_stubs_created += 1
-            _create_owned_instance(session, catalog_set)
+            with session.begin_nested():
+                catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
+                if created_stub:
+                    catalog_stubs_created += 1
+                _create_owned_instance(session, catalog_set)
             instances_created += 1
             sets_failed.append(
                 CsvImportSetFailure(
@@ -145,12 +146,16 @@ def import_set_list(
                 )
             )
         except Exception as exc:
-            session.rollback()
-            logger.exception("CSV import token_failed rb_key=%s", rb_key)
-            catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
-            if created_stub:
-                catalog_stubs_created += 1
-            _create_owned_instance(session, catalog_set)
+            logger.exception(
+                "CSV import token_failed token_index=%s rb_key=%s",
+                token_index,
+                rb_key,
+            )
+            with session.begin_nested():
+                catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
+                if created_stub:
+                    catalog_stubs_created += 1
+                _create_owned_instance(session, catalog_set)
             instances_created += 1
             sets_failed.append(
                 CsvImportSetFailure(
