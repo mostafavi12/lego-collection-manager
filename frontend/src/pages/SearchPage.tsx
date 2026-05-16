@@ -5,7 +5,7 @@ import { mediaUrl, searchCatalog } from "../api/client";
 import type { SearchResponse } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 
-type SearchType = "all" | "set" | "part" | "element";
+type SearchType = "set" | "part" | "element";
 
 function formatElementIds(elementIds: string[]): string {
   return elementIds.length > 0 ? elementIds.join(", ") : "No Element ID";
@@ -13,7 +13,7 @@ function formatElementIds(elementIds: string[]): string {
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
-  const [searchType, setSearchType] = useState<SearchType>("all");
+  const [searchType, setSearchType] = useState<SearchType>("set");
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,8 +61,7 @@ export function SearchPage() {
           onChange={(e) => setSearchType(e.target.value as SearchType)}
           aria-label="Search type"
         >
-          <option value="all">Sets and parts</option>
-          <option value="set">Sets only</option>
+          <option value="set">Set</option>
           <option value="part">Part number</option>
           <option value="element">Element ID</option>
         </select>
@@ -75,7 +74,7 @@ export function SearchPage() {
 
       {results && !loading && (
         <div className="search-results">
-          {(searchType === "all" || searchType === "set") && (
+          {searchType === "set" && (
             <section>
               <h2>Sets ({results.sets.length})</h2>
               {results.sets.length === 0 ? (
@@ -99,7 +98,7 @@ export function SearchPage() {
             </section>
           )}
 
-          {(searchType === "all" || searchType === "part") && (
+          {searchType === "part" && (
             <section>
               <h2>Part Numbers ({results.parts.length})</h2>
               {results.parts.length === 0 ? (
@@ -160,7 +159,7 @@ export function SearchPage() {
             </section>
           )}
 
-          {(searchType === "all" || searchType === "element") && (
+          {searchType === "element" && (
             <section>
               <h2>Element IDs ({results.elements.length})</h2>
               {results.elements.length === 0 ? (

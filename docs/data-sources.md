@@ -108,6 +108,8 @@ LEGO instruction manuals commonly identify a specific part/color combination by
 Rules:
 
 - `data/elements.csv` is read only during import/sync or migration backfill.
+- Override the import-time path with `ELEMENTS_CSV_PATH` when running from a
+  non-standard checkout or in tests.
 - Matching uses Rebrickable `part_num` plus Rebrickable external `color_id`.
 - Multiple Element IDs for one part/color are valid and are stored as a list.
 - Set detail and search read persisted Element IDs from SQLite; they do not read
