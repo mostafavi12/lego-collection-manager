@@ -350,7 +350,12 @@ def _download_catalog_image(
     if not catalog.image_url:
         return
     try:
-        if download_catalog_set_image(session, catalog, downloader):
+        if download_catalog_set_image(
+            session,
+            catalog,
+            downloader,
+            replace_existing=True,
+        ):
             result.set_images_downloaded += 1
     except ImageDownloadError as exc:
         record_import_failure(
@@ -390,7 +395,12 @@ def _download_minifig_images(
         if not minifig.image_url:
             continue
         try:
-            if download_catalog_minifig_image(session, minifig, downloader):
+            if download_catalog_minifig_image(
+                session,
+                minifig,
+                downloader,
+                replace_existing=True,
+            ):
                 result.minifig_images_downloaded += 1
         except ImageDownloadError as exc:
             record_import_failure(
@@ -492,7 +502,12 @@ def _download_missing_part_images(
         if not part.image_url:
             continue
         try:
-            if download_part_image(session, part, downloader):
+            if download_part_image(
+                session,
+                part,
+                downloader,
+                replace_existing=True,
+            ):
                 result.part_images_downloaded += 1
         except ImageDownloadError as exc:
             record_import_failure(
@@ -520,7 +535,12 @@ def _download_all_part_images(
         if not part.image_url:
             continue
         try:
-            if download_part_image(session, part, downloader):
+            if download_part_image(
+                session,
+                part,
+                downloader,
+                replace_existing=True,
+            ):
                 result.part_images_downloaded += 1
         except ImageDownloadError as exc:
             record_import_failure(

@@ -56,8 +56,12 @@ def download_catalog_set_image(
     session: Session,
     catalog_set: CatalogSet,
     downloader: ImageDownloader,
+    *,
+    replace_existing: bool = False,
 ) -> bool:
-    if not catalog_set.image_url or catalog_set_has_image(catalog_set):
+    if not catalog_set.image_url or (
+        catalog_set_has_image(catalog_set) and not replace_existing
+    ):
         return False
     image = downloader.download(catalog_set.image_url)
     try:
@@ -76,8 +80,12 @@ def download_catalog_minifig_image(
     session: Session,
     catalog_minifig: CatalogMinifig,
     downloader: ImageDownloader,
+    *,
+    replace_existing: bool = False,
 ) -> bool:
-    if not catalog_minifig.image_url or catalog_minifig_has_image(catalog_minifig):
+    if not catalog_minifig.image_url or (
+        catalog_minifig_has_image(catalog_minifig) and not replace_existing
+    ):
         return False
     image = downloader.download(catalog_minifig.image_url)
     try:
@@ -96,8 +104,10 @@ def download_part_image(
     session: Session,
     part: Part,
     downloader: ImageDownloader,
+    *,
+    replace_existing: bool = False,
 ) -> bool:
-    if not part.image_url or part_has_image(part):
+    if not part.image_url or (part_has_image(part) and not replace_existing):
         return False
     image = downloader.download(part.image_url)
     try:
