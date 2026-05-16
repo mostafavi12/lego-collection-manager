@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { mediaUrl } from "../api/client";
 
@@ -24,6 +24,10 @@ export function ImageBlobEditor({
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreviewUrl(imageUrl);
+  }, [imageUrl]);
 
   async function onFileSelected(file: File | undefined) {
     if (!file) {

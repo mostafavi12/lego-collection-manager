@@ -17,7 +17,7 @@ A single user running the app on their own machine (no multi-tenant accounts in 
 - **Single user** on one machine; no multi-tenant accounts (see [Non-goals](#non-goals-mvp)).
 - **Local-first** persistence in SQLite; configurable `DATABASE_URL` (see [database-schema.md](./database-schema.md)).
 - **Secrets:** API keys only via environment variables; document required variables in `backend/.env.example`; never commit real keys.
-- **User media:** missing-part photos are stored **on disk** beside the database so reports and browsing work **offline** after upload (see [database-schema.md](./database-schema.md) and [api-design.md](./api-design.md)).
+- **User media:** part, set, and minifigure photos are stored as **SQLite BLOBs** so reports and browsing work **offline** after upload or sync (see [database-schema.md](./database-schema.md) and [api-design.md](./api-design.md)).
 
 ## Domain glossary
 
@@ -104,7 +104,7 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 - Distinct **stickered vs plain** parts appear as distinct rows matching importer data.
 - User can **add** a set-part via a modal (**+** control); modal supports optional **part image** upload (Phase 11A).
 - User can **open the same modal** by clicking a set-part row to **update** line fields or **delete** the line (**Update** / **Delete** / **Cancel**; Phase 11A).
-- Set-parts table shows **alias identifiers** per line, read-only (Phase 11A); user edits aliases in the same modal (Phase 11B).
+- Set-parts table shows **Element IDs** per line; user edits aliases in the same part modal (Phase 11B).
 
 ### 6. Search by set number and part number
 
@@ -228,7 +228,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 
 ### 11.9 Sync UX (**Phase 14**)
 
-- **Shipped:** **Import** page includes **Sync entire collection**, calling **`POST /imports/rebrickable/sync`** with **no body** (full collection). **Set detail** includes a collapsed-by-default **Sync from Rebrickable** panel that calls the same endpoint with **`{ "owned_set_ids": [currentCopyId] }`**.
+- **Shipped:** **Import** page includes **Sync entire collection**, calling **`POST /imports/rebrickable/sync`** for the full collection. The UI sends image-option defaults in the request body; API clients may still omit the body for a full sync with default options. **Set detail** includes a collapsed-by-default **Sync from Rebrickable** panel that calls the same endpoint with **`{ "owned_set_ids": [currentCopyId] }`** plus image options.
 - **Image options:** both sync surfaces default to downloading set and minifigure images and default to **not** downloading part images. Users may instead download part images only for currently missing parts or for all synced inventory parts, including minifig BOM parts.
 - **Backlog:** progress and cancellation beyond a simple spinner, documented conflict policy vs manual/instance edits, and richer subset selection from list views — see [development-plan.md](./development-plan.md).
 

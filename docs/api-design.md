@@ -55,7 +55,7 @@ The app uses a **synchronous** request that completes the sync for the selected 
 
 | Phase | What is shipped |
 |-------|-----------------|
-| **Phase 14 shipped** | **Import** page: **Sync entire collection** calls this endpoint with **no body** (full DB). Optional JSON body `{ "owned_set_ids": […] }` scopes sync to those **set copies**; set detail uses this for current-set sync. Import and set detail expose optional set image and part image BLOB downloads. |
+| **Phase 14 shipped** | **Import** page: **Sync entire collection** calls this endpoint for the full DB (UI sends image-option defaults; API clients may omit the body for default options). Optional JSON body `{ "owned_set_ids": […] }` scopes sync to those **set copies**; set detail uses this for current-set sync. Import and set detail expose optional set/minifigure image and part image BLOB downloads. |
 | **Phase 14 backlog** | Progress/cancel, conflict policy with manual edits, and richer subset selection from list views. |
 
 | Tradeoff | Mitigation |
@@ -74,6 +74,8 @@ The app uses a **synchronous** request that completes the sync for the selected 
 ```
 
 Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory). `download_set_images` stores set box images and minifigure images in SQLite. `part_image_download_mode` is one of `none` (default), `missing` (only parts currently marked missing, including minifig BOM parts), or `all` (all synced inventory parts, including minifig BOM parts).
+
+`download_missing_part_images` is accepted as a legacy compatibility boolean only when `part_image_download_mode` is left at `none`; new clients should use `part_image_download_mode`.
 
 **Response `200`:**
 

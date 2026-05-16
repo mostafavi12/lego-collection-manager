@@ -117,6 +117,10 @@ describe("SetDetailPage", () => {
         }),
       );
     });
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/parts/99/aliases"),
+      expect.anything(),
+    );
   });
 
   it("refreshes part row image after updating photo in part view", async () => {

@@ -152,13 +152,13 @@ Ordered phases from an empty repo to a shippable MVP, aligned with the [project 
 
 ## Post-MVP overview (Phases 9–13; sync **14**)
 
-Phases **1–8** delivered the original MVP (including Rebrickable sync endpoint and disk-based missing photos). Phases **9–13** refactor collection semantics around:
+Phases **1–8** delivered the original MVP (including the Rebrickable sync endpoint and earlier disk-based missing photos). Phases **9–13** refactor collection semantics around:
 
 - **Rebrickable as the catalog source** (metadata + full inventory; optional image downloads only through the sync controls).
 - **Every `catalog_sets` row has at least one `owned_sets` row** — everything persisted is in the user’s collection; there is no separate “unowned” catalog.
 - **Per-copy inventory** (part quantities and missing counts), while **set-level metadata** and **part-level images/aliases** follow the sharing rules in [product-requirements.md §11](./product-requirements.md#11-post-mvp-collection-semantics-phases-914).
 - **Images in SQLite** (JPEG/PNG BLOBs), not on disk under `MEDIA_ROOT` / thumbnails.
-- **Sync UX:** **Phase 14** ships **Import → Sync entire collection** (`POST /imports/rebrickable/sync` with no body), current-set sync from detail (`owned_set_ids` with the current set copy id), and optional set/minifigure/part image downloads. Progress/cancel, conflict policy, and richer subset selection remain backlog (see Phase **14** below).
+- **Sync UX:** **Phase 14** ships **Import → Sync entire collection** (`POST /imports/rebrickable/sync` for full DB sync with image-option defaults), current-set sync from detail (`owned_set_ids` with the current set copy id), and optional set/minifigure/part image downloads. Progress/cancel, conflict policy, and richer subset selection remain backlog (see Phase **14** below).
 
 Implement **one phase at a time**; update [database-schema.md](./database-schema.md), [api-design.md](./api-design.md), and tests before marking a phase complete.
 
@@ -201,7 +201,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 ## Phase 11A — Inventory part modal (add / edit / delete)
 
-**Goal:** Unified **PartLineModal** for set-parts inventory: add with optional image, click row to edit or delete, show aliases read-only in the table.
+**Goal:** Unified **PartLineModal** for set-parts inventory: add with optional image, click row to edit or delete, show Element IDs read-only in the table.
 
 **Deliverables**
 
@@ -215,7 +215,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 - User can add a part with optional photo; photo appears for that `part_id` everywhere.
 - Clicking a set-part row opens edit modal; delete removes the **`owned_set_inventory_lines`** row and orphan catalog line when unused.
-- Table shows alias identifiers (read-only).
+- Table shows Element IDs; aliases are edited in the part modal.
 - No live Rebrickable in tests.
 
 ## Phase 11B — Part alias editing in modal

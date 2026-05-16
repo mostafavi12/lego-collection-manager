@@ -150,16 +150,18 @@ export function PartLineModal({
             quantity: parsedQty,
           });
         }
-        try {
-          await saveAliases(line.part_id, line.part_num);
-        } catch (aliasErr) {
-          setError(
-            aliasErr instanceof Error
-              ? `${aliasErr.message} (line was updated; retry aliases)`
-              : "Alias update failed (line was updated)",
-          );
-          onSaved({ imageChanged });
-          return;
+        if (inventoryKind === "set_part") {
+          try {
+            await saveAliases(line.part_id, line.part_num);
+          } catch (aliasErr) {
+            setError(
+              aliasErr instanceof Error
+                ? `${aliasErr.message} (line was updated; retry aliases)`
+                : "Alias update failed (line was updated)",
+            );
+            onSaved({ imageChanged });
+            return;
+          }
         }
         if (shouldPatchMissing && !patchedMissingBeforeQuantity) {
           await patchInstanceInventoryLine(setCopyId, line.instance_line_id, {
@@ -299,7 +301,7 @@ export function PartLineModal({
           <p>
             {isEdit
               ? isMinifigPartEdit
-                ? "Update this copy's quantity, aliases, and shared part image."
+                ? "Update this copy's quantity and the shared part image."
                 : "Update catalog part details and this copy's quantity."
               : "Add a part to this instance's inventory (shared catalog template)."}
           </p>
@@ -368,12 +370,14 @@ export function PartLineModal({
             )}
           </div>
 
-          <AliasChipEditor
-            partNum={canonicalPartNum}
-            aliases={aliases}
-            onChange={setAliases}
-            disabled={loading || !canonicalPartNum}
-          />
+          {inventoryKind === "set_part" && (
+            <AliasChipEditor
+              partNum={canonicalPartNum}
+              aliases={aliases}
+              onChange={setAliases}
+              disabled={loading || !canonicalPartNum}
+            />
+          )}
 
           <div className="part-line-modal__image">
             <p className="form-hint">Part image (shared across all sets)</p>
