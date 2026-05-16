@@ -7,6 +7,8 @@ from app.db.models import (
     CatalogMinifig,
     CatalogSet,
     InventoryLineElementId,
+    MinifigPartInventoryLine,
+    OwnedSetInventoryLine,
     Part,
     SetMinifigInventoryLine,
     SetPartInventoryLine,
@@ -119,7 +121,7 @@ def fake_client() -> FakeRebrickableClient:
                 SetMinifigLineDTO(
                     minifig_num="cop01",
                     name="Police Officer",
-                    image_url=None,
+                    image_url="https://cdn.example/cop01.png",
                     quantity=1,
                 )
             ]
@@ -127,11 +129,15 @@ def fake_client() -> FakeRebrickableClient:
         minifig_parts={
             "cop01": [
                 MinifigPartLineDTO(
-                    part=PartDTO(part_num="973", name="Torso", image_url=None),
+                    part=PartDTO(
+                        part_num="973",
+                        name="Torso",
+                        image_url=None,
+                    ),
                     color=ColorDTO(external_id=0, name="Black", rgb=None),
                     quantity=1,
                     is_spare=False,
-                    image_url=None,
+                    image_url="https://cdn.example/973-element.png",
                 )
             ]
         },
@@ -252,13 +258,21 @@ def test_sync_can_download_set_images(db_session, fake_client) -> None:
     db_session.commit()
 
     assert result.set_images_downloaded == 1
+    assert result.minifig_images_downloaded == 1
     assert result.image_downloads_failed == []
-    assert downloader.urls == ["https://cdn.rebrickable.com/media/sets/6024-1.jpg"]
+    assert downloader.urls == [
+        "https://cdn.rebrickable.com/media/sets/6024-1.jpg",
+        "https://cdn.example/cop01.png",
+    ]
     db_session.expire_all()
     updated = db_session.get(CatalogSet, catalog.id)
     assert updated is not None
     assert updated.image_blob == b"image-bytes"
     assert updated.image_content_type == "image/png"
+    minifig = db_session.scalar(select(CatalogMinifig).where(CatalogMinifig.minifig_num == "cop01"))
+    assert minifig is not None
+    assert minifig.image_blob == b"image-bytes"
+    assert minifig.image_content_type == "image/png"
 
 
 def test_sync_downloads_only_missing_part_images(db_session, fake_client) -> None:
@@ -304,6 +318,45 @@ def test_sync_downloads_only_missing_part_images(db_session, fake_client) -> Non
     assert other_part.image_blob is None
 
 
+def test_sync_downloads_missing_minifig_part_images(db_session, fake_client) -> None:
+    catalog = add_catalog_set(db_session)
+    owned = add_owned_set(db_session, catalog)
+    db_session.commit()
+    sync_catalog_for_set_nums(db_session, fake_client, ["6024-1"])
+    minifig_line = db_session.scalar(
+        select(MinifigPartInventoryLine)
+        .join(Part, MinifigPartInventoryLine.part_id == Part.id)
+        .where(Part.part_num == "973")
+    )
+    assert minifig_line is not None
+    instance_line = db_session.scalar(
+        select(OwnedSetInventoryLine).where(
+            OwnedSetInventoryLine.owned_set_id == owned.id,
+            OwnedSetInventoryLine.minifig_part_inventory_line_id == minifig_line.id,
+        )
+    )
+    assert instance_line is not None
+    instance_line.quantity_missing = 1
+    db_session.commit()
+    downloader = FakeImageDownloader()
+
+    result = sync_catalog_for_set_nums(
+        db_session,
+        fake_client,
+        ["6024-1"],
+        download_missing_part_images=True,
+        image_downloader=downloader,
+    )
+    db_session.commit()
+
+    assert result.part_images_downloaded == 1
+    assert downloader.urls == ["https://cdn.example/973-element.png"]
+    minifig_part = db_session.scalar(select(Part).where(Part.part_num == "973"))
+    assert minifig_part is not None
+    assert minifig_part.image_url == "https://cdn.example/973-element.png"
+    assert minifig_part.image_blob == b"image-bytes"
+
+
 def test_sync_downloads_all_part_images(db_session, fake_client) -> None:
     catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
@@ -325,14 +378,18 @@ def test_sync_downloads_all_part_images(db_session, fake_client) -> None:
     )
     db_session.commit()
 
-    assert result.part_images_downloaded == 2
+    assert result.part_images_downloaded == 3
     assert downloader.urls == [
         "https://cdn.example/3024.png",
         "https://cdn.example/3001.png",
+        "https://cdn.example/973-element.png",
     ]
     first = db_session.scalar(select(Part).where(Part.part_num == "3024"))
     second = db_session.scalar(select(Part).where(Part.part_num == "3001"))
+    minifig_part = db_session.scalar(select(Part).where(Part.part_num == "973"))
     assert first is not None
     assert second is not None
+    assert minifig_part is not None
     assert first.image_blob == b"image-bytes"
     assert second.image_blob == b"image-bytes"
+    assert minifig_part.image_blob == b"image-bytes"

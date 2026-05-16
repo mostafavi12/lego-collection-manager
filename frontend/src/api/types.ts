@@ -125,8 +125,10 @@ export interface MinifigPartLineDetail {
 
 export interface MinifigInventoryBlock {
   line_id: number;
+  catalog_minifig_id: number;
   minifig_num: string;
   name: string | null;
+  image_url: string | null;
   quantity: number;
   parts: MinifigPartLineDetail[];
 }
@@ -280,6 +282,7 @@ export interface RebrickableSyncResponse {
   parts_upserted: number;
   inventory_lines_written: number;
   set_images_downloaded: number;
+  minifig_images_downloaded: number;
   part_images_downloaded: number;
   image_downloads_failed: { target: string; url: string; message: string }[];
 }

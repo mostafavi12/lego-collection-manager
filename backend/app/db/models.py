@@ -217,6 +217,9 @@ class CatalogMinifig(Base):
     minifig_num: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     name: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    image_content_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_byte_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     source: Mapped[str] = mapped_column(Text, nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

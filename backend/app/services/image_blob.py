@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.config.image_settings import get_max_image_bytes, normalize_content_type
-from app.db.models import CatalogSet, Part
+from app.db.models import CatalogMinifig, CatalogSet, Part
 
 
 class ImageBlobError(Exception):
@@ -39,6 +39,13 @@ def catalog_set_has_image(catalog_set: CatalogSet) -> bool:
     return (
         catalog_set.image_blob is not None
         and catalog_set.image_content_type is not None
+    )
+
+
+def catalog_minifig_has_image(catalog_minifig: CatalogMinifig) -> bool:
+    return (
+        catalog_minifig.image_blob is not None
+        and catalog_minifig.image_content_type is not None
     )
 
 
@@ -119,3 +126,48 @@ def clear_catalog_set_image(session: Session, catalog_set_id: int) -> CatalogSet
     catalog_set.image_byte_size = None
     session.flush()
     return catalog_set
+
+
+def get_catalog_minifig_image(
+    session: Session, catalog_minifig_id: int
+) -> StoredImage | None:
+    catalog_minifig = session.get(CatalogMinifig, catalog_minifig_id)
+    if catalog_minifig is None or not catalog_minifig_has_image(catalog_minifig):
+        return None
+    assert catalog_minifig.image_blob is not None
+    assert catalog_minifig.image_content_type is not None
+    return StoredImage(
+        content=catalog_minifig.image_blob,
+        content_type=catalog_minifig.image_content_type,
+    )
+
+
+def set_catalog_minifig_image(
+    session: Session,
+    catalog_minifig_id: int,
+    *,
+    content: bytes,
+    content_type: str,
+) -> CatalogMinifig:
+    catalog_minifig = session.get(CatalogMinifig, catalog_minifig_id)
+    if catalog_minifig is None:
+        raise ImageBlobError("Catalog minifig not found", status_code=404)
+    normalized = validate_image_upload(content, content_type)
+    catalog_minifig.image_blob = content
+    catalog_minifig.image_content_type = normalized
+    catalog_minifig.image_byte_size = len(content)
+    session.flush()
+    return catalog_minifig
+
+
+def clear_catalog_minifig_image(
+    session: Session, catalog_minifig_id: int
+) -> CatalogMinifig:
+    catalog_minifig = session.get(CatalogMinifig, catalog_minifig_id)
+    if catalog_minifig is None:
+        raise ImageBlobError("Catalog minifig not found", status_code=404)
+    catalog_minifig.image_blob = None
+    catalog_minifig.image_content_type = None
+    catalog_minifig.image_byte_size = None
+    session.flush()
+    return catalog_minifig

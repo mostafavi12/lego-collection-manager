@@ -12,6 +12,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    CatalogMinifig,
     CatalogSet,
     MinifigPartInventoryLine,
     OwnedSet,
@@ -20,7 +21,6 @@ from app.db.models import (
     SetMinifigInventoryLine,
     SetPartInventoryLine,
 )
-from app.services.instance_inventory import ensure_instance_inventory_for_catalog
 from app.importers.rebrickable_catalog import (
     SOURCE,
     replace_minifig_part_inventory,
@@ -34,10 +34,12 @@ from app.domain.lego_set_number import LegoSetId, to_rebrickable_set_num
 from app.rebrickable.client import RebrickableClient
 from app.rebrickable.dto import CatalogSetDTO, ThemeDTO
 from app.rebrickable.exceptions import RebrickableAPIError
+from app.services.instance_inventory import ensure_instance_inventory_for_catalog
 from app.services.image_download import (
     HttpxImageDownloader,
     ImageDownloadError,
     ImageDownloader,
+    download_catalog_minifig_image,
     download_catalog_set_image,
     download_part_image,
 )
@@ -75,6 +77,7 @@ class RebrickableSyncResult:
     parts_upserted: int = 0
     inventory_lines_written: int = 0
     set_images_downloaded: int = 0
+    minifig_images_downloaded: int = 0
     part_images_downloaded: int = 0
     image_downloads_failed: list[ImageSyncFailure] = field(default_factory=list)
 
@@ -128,6 +131,7 @@ def sync_catalog_for_set_nums(
             catalog = _catalog_for_rebrickable_key(session, set_num)
             if catalog is not None and download_set_images:
                 _download_catalog_image(session, catalog, downloader, result)
+                _download_minifig_images(session, catalog.id, downloader, result)
             if catalog is not None and download_missing_part_images:
                 _download_missing_part_images(session, catalog.id, downloader, result)
             if catalog is not None and download_all_part_images:
@@ -324,6 +328,40 @@ def _download_catalog_image(
                 message=str(exc),
             )
         )
+
+
+def _minifigs_for_catalog(session: Session, catalog_set_id: int) -> list[CatalogMinifig]:
+    stmt = (
+        select(CatalogMinifig)
+        .join(
+            SetMinifigInventoryLine,
+            SetMinifigInventoryLine.catalog_minifig_id == CatalogMinifig.id,
+        )
+        .where(SetMinifigInventoryLine.catalog_set_id == catalog_set_id)
+    )
+    return session.scalars(stmt).all()
+
+
+def _download_minifig_images(
+    session: Session,
+    catalog_set_id: int,
+    downloader: ImageDownloader,
+    result: RebrickableSyncResult,
+) -> None:
+    for minifig in _minifigs_for_catalog(session, catalog_set_id):
+        if not minifig.image_url:
+            continue
+        try:
+            if download_catalog_minifig_image(session, minifig, downloader):
+                result.minifig_images_downloaded += 1
+        except ImageDownloadError as exc:
+            result.image_downloads_failed.append(
+                ImageSyncFailure(
+                    target=f"catalog_minifig:{minifig.id}",
+                    url=minifig.image_url,
+                    message=str(exc),
+                )
+            )
 
 
 def _missing_parts_for_catalog(session: Session, catalog_set_id: int) -> list[Part]:

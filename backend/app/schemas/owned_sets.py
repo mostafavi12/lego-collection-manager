@@ -105,8 +105,10 @@ class MinifigPartLineDetail(BaseModel):
 
 class MinifigInventoryBlock(BaseModel):
     line_id: int
+    catalog_minifig_id: int
     minifig_num: str
     name: str | None
+    image_url: str | None
     quantity: int
     parts: list[MinifigPartLineDetail]
 

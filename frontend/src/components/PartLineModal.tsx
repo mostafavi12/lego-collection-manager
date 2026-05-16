@@ -5,10 +5,11 @@ import {
   deletePartImage,
   deleteSetPartLine,
   patchPartAliases,
+  patchInstanceInventoryLine,
   updateSetPartLine,
   uploadPartImage,
 } from "../api/client";
-import type { SetPartLineDetail } from "../api/types";
+import type { MinifigPartLineDetail, SetPartLineDetail } from "../api/types";
 import {
   AliasChipEditor,
   normalizePartAliases,
@@ -17,10 +18,14 @@ import { AsyncMessage } from "./AsyncMessage";
 import { ImageBlobEditor } from "./ImageBlobEditor";
 import { Modal } from "./Modal";
 
+type InventoryPartLineDetail = SetPartLineDetail | MinifigPartLineDetail;
+type InventoryKind = "set_part" | "minifig_part";
+
 interface PartLineModalProps {
   mode: "create" | "edit";
   setCopyId: number;
-  line?: SetPartLineDetail;
+  inventoryKind?: InventoryKind;
+  line?: InventoryPartLineDetail;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -28,11 +33,14 @@ interface PartLineModalProps {
 export function PartLineModal({
   mode,
   setCopyId,
+  inventoryKind = "set_part",
   line,
   onClose,
   onSaved,
 }: PartLineModalProps) {
   const isEdit = mode === "edit" && line !== undefined;
+  const isSetPartEdit = isEdit && inventoryKind === "set_part";
+  const isMinifigPartEdit = isEdit && inventoryKind === "minifig_part";
 
   const [partNum, setPartNum] = useState(line?.part_num ?? "");
   const [partName, setPartName] = useState(line?.part_name ?? "");
@@ -43,7 +51,9 @@ export function PartLineModal({
   const [quantity, setQuantity] = useState(
     line != null ? String(line.quantity) : "1",
   );
-  const [aliases, setAliases] = useState<string[]>(line?.aliases ?? []);
+  const [aliases, setAliases] = useState<string[]>(
+    line != null && "aliases" in line ? line.aliases : [],
+  );
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -57,7 +67,7 @@ export function PartLineModal({
       setColorId(String(line.color_id));
       setColorName(line.color_name);
       setQuantity(String(line.quantity));
-      setAliases(line.aliases);
+      setAliases("aliases" in line ? line.aliases : []);
     }
   }, [isEdit, line]);
 
@@ -93,12 +103,18 @@ export function PartLineModal({
 
     try {
       if (isEdit && line) {
-        await updateSetPartLine(setCopyId, line.instance_line_id, {
-          part_name: partName.trim() || null,
-          color_id: Number.parseInt(colorId, 10) || 0,
-          color_name: colorName.trim() || null,
-          quantity: parsedQty,
-        });
+        if (inventoryKind === "set_part") {
+          await updateSetPartLine(setCopyId, line.instance_line_id, {
+            part_name: partName.trim() || null,
+            color_id: Number.parseInt(colorId, 10) || 0,
+            color_name: colorName.trim() || null,
+            quantity: parsedQty,
+          });
+        } else {
+          await patchInstanceInventoryLine(setCopyId, line.instance_line_id, {
+            quantity: parsedQty,
+          });
+        }
         try {
           await saveAliases(line.part_id, line.part_num);
         } catch (aliasErr) {
@@ -182,7 +198,7 @@ export function PartLineModal({
 
   return (
     <Modal title={title} onClose={onClose}>
-      {confirmDelete && line ? (
+      {confirmDelete && line && isSetPartEdit ? (
         <>
           <p>
             Remove <strong>{line.part_num}</strong> ({line.color_name}) from
@@ -212,7 +228,9 @@ export function PartLineModal({
         <form onSubmit={(e) => void onSubmit(e)}>
           <p>
             {isEdit
-              ? "Update catalog part details and this copy's quantity."
+              ? isMinifigPartEdit
+                ? "Update this copy's quantity, aliases, and shared part image."
+                : "Update catalog part details and this copy's quantity."
               : "Add a part to this instance's inventory (shared catalog template)."}
           </p>
           <AsyncMessage error={error} />
@@ -231,7 +249,8 @@ export function PartLineModal({
               Part name
               <input
                 value={partName}
-                disabled={loading}
+                disabled={loading || isMinifigPartEdit}
+                readOnly={isMinifigPartEdit}
                 onChange={(e) => setPartName(e.target.value)}
                 autoFocus={isEdit}
               />
@@ -240,7 +259,8 @@ export function PartLineModal({
               Color ID
               <input
                 value={colorId}
-                disabled={loading}
+                disabled={loading || isMinifigPartEdit}
+                readOnly={isMinifigPartEdit}
                 onChange={(e) => setColorId(e.target.value)}
               />
             </label>
@@ -248,7 +268,8 @@ export function PartLineModal({
               Color name
               <input
                 value={colorName}
-                disabled={loading}
+                disabled={loading || isMinifigPartEdit}
+                readOnly={isMinifigPartEdit}
                 onChange={(e) => setColorName(e.target.value)}
               />
             </label>
@@ -312,14 +333,16 @@ export function PartLineModal({
           <div className="modal__actions">
             {isEdit ? (
               <>
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  disabled={loading}
-                  onClick={() => setConfirmDelete(true)}
-                >
-                  Delete
-                </button>
+                {isSetPartEdit && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    disabled={loading}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Delete
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn--ghost"

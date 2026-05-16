@@ -8,11 +8,13 @@ from typing import Protocol
 import httpx
 from sqlalchemy.orm import Session
 
-from app.db.models import CatalogSet, Part
+from app.db.models import CatalogMinifig, CatalogSet, Part
 from app.services.image_blob import (
     ImageBlobError,
+    catalog_minifig_has_image,
     catalog_set_has_image,
     part_has_image,
+    set_catalog_minifig_image,
     set_catalog_set_image,
     set_part_image,
 )
@@ -62,6 +64,26 @@ def download_catalog_set_image(
         set_catalog_set_image(
             session,
             catalog_set.id,
+            content=image.content,
+            content_type=image.content_type,
+        )
+    except ImageBlobError as exc:
+        raise ImageDownloadError(str(exc)) from exc
+    return True
+
+
+def download_catalog_minifig_image(
+    session: Session,
+    catalog_minifig: CatalogMinifig,
+    downloader: ImageDownloader,
+) -> bool:
+    if not catalog_minifig.image_url or catalog_minifig_has_image(catalog_minifig):
+        return False
+    image = downloader.download(catalog_minifig.image_url)
+    try:
+        set_catalog_minifig_image(
+            session,
+            catalog_minifig.id,
             content=image.content,
             content_type=image.content_type,
         )

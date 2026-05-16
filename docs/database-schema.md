@@ -10,7 +10,7 @@ SQLite is the **single source of truth** for catalog and collection data. Schema
 |----------|---------|
 | `DATABASE_URL` | SQLAlchemy URL; MVP default `sqlite:///./data/lego.db` (path relative to backend working directory). |
 
-User-uploaded images are stored in SQLite BLOB columns on `parts` and `catalog_sets` (see [data-sources.md](./data-sources.md)); no filesystem upload root is required after Phase 10.
+User-uploaded and sync-downloaded images are stored in SQLite BLOB columns on `parts`, `catalog_sets`, and `catalog_minifigs` (see [data-sources.md](./data-sources.md)); no filesystem upload root is required after Phase 10.
 
 Migrations: **Alembic** tracks revisions; application startup fails fast if the DB is not at head (per [development-plan.md](./development-plan.md)).
 
@@ -21,7 +21,7 @@ Migrations: **Alembic** tracks revisions; application startup fails fast if the 
 3. **No duplicate catalog primaries:** Upserts keyed by natural keys (`set_number` + `set_variant`, `part_num`, `color_id` from API, etc.).
 4. **Inventory fidelity:** Stickered vs plain and distinct Rebrickable part numbers are preserved on line tables—**no collapsing** of lines in MVP. Rebrickable **spare** and **alternate** rows are read from the API but **not stored** (see [data-sources.md](./data-sources.md)).
 5. **Missing parts** belong to a **set copy** (`owned_sets` row) and reference a **specific per-copy inventory line** (set-level part row or minifig BOM row) for traceability in the UI.
-6. **User images:** At most one JPEG/PNG BLOB per `parts` row (global part image) and per `catalog_sets` row (shared set box image). Missing-line uploads attach to the part record.
+6. **Images:** At most one JPEG/PNG BLOB per `parts` row (global part image), per `catalog_sets` row (shared set box image), and per `catalog_minifigs` row. Missing-line uploads attach to the part record.
 
 ## Entity-relationship overview
 
@@ -72,8 +72,8 @@ Each row is one Rebrickable **set identity**: a **base set number** (what users 
 | `year` | INTEGER NULL | |
 | `theme_id` | INTEGER FK → `themes.id` NULL | |
 | `num_parts` | INTEGER NULL | From API if provided. |
-| `image_url` | TEXT NULL | Rebrickable CDN URL when synced (not downloaded in Phases 9–13). |
-| `image_blob` | BLOB NULL | User-uploaded set box image (JPEG/PNG). |
+| `image_url` | TEXT NULL | Rebrickable CDN URL when synced. |
+| `image_blob` | BLOB NULL | Set box image (JPEG/PNG). |
 | `image_content_type` | TEXT NULL | `image/jpeg` or `image/png` when `image_blob` set. |
 | `image_byte_size` | INTEGER NULL | Byte length of `image_blob`. |
 | `source` | TEXT NOT NULL | e.g. `csv_import` (stub) or `rebrickable`. |
@@ -169,6 +169,9 @@ Direct **set → part** inventory (not inside a minifig BOM).
 | `minifig_num` | TEXT NOT NULL UNIQUE | e.g. `fig-000001`. |
 | `name` | TEXT NULL | |
 | `image_url` | TEXT NULL | |
+| `image_blob` | BLOB NULL | Minifigure image (JPEG/PNG). |
+| `image_content_type` | TEXT NULL | Stored MIME type when `image_blob` set. |
+| `image_byte_size` | INTEGER NULL | Byte length of `image_blob`. |
 | `source` | TEXT NOT NULL | |
 | `fetched_at` | TIMESTAMP NOT NULL | |
 
@@ -277,9 +280,9 @@ Creating a copy (CSV, duplicate, manual add) **copies** template lines into per-
 
 ### Images in SQLite (Phase 10 — implemented)
 
-BLOB columns on `parts` and `catalog_sets` (see table definitions above). Constraints: JPEG or PNG; max **5_242_880** bytes (5 MB); min size **0** allowed. `missing_items.image_path` removed in migration `e1b4c7d29f50`.
+BLOB columns on `parts`, `catalog_sets`, and `catalog_minifigs` (see table definitions above). Constraints: JPEG or PNG; max **5_242_880** bytes (5 MB); min size **0** allowed. `missing_items.image_path` removed in migration `e1b4c7d29f50`.
 
-Serving: `GET /parts/{part_id}/image`, `GET /catalog-sets/{catalog_set_id}/image`, and `GET /media/missing/{missing_item_id}` (part BLOB when missing qty > 0). See [api-design.md](./api-design.md).
+Serving: `GET /parts/{part_id}/image`, `GET /catalog-sets/{catalog_set_id}/image`, `GET /catalog-minifigs/{catalog_minifig_id}/image`, and `GET /media/missing/{missing_item_id}` (part BLOB when missing qty > 0). See [api-design.md](./api-design.md).
 
 ### Part aliases (Phase 11B)
 

@@ -158,7 +158,7 @@ Phases **1–8** delivered the original MVP (including Rebrickable sync endpoint
 - **Every `catalog_sets` row has at least one `owned_sets` row** — everything persisted is in the user’s collection; there is no separate “unowned” catalog.
 - **Per-copy inventory** (part quantities and missing counts), while **set-level metadata** and **part-level images/aliases** follow the sharing rules in [product-requirements.md §11](./product-requirements.md#11-post-mvp-collection-semantics-phases-914).
 - **Images in SQLite** (JPEG/PNG BLOBs), not on disk under `MEDIA_ROOT` / thumbnails.
-- **Sync UX:** **Phase 14** ships **Import → Sync entire collection** (`POST /imports/rebrickable/sync` with no body), current-set sync from detail (`owned_set_ids` with the current set copy id), and optional set/part image downloads. Progress/cancel, conflict policy, and richer subset selection remain backlog (see Phase **14** below).
+- **Sync UX:** **Phase 14** ships **Import → Sync entire collection** (`POST /imports/rebrickable/sync` with no body), current-set sync from detail (`owned_set_ids` with the current set copy id), and optional set/minifigure/part image downloads. Progress/cancel, conflict policy, and richer subset selection remain backlog (see Phase **14** below).
 
 Implement **one phase at a time**; update [database-schema.md](./database-schema.md), [api-design.md](./api-design.md), and tests before marking a phase complete.
 
@@ -288,7 +288,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 - **Import** page exposes **Sync entire collection** (empty body syncs everything in the DB).
 - **Set detail** exposes collapsed-by-default **Sync from Rebrickable** for the current set copy (`{ "owned_set_ids": [currentCopyId] }`).
-- Both sync surfaces expose **download set images** and **part image download mode** controls. Set image download defaults on; part image download defaults to **none** with options for **missing** and **all**.
+- Both sync surfaces expose **download set images** and **part image download mode** controls. Set image download defaults on and includes catalog minifigure thumbnails. Part image download defaults to **none** with options for **missing** and **all**, and both modes include minifig BOM parts.
 
 ### Deferred backlog
 

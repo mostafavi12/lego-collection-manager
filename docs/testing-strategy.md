@@ -61,7 +61,7 @@ Still **no live Rebrickable** in CI.
 | **11B** | implemented | `PATCH /parts/{id}/aliases` symmetry; search by alias across class. |
 | **12** | implemented | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
 | **13** | implemented | Backend: `test_manual_add_api.py`, `test_manual_add_rebrickable_draft.py`. Frontend: `AddSetPage.test.tsx` — new-catalog flow, optional **`parts`** in **`POST`**, mocked **`add-rebrickable-draft`** prefill. |
-| **14** | implemented / partial | `POST /imports/rebrickable/sync`; Import-page **Sync entire collection**; set-detail current-set sync with `owned_set_ids`; image option request mapping; mocked image download counters/failures. Progress/cancel, conflict policy, and arbitrary subset picker remain deferred — see [development-plan.md](./development-plan.md). |
+| **14** | implemented / partial | `POST /imports/rebrickable/sync`; Import-page **Sync entire collection**; set-detail current-set sync with `owned_set_ids`; image option request mapping for set, minifigure, set-part, and minifig BOM part images; mocked image download counters/failures. Progress/cancel, conflict policy, and arbitrary subset picker remain deferred — see [development-plan.md](./development-plan.md). |
 
 ### Search
 

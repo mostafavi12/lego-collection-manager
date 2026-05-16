@@ -59,6 +59,7 @@ describe("ImportPage", () => {
         parts_upserted: 2,
         inventory_lines_written: 3,
         set_images_downloaded: 1,
+        minifig_images_downloaded: 1,
         part_images_downloaded: 1,
         image_downloads_failed: [],
       }),

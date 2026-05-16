@@ -2,11 +2,12 @@
 
 from sqlalchemy import select
 
-from app.db.models import CatalogSet, Part
+from app.db.models import CatalogMinifig, CatalogSet, Part
 from tests.factories import (
     TINY_PNG,
     add_catalog_set,
     add_color,
+    add_minifig_with_parts,
     add_owned_set,
     add_part,
     add_set_part_inventory_line,
@@ -75,6 +76,27 @@ def test_catalog_set_image_round_trip(api_client, db_session) -> None:
     assert get.content == TINY_PNG
 
     row = db_session.get(CatalogSet, catalog.id)
+    assert row is not None
+    assert row.image_content_type == "image/png"
+
+
+def test_catalog_minifig_image_round_trip(api_client, db_session) -> None:
+    catalog = add_catalog_set(db_session)
+    minifig, _, _ = add_minifig_with_parts(db_session, catalog_set=catalog)
+    db_session.commit()
+
+    put = api_client.put(
+        f"/api/catalog-minifigs/{minifig.id}/image",
+        files={"file": ("fig.png", TINY_PNG, "image/png")},
+    )
+    assert put.status_code == 200
+    assert put.json()["image_url"] == f"/api/catalog-minifigs/{minifig.id}/image"
+
+    get = api_client.get(f"/api/catalog-minifigs/{minifig.id}/image")
+    assert get.status_code == 200
+    assert get.content == TINY_PNG
+
+    row = db_session.get(CatalogMinifig, minifig.id)
     assert row is not None
     assert row.image_content_type == "image/png"
 

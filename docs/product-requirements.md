@@ -179,7 +179,7 @@ When importing or enriching from Rebrickable (CSV import in Phase 12, optional p
 
 - **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs. **Age** is applied only when Rebrickable exposes `age_range`; otherwise the user sets it on set detail.
 - **CSV import and manual prefill:** do **not** fetch image bytes from Rebrickable CDN URLs.
-- **Rebrickable sync:** may optionally download set image BLOBs and part image BLOBs into SQLite when the user selects those options. Part image modes are **none**, **missing parts only**, or **all synced inventory parts**.
+- **Rebrickable sync:** may optionally download set image BLOBs, minifigure image BLOBs, and part image BLOBs into SQLite when the user selects those options. Part image modes are **none**, **missing parts only**, or **all synced inventory parts**; both part modes include minifig BOM parts.
 
 User-uploaded and sync-downloaded images are stored in SQLite (Phase 10). There are no local cache folders.
 
@@ -229,7 +229,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 ### 11.9 Sync UX (**Phase 14**)
 
 - **Shipped:** **Import** page includes **Sync entire collection**, calling **`POST /imports/rebrickable/sync`** with **no body** (full collection). **Set detail** includes a collapsed-by-default **Sync from Rebrickable** panel that calls the same endpoint with **`{ "owned_set_ids": [currentCopyId] }`**.
-- **Image options:** both sync surfaces default to downloading set images and default to **not** downloading part images. Users may instead download part images only for currently missing parts or for all synced inventory parts.
+- **Image options:** both sync surfaces default to downloading set and minifigure images and default to **not** downloading part images. Users may instead download part images only for currently missing parts or for all synced inventory parts, including minifig BOM parts.
 - **Backlog:** progress and cancellation beyond a simple spinner, documented conflict policy vs manual/instance edits, and richer subset selection from list views — see [development-plan.md](./development-plan.md).
 
 ## UX surfaces (MVP)

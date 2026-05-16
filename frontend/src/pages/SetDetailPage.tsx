@@ -9,6 +9,7 @@ import {
   updateSetCopy,
 } from "../api/client";
 import type {
+  MinifigPartLineDetail,
   RebrickableSyncResponse,
   SetCopyDetailResponse,
   SetPartLineDetail,
@@ -73,7 +74,10 @@ export function SetDetailPage() {
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [partModal, setPartModal] = useState<
-    { mode: "create" } | { mode: "edit"; line: SetPartLineDetail } | null
+    | { mode: "create" }
+    | { mode: "edit"; inventoryKind: "set_part"; line: SetPartLineDetail }
+    | { mode: "edit"; inventoryKind: "minifig_part"; line: MinifigPartLineDetail }
+    | null
   >(null);
 
   const load = useCallback(async () => {
@@ -336,6 +340,13 @@ export function SetDetailPage() {
                 {syncResult.set_images_downloaded === 1 ? "" : "s"}.
               </>
             )}
+            {syncResult.minifig_images_downloaded > 0 && (
+              <>
+                {" "}
+                Downloaded {syncResult.minifig_images_downloaded} minifigure image
+                {syncResult.minifig_images_downloaded === 1 ? "" : "s"}.
+              </>
+            )}
             {syncResult.part_images_downloaded > 0 && (
               <>
                 {" "}
@@ -533,7 +544,9 @@ export function SetDetailPage() {
                   <tr
                     key={line.instance_line_id}
                     className="data-table__row--clickable"
-                    onClick={() => setPartModal({ mode: "edit", line })}
+                    onClick={() =>
+                      setPartModal({ mode: "edit", inventoryKind: "set_part", line })
+                    }
                   >
                     <td>
                       <div className="part-cell">
@@ -586,10 +599,19 @@ export function SetDetailPage() {
           <h2>Minifigures</h2>
           {inventory.minifigs.map((mf) => (
             <article key={mf.line_id} className="minifig-block">
-              <h3>
-                {mf.minifig_num}
-                {mf.name ? ` — ${mf.name}` : ""} ×{mf.quantity}
-              </h3>
+              <div className="minifig-block__header">
+                {mf.image_url ? (
+                  <img
+                    src={mediaUrl(mf.image_url) ?? undefined}
+                    alt=""
+                    className="minifig-block__img"
+                  />
+                ) : null}
+                <h3>
+                  {mf.minifig_num}
+                  {mf.name ? ` — ${mf.name}` : ""} ×{mf.quantity}
+                </h3>
+              </div>
               <div className="table-wrap">
                 <table className="data-table">
                   <thead>
@@ -601,30 +623,54 @@ export function SetDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mf.parts.map((line) => (
-                      <tr key={line.instance_line_id}>
-                        <td>
-                          <strong>{line.part_num}</strong>
-                          {line.part_name ? ` — ${line.part_name}` : ""}
-                        </td>
-                        <td>{formatElementIds(line.element_ids)}</td>
-                        <td>
-                          <InstanceQuantityEditor
-                            setCopyId={detail.id}
-                            line={line}
-                            onUpdated={() => void load()}
-                          />
-                        </td>
-                        <td>
-                          <MissingLineEditor
-                            setCopyId={detail.id}
-                            line={line}
-                            inventoryKind="minifig_part"
-                            onUpdated={() => void load()}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {mf.parts.map((line) => {
+                      const thumb = mediaUrl(line.part_image_url ?? line.image_url);
+                      return (
+                        <tr
+                          key={line.instance_line_id}
+                          className="data-table__row--clickable"
+                          onClick={() =>
+                            setPartModal({
+                              mode: "edit",
+                              inventoryKind: "minifig_part",
+                              line,
+                            })
+                          }
+                        >
+                          <td>
+                            <div className="part-cell">
+                              {thumb ? (
+                                <img
+                                  src={thumb}
+                                  alt=""
+                                  className="part-cell__img"
+                                />
+                              ) : null}
+                              <span>
+                                <strong>{line.part_num}</strong>
+                                {line.part_name ? ` — ${line.part_name}` : ""}
+                              </span>
+                            </div>
+                          </td>
+                          <td>{formatElementIds(line.element_ids)}</td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <InstanceQuantityEditor
+                              setCopyId={detail.id}
+                              line={line}
+                              onUpdated={() => void load()}
+                            />
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <MissingLineEditor
+                              setCopyId={detail.id}
+                              line={line}
+                              inventoryKind="minifig_part"
+                              onUpdated={() => void load()}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -637,6 +683,9 @@ export function SetDetailPage() {
         <PartLineModal
           mode={partModal.mode}
           setCopyId={detail.id}
+          inventoryKind={
+            partModal.mode === "edit" ? partModal.inventoryKind : "set_part"
+          }
           line={partModal.mode === "edit" ? partModal.line : undefined}
           onClose={() => setPartModal(null)}
           onSaved={() => void load()}

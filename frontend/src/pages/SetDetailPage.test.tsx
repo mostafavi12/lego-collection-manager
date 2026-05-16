@@ -37,10 +37,83 @@ describe("SetDetailPage", () => {
     expect(screen.getByText(/Plate 1 x 1/)).toBeInTheDocument();
     expect(screen.getByText("302400, 6252045")).toBeInTheDocument();
     expect(screen.getByLabelText(/missing quantity for 3024/i)).toHaveValue(1);
+    expect(screen.queryByAltText(/missing 3024/i)).not.toBeInTheDocument();
     const syncPanel = screen
       .getByText(/sync from rebrickable/i)
       .closest("details");
     expect(syncPanel).not.toHaveAttribute("open");
+  });
+
+  it("renders minifigure part row images like set part rows", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        minifigs: [
+          {
+            line_id: 200,
+            catalog_minifig_id: 12,
+            minifig_num: "cop01",
+            name: "Police Officer",
+            image_url: "/api/catalog-minifigs/12/image",
+            quantity: 1,
+            parts: [
+              {
+                instance_line_id: 201,
+                catalog_line_id: 301,
+                part_id: 99,
+                part_num: "973",
+                part_name: "Torso",
+                color_id: 14,
+                color_name: "Yellow",
+                quantity: 1,
+                element_ids: ["973000"],
+                image_url: null,
+                part_image_url: "/api/parts/99/image",
+                missing_quantity: 0,
+                missing_item_id: null,
+                missing_image_url: null,
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText(/Police Officer/);
+    const partCell = screen
+      .getByText("973", { selector: "strong" })
+      .closest(".part-cell");
+    expect(partCell).not.toBeNull();
+    expect(partCell?.querySelector("img")).toHaveAttribute("src", "/api/parts/99/image");
+
+    await user.click(screen.getByText("973", { selector: "strong" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /edit part/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: /^delete$/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: /^update$/i }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/owned-sets/1/inventory-lines/201"),
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining('"quantity":1'),
+        }),
+      );
+    });
   });
 
   it("sync panel sends default set images and selected part image mode", async () => {
@@ -58,6 +131,7 @@ describe("SetDetailPage", () => {
           parts_upserted: 2,
           inventory_lines_written: 3,
           set_images_downloaded: 1,
+          minifig_images_downloaded: 1,
           part_images_downloaded: 2,
           image_downloads_failed: [],
         }),

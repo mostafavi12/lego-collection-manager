@@ -209,6 +209,13 @@ export function ImportPage() {
                   {syncResult.set_images_downloaded === 1 ? "" : "s"}.
                 </>
               )}
+              {syncResult.minifig_images_downloaded > 0 && (
+                <>
+                  {" "}
+                  Downloaded {syncResult.minifig_images_downloaded} minifigure image
+                  {syncResult.minifig_images_downloaded === 1 ? "" : "s"}.
+                </>
+              )}
               {syncResult.part_images_downloaded > 0 && (
                 <>
                   {" "}

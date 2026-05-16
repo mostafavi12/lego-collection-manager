@@ -41,6 +41,7 @@ from app.services.catalog_state import (
     catalog_sync_state,
     missing_image_url_for_part,
     resolve_catalog_image_url,
+    resolve_catalog_minifig_image_url,
     resolve_part_image_url,
 )
 from app.services.instance_inventory import (
@@ -389,8 +390,10 @@ def get_owned_set_detail(
         minifigs.append(
             MinifigInventoryBlock(
                 line_id=mf_line.id,
+                catalog_minifig_id=catalog_minifig.id,
                 minifig_num=catalog_minifig.minifig_num,
                 name=catalog_minifig.name,
+                image_url=resolve_catalog_minifig_image_url(catalog_minifig),
                 quantity=mf_line.quantity,
                 parts=parts,
             )

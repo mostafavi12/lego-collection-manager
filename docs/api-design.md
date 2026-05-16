@@ -73,7 +73,7 @@ The app uses a **synchronous** request that completes the sync for the selected 
 }
 ```
 
-Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory). `download_set_images` stores set box images in SQLite. `part_image_download_mode` is one of `none` (default), `missing` (only parts currently marked missing), or `all` (all synced inventory parts).
+Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory). `download_set_images` stores set box images and minifigure images in SQLite. `part_image_download_mode` is one of `none` (default), `missing` (only parts currently marked missing, including minifig BOM parts), or `all` (all synced inventory parts, including minifig BOM parts).
 
 **Response `200`:**
 
@@ -86,6 +86,7 @@ Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at leas
   "parts_upserted": 1200,
   "inventory_lines_written": 3500,
   "set_images_downloaded": 3,
+  "minifig_images_downloaded": 8,
   "part_images_downloaded": 42,
   "image_downloads_failed": [
     {
@@ -201,8 +202,10 @@ Multiple `items` may share the same `set_num` with different `id`.
     "minifigs": [
       {
         "line_id": 40,
+        "catalog_minifig_id": 12,
         "minifig_num": "fig-000001",
         "name": "Police Officer",
+        "image_url": "/api/catalog-minifigs/12/image",
         "quantity": 1,
         "parts": [
           {
@@ -336,8 +339,11 @@ If `label` is omitted, server uses `suggested_label` from the preview rules.
 | `GET` | `/catalog-sets/{catalog_set_id}/image` | Serve set box image |
 | `PUT` | `/catalog-sets/{catalog_set_id}/image` | Upload/replace set image |
 | `DELETE` | `/catalog-sets/{catalog_set_id}/image` | Clear set image |
+| `GET` | `/catalog-minifigs/{catalog_minifig_id}/image` | Serve minifigure image |
+| `PUT` | `/catalog-minifigs/{catalog_minifig_id}/image` | Upload/replace minifigure image |
+| `DELETE` | `/catalog-minifigs/{catalog_minifig_id}/image` | Clear minifigure image |
 
-**`PUT` response `200`:** `{ "image_url": "/api/parts/{part_id}/image" }` (or catalog-set path).
+**`PUT` response `200`:** `{ "image_url": "/api/parts/{part_id}/image" }` (or catalog-set / catalog-minifig path).
 
 **`DELETE` response `200`:** `{ "image_url": null }`.
 

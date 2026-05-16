@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import {
   deleteMissingImage,
-  mediaUrl,
   patchMissing,
   uploadMissingImage,
 } from "../api/client";
@@ -43,8 +42,8 @@ export function MissingLineEditor({
   const [qty, setQty] = useState(String(line.missing_quantity));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState(
-    line.part_image_url ?? line.missing_image_url,
+  const [hasImage, setHasImage] = useState(
+    (line.part_image_url ?? line.missing_image_url) != null,
   );
   const [missingItemId, setMissingItemId] = useState(line.missing_item_id);
 
@@ -63,7 +62,7 @@ export function MissingLineEditor({
       );
       if (parsed === 0) {
         setMissingItemId(null);
-        setImageUrl(null);
+        setHasImage(false);
       } else {
         setMissingItemId(result.missing_item_id);
       }
@@ -83,7 +82,7 @@ export function MissingLineEditor({
     setError(null);
     try {
       const result = await uploadMissingImage(setCopyId, missingItemId, file);
-      setImageUrl(result.part_image_url ?? result.missing_image_url);
+      setHasImage((result.part_image_url ?? result.missing_image_url) != null);
       onUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -100,7 +99,7 @@ export function MissingLineEditor({
     setError(null);
     try {
       await deleteMissingImage(setCopyId, missingItemId);
-      setImageUrl(null);
+      setHasImage(false);
       onUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
@@ -108,8 +107,6 @@ export function MissingLineEditor({
       setBusy(false);
     }
   }
-
-  const preview = mediaUrl(imageUrl);
 
   return (
     <div className="missing-editor">
@@ -145,24 +142,15 @@ export function MissingLineEditor({
               onChange={(e) => void onFileSelected(e.target.files?.[0])}
             />
           </label>
-          {preview && (
-            <>
-              <a href={preview} target="_blank" rel="noreferrer">
-                <img
-                  src={preview}
-                  alt={`Missing ${line.part_num}`}
-                  className="missing-editor__thumb"
-                />
-              </a>
-              <button
-                type="button"
-                className="btn btn--small btn--ghost"
-                disabled={busy}
-                onClick={() => void removeImage()}
-              >
-                Remove photo
-              </button>
-            </>
+          {hasImage && (
+            <button
+              type="button"
+              className="btn btn--small btn--ghost"
+              disabled={busy}
+              onClick={() => void removeImage()}
+            >
+              Remove photo
+            </button>
           )}
         </div>
       )}

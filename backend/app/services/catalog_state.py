@@ -1,8 +1,16 @@
 """Derive catalog sync state for API responses."""
 
-from app.db.models import CatalogSet, Part
-from app.services.image_blob import catalog_set_has_image, part_has_image
-from app.services.image_urls import catalog_set_image_url, part_image_url
+from app.db.models import CatalogMinifig, CatalogSet, Part
+from app.services.image_blob import (
+    catalog_minifig_has_image,
+    catalog_set_has_image,
+    part_has_image,
+)
+from app.services.image_urls import (
+    catalog_minifig_image_url,
+    catalog_set_image_url,
+    part_image_url,
+)
 
 
 def catalog_sync_state(catalog_set: CatalogSet) -> str:
@@ -21,6 +29,12 @@ def resolve_part_image_url(part: Part) -> str | None:
     if part_has_image(part):
         return part_image_url(part.id)
     return part.image_url
+
+
+def resolve_catalog_minifig_image_url(catalog_minifig: CatalogMinifig) -> str | None:
+    if catalog_minifig_has_image(catalog_minifig):
+        return catalog_minifig_image_url(catalog_minifig.id)
+    return catalog_minifig.image_url
 
 
 def missing_image_url_for_part(part: Part, *, quantity_missing: int) -> str | None:

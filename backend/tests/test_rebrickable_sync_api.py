@@ -47,6 +47,7 @@ def test_post_sync_success(api_client, db_session, monkeypatch: pytest.MonkeyPat
         "parts_upserted": 3,
         "inventory_lines_written": 5,
         "set_images_downloaded": 0,
+        "minifig_images_downloaded": 0,
         "part_images_downloaded": 0,
         "image_downloads_failed": [],
     }

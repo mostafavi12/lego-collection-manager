@@ -49,5 +49,6 @@ class RebrickableSyncResponse(BaseModel):
     parts_upserted: int
     inventory_lines_written: int
     set_images_downloaded: int = 0
+    minifig_images_downloaded: int = 0
     part_images_downloaded: int = 0
     image_downloads_failed: list[ImageDownloadFailure] = Field(default_factory=list)

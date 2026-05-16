@@ -101,6 +101,7 @@ def import_rebrickable_sync(
         parts_upserted=result.parts_upserted,
         inventory_lines_written=result.inventory_lines_written,
         set_images_downloaded=result.set_images_downloaded,
+        minifig_images_downloaded=result.minifig_images_downloaded,
         part_images_downloaded=result.part_images_downloaded,
         image_downloads_failed=[
             ImageDownloadFailure(

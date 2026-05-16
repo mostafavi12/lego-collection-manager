@@ -43,6 +43,7 @@ def test_map_minifig_part_result() -> None:
     item = load_fixture("minifig_parts.json")["results"][0]
     line = map_minifig_part_result(item)
     assert line.part.part_num == "973c27h01pr0126"
+    assert line.image_url == "https://cdn.rebrickable.com/media/parts/elements/973.jpg"
     assert line.quantity == 1
 
 

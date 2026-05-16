@@ -166,6 +166,16 @@ def upsert_part_counting(
     return part, created
 
 
+def _ensure_part_image_url_from_line(
+    part: Part,
+    line_image_url: str | None,
+    *,
+    persist_image_urls: bool,
+) -> None:
+    if persist_image_urls and part.image_url is None and line_image_url:
+        part.image_url = line_image_url
+
+
 def upsert_catalog_set(
     session: Session,
     dto: CatalogSetDTO,
@@ -259,6 +269,11 @@ def replace_set_part_inventory(
             session,
             line.part,
             fetched_at=fetched_at,
+            persist_image_urls=persist_image_urls,
+        )
+        _ensure_part_image_url_from_line(
+            part,
+            line.image_url,
             persist_image_urls=persist_image_urls,
         )
         if created:
@@ -373,6 +388,11 @@ def replace_minifig_part_inventory(
             session,
             line.part,
             fetched_at=fetched_at,
+            persist_image_urls=persist_image_urls,
+        )
+        _ensure_part_image_url_from_line(
+            part,
+            line.image_url,
             persist_image_urls=persist_image_urls,
         )
         if created:

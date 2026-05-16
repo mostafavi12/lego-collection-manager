@@ -34,7 +34,7 @@ This document defines **file** and **network** inputs: formats, environment vari
 |--------|------------------|-----------|
 | Catalog row on CSV | **Stub** (`name` NULL, etc.) until sync | **Full fetch** per token via Rebrickable APIs |
 | Inventory | Filled by `POST /imports/rebrickable/sync` | Filled during CSV import (same endpoints as sync, mocked in tests) |
-| Images | N/A on CSV | **Not downloaded** from Rebrickable URLs |
+| Images | N/A on CSV | CSV import does not download images; Rebrickable sync can optionally download set, minifigure, and part images into SQLite |
 | API key | Optional for CSV alone | **Required** for CSV import |
 
 ### Investigation default
