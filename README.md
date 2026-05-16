@@ -46,12 +46,13 @@ Configuration is read from the environment (see [`backend/.env.example`](backend
 | `REBRICKABLE_API_KEY` | — | Required for Rebrickable sync (not for tests) |
 | `LOG_LEVEL` | `INFO` | Importer and application log verbosity |
 | `LOG_FILE_PATH` | `./data/server.log` | Local rotating server log file; `*.log` files are ignored by git |
+| `IMPORT_FAILURE_LOG_PATH` | `./data/import_failures.log` | Dedicated JSON-lines text file for failed imports/syncs/image downloads |
 | `ELEMENTS_CSV_PATH` | `../data/elements.csv` | Optional Rebrickable Element ID mapping used during import/sync enrichment |
 | `THEMES_CSV_PATH` | `../data/themes.csv` | Optional Rebrickable theme mapping used to display parent themes during import/sync |
 
 User-uploaded **part** and **set** images are stored as JPEG/PNG BLOBs in SQLite (see [docs/data-sources.md](docs/data-sources.md)); no upload directory is required.
 
-On startup the API **refuses to start** unless the database is at the latest Alembic revision (`alembic upgrade head`). Importers log structured summaries (set counts, failures) to console and the local log file, and never log API keys.
+On startup the API **refuses to start** unless the database is at the latest Alembic revision (`alembic upgrade head`). Importers log structured summaries (set counts, failures) to console and the local log file, write failed imports/syncs to the dedicated failure log, and never log API keys.
 
 ### Tests
 

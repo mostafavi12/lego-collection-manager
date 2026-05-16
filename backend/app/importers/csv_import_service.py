@@ -19,6 +19,7 @@ from app.importers.rebrickable_sync_service import (
 from app.importers.set_list_parser import ParseError, parse_set_list_entries
 from app.rebrickable.client import RebrickableClient
 from app.rebrickable.exceptions import RebrickableAPIError
+from app.services.failure_log import record_import_failure
 from app.services.instance_inventory import clone_instance_inventory
 from app.services.owned_sets_service import _apply_shared_age
 
@@ -132,6 +133,14 @@ def import_set_list(
                 rb_key,
                 message,
             )
+            record_import_failure(
+                operation="csv_import",
+                token_index=token_index,
+                set_num=lsid.number,
+                rb_key=rb_key,
+                message=message,
+                error_type=type(exc).__name__,
+            )
             with session.begin_nested():
                 catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
                 if created_stub:
@@ -150,6 +159,14 @@ def import_set_list(
                 "CSV import token_failed token_index=%s rb_key=%s",
                 token_index,
                 rb_key,
+            )
+            record_import_failure(
+                operation="csv_import",
+                token_index=token_index,
+                set_num=lsid.number,
+                rb_key=rb_key,
+                message=str(exc),
+                error_type=type(exc).__name__,
             )
             with session.begin_nested():
                 catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
