@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
@@ -17,6 +18,7 @@ from app.db.models import (
 from app.importers.rebrickable_sync_service import (
     RebrickableSyncResult,
     sync_catalog_for_set_nums,
+    sync_one_catalog_set,
 )
 from app.rebrickable.dto import (
     CatalogSetDTO,
@@ -31,7 +33,15 @@ from app.rebrickable.exceptions import RebrickableAPIError
 from app.services.element_catalog import clear_element_catalog_cache
 from app.services.image_download import DownloadedImage
 from app.services.theme_catalog import clear_theme_catalog_cache
-from tests.factories import add_catalog_set, add_instance_line_for_set_part, add_owned_set
+from tests.factories import (
+    add_catalog_set,
+    add_color,
+    add_instance_line_for_set_part,
+    add_owned_set,
+    add_part,
+    add_set_part_inventory_line,
+    add_theme,
+)
 
 
 def utc_now() -> datetime:
@@ -216,10 +226,9 @@ def test_sync_uses_parent_theme_from_csv(db_session, tmp_path, monkeypatch) -> N
         set_parts={"60181-1": []},
     )
 
-    result = sync_catalog_for_set_nums(db_session, client, ["60181-1"])
+    sync_one_catalog_set(db_session, client, "60181-1")
     db_session.commit()
 
-    assert result.sets_synced == 1
     theme = db_session.scalar(select(Theme).where(Theme.external_id == 52))
     assert theme is not None
     assert theme.name == "City"
@@ -250,6 +259,70 @@ def test_second_sync_replaces_inventory(db_session, fake_client) -> None:
     assert len(lines) == 1
     part = db_session.scalar(select(Part).where(Part.part_num == "9999"))
     assert part is not None
+
+
+def test_sync_preserves_local_fields_and_missing_counts(db_session) -> None:
+    old_theme = add_theme(db_session, external_id=500, name="Local Theme")
+    catalog = add_catalog_set(db_session, theme=old_theme)
+    catalog.name = "Local Name"
+    catalog.year = 1977
+    catalog.num_parts = 12
+    catalog.image_url = "https://cdn.example/old-set.jpg"
+    part = add_part(db_session, part_num="3024")
+    color = add_color(db_session, external_id=0, name="Black")
+    catalog_line = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part,
+        color=color,
+        quantity=4,
+    )
+    owned = add_owned_set(db_session, catalog, investigated=True, label="My copy")
+    owned.age = 9
+    owned.notes = "Keep this note"
+    instance_line = add_instance_line_for_set_part(
+        db_session,
+        owned_set=owned,
+        catalog_line=catalog_line,
+        quantity=4,
+        quantity_missing=2,
+    )
+    db_session.commit()
+    updated_line = replace(_sample_part_line("3024"), quantity=7)
+    client = FakeRebrickableClient(
+        sets={
+            "6024-1": CatalogSetDTO(
+                set_num="6024-1",
+                name="Remote Name",
+                year=2024,
+                theme_external_id=67,
+                num_parts=99,
+                image_url="https://cdn.example/new-set.jpg",
+                age=6,
+            )
+        },
+        themes={67: ThemeDTO(external_id=67, name="Remote Theme")},
+        set_parts={"6024-1": [updated_line]},
+    )
+
+    result = sync_catalog_for_set_nums(db_session, client, ["6024-1"])
+    db_session.commit()
+
+    assert result.sets_synced == 1
+    db_session.refresh(catalog)
+    db_session.refresh(owned)
+    db_session.refresh(instance_line)
+    assert catalog.name == "Remote Name"
+    assert catalog.num_parts == 99
+    assert catalog.image_url == "https://cdn.example/new-set.jpg"
+    assert catalog.year == 1977
+    assert catalog.theme_id == old_theme.id
+    assert owned.age == 9
+    assert owned.investigated is True
+    assert owned.label == "My copy"
+    assert owned.notes == "Keep this note"
+    assert instance_line.quantity == 7
+    assert instance_line.quantity_missing == 2
 
 
 def test_sync_records_failure_without_corrupting_other_set(db_session, fake_client) -> None:

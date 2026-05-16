@@ -34,7 +34,10 @@ from app.domain.lego_set_number import LegoSetId, to_rebrickable_set_num
 from app.rebrickable.client import RebrickableClient
 from app.rebrickable.dto import CatalogSetDTO, ThemeDTO
 from app.rebrickable.exceptions import RebrickableAPIError
-from app.services.instance_inventory import ensure_instance_inventory_for_catalog
+from app.services.instance_inventory import (
+    ensure_instance_inventory_for_catalog,
+    refresh_instance_quantities_for_catalog,
+)
 from app.services.image_download import (
     HttpxImageDownloader,
     ImageDownloadError,
@@ -120,7 +123,14 @@ def sync_catalog_for_set_nums(
     for set_num in set_nums:
         try:
             with session.begin_nested():
-                parts, lines, _age = sync_one_catalog_set(session, client, set_num)
+                parts, lines, _age = sync_one_catalog_set(
+                    session,
+                    client,
+                    set_num,
+                    update_theme=False,
+                    update_age=False,
+                    update_year=False,
+                )
             result.sets_synced += 1
             result.parts_upserted += parts
             result.inventory_lines_written += lines
@@ -226,6 +236,9 @@ def sync_one_catalog_set(
     set_num: str,
     *,
     persist_image_urls: bool = True,
+    update_theme: bool = True,
+    update_age: bool = True,
+    update_year: bool = True,
 ) -> tuple[int, int, int | None]:
     fetched_at = utc_now()
     set_dto = client.get_set(set_num)
@@ -245,9 +258,11 @@ def sync_one_catalog_set(
         theme_id=theme_id,
         fetched_at=fetched_at,
         persist_image_urls=persist_image_urls,
+        update_theme=update_theme,
+        update_year=update_year,
     )
 
-    if recommended_age is not None:
+    if update_age and recommended_age is not None:
         for owned in session.scalars(
             select(OwnedSet).where(OwnedSet.catalog_set_id == catalog_set.id)
         ).all():
@@ -303,6 +318,7 @@ def sync_one_catalog_set(
         inventory_lines += lines
 
     ensure_instance_inventory_for_catalog(session, catalog_set.id)
+    refresh_instance_quantities_for_catalog(session, catalog_set.id)
 
     return parts_upserted, inventory_lines, recommended_age
 
