@@ -77,6 +77,7 @@ class SetPartLineDetail(BaseModel):
     color_id: int
     color_name: str
     quantity: int
+    element_ids: list[str] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
     image_url: str | None
     part_image_url: str | None
@@ -94,6 +95,7 @@ class MinifigPartLineDetail(BaseModel):
     color_id: int
     color_name: str
     quantity: int
+    element_ids: list[str] = Field(default_factory=list)
     image_url: str | None
     part_image_url: str | None
     missing_quantity: int

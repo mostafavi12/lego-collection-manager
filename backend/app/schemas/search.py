@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
 
 
@@ -15,6 +17,13 @@ class SearchPartSetOccurrence(BaseModel):
     set_num: int
     quantity: int
     owned_set_id: int
+    colors: list["SearchPartColorOccurrence"] = Field(default_factory=list)
+
+
+class SearchPartColorOccurrence(BaseModel):
+    color_id: int
+    color_name: str
+    quantity: int
 
 
 class SearchPartDisplayLine(BaseModel):
@@ -31,6 +40,22 @@ class SearchPartResult(BaseModel):
     lines: list[SearchPartDisplayLine] = Field(default_factory=list)
 
 
+class SearchElementSetOccurrence(BaseModel):
+    set_num: int
+    quantity: int
+    owned_set_id: int
+
+
+class SearchElementResult(BaseModel):
+    element_ids: list[str] = Field(default_factory=list)
+    part_num: str
+    part_name: str | None
+    color_id: int
+    color_name: str
+    sets: list[SearchElementSetOccurrence] = Field(default_factory=list)
+
+
 class SearchResponse(BaseModel):
     sets: list[SearchSetResult] = []
     parts: list[SearchPartResult] = []
+    elements: list[SearchElementResult] = []

@@ -9,6 +9,7 @@ from app.db.models import (
     CatalogMinifig,
     CatalogSet,
     Color,
+    InventoryLineElementId,
     MissingItem,
     MinifigPartInventoryLine,
     OwnedSet,
@@ -133,6 +134,21 @@ def add_set_part_inventory_line(
     session.add(line)
     session.flush()
     return line
+
+
+def add_element_id_for_set_part_line(
+    session: Session,
+    *,
+    line: SetPartInventoryLine,
+    element_id: str = "302400",
+) -> InventoryLineElementId:
+    row = InventoryLineElementId(
+        set_part_inventory_line_id=line.id,
+        element_id=element_id,
+    )
+    session.add(row)
+    session.flush()
+    return row
 
 
 def add_catalog_stub(

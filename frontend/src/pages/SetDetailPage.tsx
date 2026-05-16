@@ -32,7 +32,11 @@ interface InstanceForm {
   catalogYear: string;
 }
 
-type PartInventorySort = "part_num" | "color" | "missing";
+type PartInventorySort = "element_id" | "part_num" | "missing";
+
+function formatElementIds(elementIds: string[]): string {
+  return elementIds.length > 0 ? elementIds.join(", ") : "No Element ID";
+}
 
 function formFromDetail(detail: SetCopyDetailResponse): InstanceForm {
   return {
@@ -63,7 +67,7 @@ export function SetDetailPage() {
   const [syncDownloadSetImages, setSyncDownloadSetImages] = useState(false);
   const [syncDownloadMissingPartImages, setSyncDownloadMissingPartImages] = useState(false);
   const [showMissingOnly, setShowMissingOnly] = useState(false);
-  const [partSort, setPartSort] = useState<PartInventorySort>("part_num");
+  const [partSort, setPartSort] = useState<PartInventorySort>("element_id");
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [partModal, setPartModal] = useState<
@@ -226,16 +230,13 @@ export function SetDetailPage() {
       if (partSort === "missing") {
         return (
           b.missing_quantity - a.missing_quantity ||
-          a.part_num.localeCompare(b.part_num, undefined, { numeric: true })
+          formatElementIds(a.element_ids).localeCompare(formatElementIds(b.element_ids), undefined, { numeric: true })
         );
       }
-      if (partSort === "color") {
-        return (
-          a.color_name.localeCompare(b.color_name, undefined, { numeric: true }) ||
-          a.part_num.localeCompare(b.part_num, undefined, { numeric: true })
-        );
+      if (partSort === "part_num") {
+        return a.part_num.localeCompare(b.part_num, undefined, { numeric: true });
       }
-      return a.part_num.localeCompare(b.part_num, undefined, { numeric: true });
+      return formatElementIds(a.element_ids).localeCompare(formatElementIds(b.element_ids), undefined, { numeric: true });
     });
 
   return (
@@ -478,8 +479,8 @@ export function SetDetailPage() {
               value={partSort}
               onChange={(e) => setPartSort(e.target.value as PartInventorySort)}
             >
+              <option value="element_id">Element ID</option>
               <option value="part_num">Part number</option>
-              <option value="color">Color</option>
               <option value="missing">Missing quantity</option>
             </select>
           </label>
@@ -489,8 +490,7 @@ export function SetDetailPage() {
             <thead>
               <tr>
                 <th>Part</th>
-                <th>Aliases</th>
-                <th>Color</th>
+                <th>Element ID</th>
                 <th>Qty</th>
                 <th>Missing</th>
               </tr>
@@ -520,11 +520,8 @@ export function SetDetailPage() {
                       </div>
                     </td>
                     <td className="part-aliases-cell">
-                      {line.aliases.length > 0
-                        ? line.aliases.join(", ")
-                        : "—"}
+                      {formatElementIds(line.element_ids)}
                     </td>
-                    <td>{line.color_name}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <InstanceQuantityEditor
                         setCopyId={detail.id}
@@ -545,7 +542,7 @@ export function SetDetailPage() {
               })}
               {visibleSetParts.length === 0 && (
                 <tr>
-                  <td colSpan={5}>No matching set parts.</td>
+                  <td colSpan={4}>No matching set parts.</td>
                 </tr>
               )}
             </tbody>
@@ -567,7 +564,7 @@ export function SetDetailPage() {
                   <thead>
                     <tr>
                       <th>Part</th>
-                      <th>Color</th>
+                      <th>Element ID</th>
                       <th>Qty</th>
                       <th>Missing</th>
                     </tr>
@@ -579,7 +576,7 @@ export function SetDetailPage() {
                           <strong>{line.part_num}</strong>
                           {line.part_name ? ` — ${line.part_name}` : ""}
                         </td>
-                        <td>{line.color_name}</td>
+                        <td>{formatElementIds(line.element_ids)}</td>
                         <td>
                           <InstanceQuantityEditor
                             setCopyId={detail.id}

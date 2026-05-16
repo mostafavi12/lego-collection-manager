@@ -178,6 +178,7 @@ Multiple `items` may share the same `set_num` with different `id`.
         "color_id": 0,
         "color_name": "Black",
         "quantity": 4,
+        "element_ids": ["302400", "6252045"],
         "aliases": ["3024b", "3024pr"],
         "image_url": "https://…",
         "part_image_url": "/api/parts/42/image",
@@ -348,13 +349,14 @@ Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, 
 | Param | Values |
 |-------|--------|
 | `q` | Required, non-empty after trim. |
-| `type` | `set` \| `part` \| `all` (default `all`). |
+| `type` | `set` \| `part` \| `element` \| `all` (default `all`). |
 
 **Semantics:**
 
 - **`type=set`:** Match `catalog_sets.set_number` (string prefix on digits for MVP) for sets that have at least one `owned_sets` row; return **`owned_set_id`** values (**one per physical copy**; multiple copies sharing the same catalog set allowed).
-- **`type=part`:** Match `parts.part_num` or `part_aliases.alias` (prefix); return **logical alias classes** that appear in the **catalog BOM** of at least one set in the collection (`set_part_inventory_lines` and minifig BOM lines). Each hit includes canonical **`part_num`** (string; LEGO part identifiers may contain letters), **`name`**, resolved **`image_url`** (Rebrickable URL or `/api/parts/{id}/image` when a BLOB exists), and **`lines`**: one row per actual **`parts.part_num`** in the alias class that has owned-set occurrences. Each line’s **`sets`** list includes only catalog sets whose BOM originally references that exact part number, with catalog **`set_num`** (base number), template **`quantity`**, and an **`owned_set_id`** link (first copy) for navigation.
-- **`type=all`:** Return two buckets (`sets`, `parts`).
+- **`type=part`:** Match `parts.part_num` or `part_aliases.alias` (prefix); return **logical alias classes** that appear in the **catalog BOM** of at least one set in the collection (`set_part_inventory_lines` and minifig BOM lines). Each hit includes canonical **`part_num`**, **`name`**, resolved **`image_url`**, and **`lines`**: one row per actual **`parts.part_num`** in the alias class that has owned-set occurrences. Each line’s **`sets`** list includes catalog **`set_num`**, total template **`quantity`**, an **`owned_set_id`** link, and per-color quantities.
+- **`type=element`:** Match persisted LEGO Element IDs (prefix); return one row per matched part/color combination. Each row includes the complete **`element_ids`** list for that part/color, related **`part_num`**, **`part_name`**, color display, and set occurrences.
+- **`type=all`:** Return three buckets (`sets`, `parts`, `elements`).
 
 **Example response (`type=set`):**
 
