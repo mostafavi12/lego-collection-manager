@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { Link } from "react-router-dom";
+
 import { getReportsSummary } from "../api/client";
 import type { ReportsSummaryResponse } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
@@ -82,9 +84,13 @@ export function ReportsPage() {
           <section className="report-links" aria-label="Detailed reports">
             <h2>Detailed reports</h2>
             <ul className="report-links__list">
-              <li className="report-links__item report-links__item--disabled">
-                <span className="report-links__title">Incomplete sets</span>
-                <span className="report-links__note">Coming in Phase 16</span>
+              <li className="report-links__item">
+                <Link to="/reports/incomplete" className="report-links__title">
+                  Incomplete sets
+                </Link>
+                <span className="report-links__note">
+                  Copies with missing parts
+                </span>
               </li>
               <li className="report-links__item report-links__item--disabled">
                 <span className="report-links__title">Missing parts</span>

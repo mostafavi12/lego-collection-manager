@@ -240,6 +240,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 2. **Set detail** — per-copy fields + shared catalog fields + inventory + missing panel; **delete this copy**; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
 4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Sync entire collection** with image options (Phase **14**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
+5. **Reports** — collection summary (Phase **15**); incomplete sets with missing lines per copy (Phase **16**); missing-parts aggregation (Phase **17** backlog).
 
 ## Non-goals (MVP)
 

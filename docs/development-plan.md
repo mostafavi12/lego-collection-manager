@@ -316,6 +316,23 @@ See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch)
 - **Complete** means investigated with zero missing part quantities.
 - Backend and frontend tests pass; no live Rebrickable.
 
+## Phase 16 — Incomplete sets report
+
+**Goal:** Detailed list of copies with missing parts; each copy collapsed by default with nested missing-line table.
+
+**Deliverables**
+
+- **`GET /reports/incomplete-sets`** — paginated incomplete copies with nested `missing_lines` (see [api-design.md](./api-design.md)).
+- Extend [`backend/app/services/reports_service.py`](../backend/app/services/reports_service.py) and report schemas.
+- Frontend: **`IncompleteSetsReportPage`** at `/reports/incomplete`; enable link from **`ReportsPage`**.
+- Tests: [`backend/tests/test_reports_incomplete_api.py`](../backend/tests/test_reports_incomplete_api.py); Vitest `frontend/src/pages/IncompleteSetsReportPage.test.tsx`.
+
+**Exit criteria**
+
+- User can browse incomplete copies with expandable missing-part detail (details closed by default).
+- Hub links to incomplete report.
+- Backend and frontend tests pass.
+
 ## Dependency graph (high level)
 
 ```mermaid
@@ -341,7 +358,7 @@ flowchart LR
     phase6 --> phase7
     phase7 --> phase8
   end
-  subgraph post ["Post-MVP Phases 9-15"]
+  subgraph post ["Post-MVP Phases 9-16"]
     phase9[Phase9_InstanceInventory]
     phase10[Phase10_ImagesInDB]
     phase11A[Phase11A_PartModal]
@@ -349,12 +366,14 @@ flowchart LR
     phase12[Phase12_CSVFetch]
     phase13[Phase13_ManualAddWizard]
     phase15[Phase15_ReportingSummary]
+    phase16[Phase16_IncompleteSetsReport]
     phase9 --> phase10
     phase10 --> phase11A
     phase11A --> phase11B
     phase11B --> phase12
     phase12 --> phase13
     phase13 --> phase15
+    phase15 --> phase16
   end
   phase8 --> phase9
   phase4a --> phase12

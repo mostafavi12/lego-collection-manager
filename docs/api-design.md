@@ -731,6 +731,49 @@ Read-only collection aggregates. Counts refer to **set copies** (`owned_sets`), 
 | `total_parts` | Sum of `quantity` on all `owned_set_inventory_lines` (set parts and minifig BOM) |
 | `missing_parts` | Sum of `quantity_missing` on all `owned_set_inventory_lines` |
 
+### Incomplete sets — Phase 16
+
+**`GET /reports/incomplete-sets?limit=50&offset=0`**
+
+Paginated list of set copies with at least one inventory line where `quantity_missing > 0`.
+
+**Response `200`:**
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "set_num": 6024,
+      "name": "Police Car",
+      "display_label": "Copy #1",
+      "investigated": false,
+      "missing_line_count": 1,
+      "missing_parts_total": 2,
+      "missing_lines": [
+        {
+          "part_id": 10,
+          "part_num": "3001",
+          "part_name": "Brick 2x4",
+          "color_id": 0,
+          "color_name": "Black",
+          "quantity_missing": 2,
+          "element_ids": ["300100"],
+          "part_image_url": "/api/parts/10/image"
+        }
+      ]
+    }
+  ],
+  "total": 1
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `missing_line_count` | Distinct inventory lines with `quantity_missing > 0` for this copy |
+| `missing_parts_total` | Sum of `quantity_missing` for this copy |
+| `missing_lines` | Only lines with `quantity_missing > 0` (set parts and minifig BOM) |
+
 ## CORS
 
 Backend allows the Vite dev origin (e.g. `http://localhost:5173`) via environment-driven CORS settings for MVP.

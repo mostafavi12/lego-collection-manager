@@ -14,6 +14,7 @@ import type {
   PartAliasesResponse,
   RebrickableSetDraftResponse,
   RebrickableSyncResponse,
+  IncompleteSetsReportResponse,
   ReportsSummaryResponse,
   SearchResponse,
   SetCopyCreateBody,
@@ -377,4 +378,19 @@ export function patchPartAliases(
 
 export function getReportsSummary(): Promise<ReportsSummaryResponse> {
   return request("/reports/summary");
+}
+
+export function getIncompleteSetsReport(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<IncompleteSetsReportResponse> {
+  const search = new URLSearchParams();
+  if (params?.limit != null) {
+    search.set("limit", String(params.limit));
+  }
+  if (params?.offset != null) {
+    search.set("offset", String(params.offset));
+  }
+  const query = search.toString();
+  return request(`/reports/incomplete-sets${query ? `?${query}` : ""}`);
 }
