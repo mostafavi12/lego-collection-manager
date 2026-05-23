@@ -1,6 +1,5 @@
 """Regression: part images must be keyed by element id (color-specific), not part id."""
 
-from app.debug_agent_log import debug_agent_log
 from app.services.image_blob import set_element_image, set_part_image
 from tests.factories import (
     TINY_PNG,
@@ -67,15 +66,3 @@ def test_same_part_num_uses_distinct_element_images_in_detail(
     assert by_color["Red"]["image_url"] == "/api/elements/302424/image"
     assert by_color["Black"]["image_url"] == "/api/elements/302401/image"
     assert by_color["Red"]["image_url"] != by_color["Black"]["image_url"]
-
-    debug_agent_log(
-        location="test_element_image_colors.py",
-        message="verified distinct element image urls per color",
-        data={
-            "red_url": by_color["Red"]["image_url"],
-            "black_url": by_color["Black"]["image_url"],
-            "part_blob_url": f"/api/parts/{part.id}/image",
-        },
-        hypothesis_id="H1",
-        run_id="post-fix",
-    )

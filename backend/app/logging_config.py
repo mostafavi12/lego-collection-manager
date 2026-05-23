@@ -9,8 +9,8 @@ from pathlib import Path
 
 
 def configure_logging() -> None:
-    level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
-    level = getattr(logging, level_name, logging.INFO)
+    level_name = os.environ.get("LOG_LEVEL", "WARNING").upper()
+    level = getattr(logging, level_name, logging.WARNING)
     log_file_path = Path(os.environ.get("LOG_FILE_PATH", "./data/server.log"))
     log_file_path.parent.mkdir(parents=True, exist_ok=True)
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")

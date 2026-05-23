@@ -44,7 +44,7 @@ Configuration is read from the environment (see [`backend/.env.example`](backend
 |----------|---------|---------|
 | `DATABASE_URL` | `sqlite:///./data/lego.db` | SQLite database file → `backend/data/lego.db` |
 | `REBRICKABLE_API_KEY` | — | Required for Rebrickable sync (not for tests) |
-| `LOG_LEVEL` | `INFO` | Importer and application log verbosity |
+| `LOG_LEVEL` | `WARNING` | Importer and application log verbosity |
 | `LOG_FILE_PATH` | `./data/server.log` | Local rotating server log file; `*.log` files are ignored by git |
 | `IMPORT_FAILURE_LOG_PATH` | `./data/import_failures.log` | Dedicated JSON-lines text file for failed imports/syncs/image downloads |
 | `ELEMENTS_CSV_PATH` | `../data/elements.csv` | Optional Rebrickable Element ID mapping used during import/sync enrichment |

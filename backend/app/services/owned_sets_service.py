@@ -44,7 +44,6 @@ from app.services.catalog_state import (
     resolve_catalog_image_url,
     resolve_catalog_minifig_image_url,
     resolve_line_image_url,
-    resolve_part_image_url,
 )
 from app.services.instance_inventory import (
     clear_instance_inventory,
@@ -352,23 +351,6 @@ def get_owned_set_detail(
             part=part,
             element_url_by_id=element_url_by_id,
         )
-        # #region agent log
-        from app.debug_agent_log import debug_agent_log
-
-        debug_agent_log(
-            location="owned_sets_service.py:set_parts",
-            message="inventory line image resolution",
-            data={
-                "part_num": part.part_num,
-                "color_name": color.name,
-                "element_ids": line_element_ids,
-                "line_stored_image_url": line.image_url,
-                "part_level_url": resolve_part_image_url(part),
-                "resolved_image_url": resolved_image_url,
-            },
-            hypothesis_id="H1",
-        )
-        # #endregion
         set_parts.append(
             SetPartLineDetail(
                 instance_line_id=instance_line.id,

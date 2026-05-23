@@ -51,6 +51,12 @@ def test_rebrickable_sync_logs_set_summary(
     assert "your-api-key" not in caplog.text.lower()
 
 
+def test_configure_logging_defaults_to_warning(monkeypatch) -> None:
+    monkeypatch.delenv("LOG_LEVEL", raising=False)
+    configure_logging()
+    assert logging.getLogger().level == logging.WARNING
+
+
 def test_configure_logging_writes_local_log_file(tmp_path, monkeypatch) -> None:
     log_path = tmp_path / "server.log"
     monkeypatch.setenv("LOG_FILE_PATH", str(log_path))
