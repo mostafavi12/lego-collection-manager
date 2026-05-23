@@ -299,7 +299,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch) reduces need for wizard-only Rebrickable prefill for common flows.
 
-## Phase 15 — Reporting summary
+## Phase 15 — Reporting summary — **complete**
 
 **Goal:** Collection-wide overview with aggregate metrics for set copies, investigation status, completeness, and part totals.
 
@@ -307,7 +307,7 @@ See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch)
 
 - **`GET /reports/summary`** — returns `total_sets`, `investigated_sets`, `complete_sets`, `total_parts`, `missing_parts` (see [api-design.md](./api-design.md)).
 - Service: [`backend/app/services/reports_service.py`](../backend/app/services/reports_service.py).
-- Frontend: **Reports** nav item; **`ReportsPage`** at `/reports` with stat cards; placeholder cards for Phase 16/17 detailed reports.
+- Frontend: **Reports** nav item; **`ReportsPage`** at `/reports` with stat cards and links to detailed reports.
 - Tests: [`backend/tests/test_reports_summary_api.py`](../backend/tests/test_reports_summary_api.py); Vitest `frontend/src/pages/ReportsPage.test.tsx`.
 
 **Exit criteria**
@@ -316,7 +316,7 @@ See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch)
 - **Complete** means investigated with zero missing part quantities.
 - Backend and frontend tests pass; no live Rebrickable.
 
-## Phase 16 — Incomplete sets report
+## Phase 16 — Incomplete sets report — **complete**
 
 **Goal:** Detailed list of copies with missing parts; each copy collapsed by default with nested missing-line table.
 
@@ -331,6 +331,23 @@ See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch)
 
 - User can browse incomplete copies with expandable missing-part detail (details closed by default).
 - Hub links to incomplete report.
+- Backend and frontend tests pass.
+
+## Phase 17 — Missing parts report — **complete**
+
+**Goal:** Part-centric aggregation across incomplete copies; filterable by selected copies from the incomplete-sets report or via direct navigation.
+
+**Deliverables**
+
+- **`GET /reports/missing-parts`** — optional repeatable `owned_set_ids`; grouped rows with `needed_sets` (see [api-design.md](./api-design.md)).
+- Extend [`backend/app/services/reports_service.py`](../backend/app/services/reports_service.py) and report schemas.
+- Frontend: **`MissingPartsReportPage`** at `/reports/missing`; selection toolbar + checkboxes on **`IncompleteSetsReportPage`**; enable link from **`ReportsPage`**.
+- Tests: [`backend/tests/test_reports_missing_parts_api.py`](../backend/tests/test_reports_missing_parts_api.py); Vitest `MissingPartsReportPage.test.tsx` and extended `IncompleteSetsReportPage.test.tsx`.
+
+**Exit criteria**
+
+- Missing-parts report works standalone and from incomplete-page selection (none or all selected → all incomplete copies; partial selection → filtered report).
+- Full reporting flow: summary → incomplete → filtered missing parts.
 - Backend and frontend tests pass.
 
 ## Dependency graph (high level)
@@ -358,7 +375,7 @@ flowchart LR
     phase6 --> phase7
     phase7 --> phase8
   end
-  subgraph post ["Post-MVP Phases 9-16"]
+  subgraph post ["Post-MVP Phases 9-17"]
     phase9[Phase9_InstanceInventory]
     phase10[Phase10_ImagesInDB]
     phase11A[Phase11A_PartModal]
@@ -367,6 +384,7 @@ flowchart LR
     phase13[Phase13_ManualAddWizard]
     phase15[Phase15_ReportingSummary]
     phase16[Phase16_IncompleteSetsReport]
+    phase17[Phase17_MissingPartsReport]
     phase9 --> phase10
     phase10 --> phase11A
     phase11A --> phase11B
@@ -374,6 +392,7 @@ flowchart LR
     phase12 --> phase13
     phase13 --> phase15
     phase15 --> phase16
+    phase16 --> phase17
   end
   phase8 --> phase9
   phase4a --> phase12

@@ -34,3 +34,27 @@ class IncompleteSetReportItem(BaseModel):
 class IncompleteSetsReportResponse(BaseModel):
     items: list[IncompleteSetReportItem]
     total: int
+
+
+class MissingPartNeededSet(BaseModel):
+    owned_set_id: int
+    set_num: int
+    display_label: str
+    quantity_missing: int
+
+
+class MissingPartReportItem(BaseModel):
+    part_id: int
+    part_num: str
+    part_name: str | None
+    color_id: int
+    color_name: str | None
+    quantity_missing_total: int
+    element_ids: list[str]
+    part_image_url: str | None
+    needed_sets: list[MissingPartNeededSet]
+
+
+class MissingPartsReportResponse(BaseModel):
+    items: list[MissingPartReportItem]
+    total: int

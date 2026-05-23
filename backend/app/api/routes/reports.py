@@ -2,8 +2,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
-from app.schemas.reports import IncompleteSetsReportResponse, ReportsSummaryResponse
-from app.services.reports_service import get_summary, list_incomplete_sets
+from app.schemas.reports import (
+    IncompleteSetsReportResponse,
+    MissingPartsReportResponse,
+    ReportsSummaryResponse,
+)
+from app.services.reports_service import get_summary, list_incomplete_sets, list_missing_parts
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -20,3 +24,18 @@ def reports_incomplete_sets(
     db: Session = Depends(get_db),
 ) -> IncompleteSetsReportResponse:
     return list_incomplete_sets(db, limit=limit, offset=offset)
+
+
+@router.get("/missing-parts", response_model=MissingPartsReportResponse)
+def reports_missing_parts(
+    owned_set_ids: list[int] | None = Query(default=None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+) -> MissingPartsReportResponse:
+    return list_missing_parts(
+        db,
+        owned_set_ids=owned_set_ids,
+        limit=limit,
+        offset=offset,
+    )

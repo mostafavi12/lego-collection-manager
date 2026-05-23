@@ -19,6 +19,9 @@ from app.schemas.reports import (
     IncompleteSetMissingLine,
     IncompleteSetReportItem,
     IncompleteSetsReportResponse,
+    MissingPartNeededSet,
+    MissingPartReportItem,
+    MissingPartsReportResponse,
     ReportsSummaryResponse,
 )
 from app.services.catalog_state import resolve_part_image_url
@@ -211,3 +214,159 @@ def list_incomplete_sets(
         )
 
     return IncompleteSetsReportResponse(items=items, total=total)
+
+
+def _scope_owned_set_ids_with_missing(
+    session: Session,
+    owned_set_ids: list[int] | None,
+) -> list[int]:
+    incomplete_ids = _incomplete_owned_set_ids_subquery()
+    if not owned_set_ids:
+        return list(
+            session.scalars(select(OwnedSet.id).where(OwnedSet.id.in_(incomplete_ids))).all()
+        )
+    return list(
+        session.scalars(
+            select(OwnedSet.id).where(
+                OwnedSet.id.in_(owned_set_ids),
+                OwnedSet.id.in_(incomplete_ids),
+            )
+        ).all()
+    )
+
+
+def _owned_set_metadata(
+    session: Session,
+    owned_set_ids: list[int],
+) -> dict[int, tuple[int, str]]:
+    if not owned_set_ids:
+        return {}
+
+    rows = session.execute(
+        select(OwnedSet, CatalogSet)
+        .join(CatalogSet, OwnedSet.catalog_set_id == CatalogSet.id)
+        .where(OwnedSet.id.in_(owned_set_ids))
+    ).all()
+    catalog_ids = list({catalog_set.id for _, catalog_set in rows})
+    index_map = copy_index_map(session, catalog_ids)
+    return {
+        owned_set.id: (
+            catalog_set.set_number,
+            display_label(
+                owned_set.label,
+                index_map.get(catalog_set.id, {}).get(owned_set.id, 1),
+            ),
+        )
+        for owned_set, catalog_set in rows
+    }
+
+
+def list_missing_parts(
+    session: Session,
+    *,
+    owned_set_ids: list[int] | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> MissingPartsReportResponse:
+    scope_ids = _scope_owned_set_ids_with_missing(session, owned_set_ids)
+    if not scope_ids:
+        return MissingPartsReportResponse(items=[], total=0)
+
+    instance_lines = session.scalars(
+        select(OwnedSetInventoryLine)
+        .where(
+            OwnedSetInventoryLine.owned_set_id.in_(scope_ids),
+            OwnedSetInventoryLine.quantity_missing > 0,
+        )
+        .options(
+            selectinload(OwnedSetInventoryLine.set_part_inventory_line).selectinload(
+                SetPartInventoryLine.part
+            ),
+            selectinload(OwnedSetInventoryLine.set_part_inventory_line).selectinload(
+                SetPartInventoryLine.color
+            ),
+            selectinload(OwnedSetInventoryLine.set_part_inventory_line).selectinload(
+                SetPartInventoryLine.element_ids
+            ),
+            selectinload(OwnedSetInventoryLine.minifig_part_inventory_line).selectinload(
+                MinifigPartInventoryLine.part
+            ),
+            selectinload(OwnedSetInventoryLine.minifig_part_inventory_line).selectinload(
+                MinifigPartInventoryLine.color
+            ),
+            selectinload(OwnedSetInventoryLine.minifig_part_inventory_line).selectinload(
+                MinifigPartInventoryLine.element_ids
+            ),
+        )
+    ).all()
+
+    owned_set_meta = _owned_set_metadata(session, scope_ids)
+
+    aggregated: dict[tuple[int, int], dict] = {}
+    for instance_line in instance_lines:
+        missing_line = _missing_line_from_instance(instance_line)
+        if missing_line is None:
+            continue
+
+        if instance_line.set_part_inventory_line is not None:
+            color_db_id = instance_line.set_part_inventory_line.color_id
+        else:
+            assert instance_line.minifig_part_inventory_line is not None
+            color_db_id = instance_line.minifig_part_inventory_line.color_id
+
+        key = (missing_line.part_id, color_db_id)
+        bucket = aggregated.get(key)
+        if bucket is None:
+            bucket = {
+                "missing_line": missing_line,
+                "total": 0,
+                "needed_by_set": defaultdict(int),
+                "element_ids": set(missing_line.element_ids),
+            }
+            aggregated[key] = bucket
+
+        bucket["total"] += instance_line.quantity_missing
+        bucket["needed_by_set"][instance_line.owned_set_id] += instance_line.quantity_missing
+        bucket["element_ids"].update(missing_line.element_ids)
+
+    sorted_buckets = sorted(
+        aggregated.values(),
+        key=lambda bucket: (
+            bucket["missing_line"].part_name or "",
+            bucket["missing_line"].part_num,
+            bucket["missing_line"].color_name or "",
+        ),
+    )
+    total = len(sorted_buckets)
+    page_buckets = sorted_buckets[offset : offset + limit]
+
+    items: list[MissingPartReportItem] = []
+    for bucket in page_buckets:
+        missing_line: IncompleteSetMissingLine = bucket["missing_line"]
+        needed_sets = sorted(
+            [
+                MissingPartNeededSet(
+                    owned_set_id=owned_set_id,
+                    set_num=owned_set_meta[owned_set_id][0],
+                    display_label=owned_set_meta[owned_set_id][1],
+                    quantity_missing=quantity,
+                )
+                for owned_set_id, quantity in bucket["needed_by_set"].items()
+            ],
+            key=lambda row: (row.set_num, row.display_label),
+        )
+        items.append(
+            MissingPartReportItem(
+                part_id=missing_line.part_id,
+                part_num=missing_line.part_num,
+                part_name=missing_line.part_name,
+                color_id=missing_line.color_id,
+                color_name=missing_line.color_name,
+                quantity_missing_total=bucket["total"],
+                element_ids=sorted(bucket["element_ids"]),
+                part_image_url=missing_line.part_image_url,
+                needed_sets=needed_sets,
+            )
+        )
+
+    return MissingPartsReportResponse(items=items, total=total)

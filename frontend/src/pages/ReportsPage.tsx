@@ -92,9 +92,13 @@ export function ReportsPage() {
                   Copies with missing parts
                 </span>
               </li>
-              <li className="report-links__item report-links__item--disabled">
-                <span className="report-links__title">Missing parts</span>
-                <span className="report-links__note">Coming in Phase 17</span>
+              <li className="report-links__item">
+                <Link to="/reports/missing" className="report-links__title">
+                  Missing parts
+                </Link>
+                <span className="report-links__note">
+                  Grouped by part across sets
+                </span>
               </li>
             </ul>
           </section>

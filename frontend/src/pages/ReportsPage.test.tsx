@@ -39,7 +39,10 @@ describe("ReportsPage", () => {
       "href",
       "/reports/incomplete",
     );
-    expect(screen.getByText(/Coming in Phase 17/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Missing parts/i })).toHaveAttribute(
+      "href",
+      "/reports/missing",
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/reports/summary"),

@@ -774,6 +774,45 @@ Paginated list of set copies with at least one inventory line where `quantity_mi
 | `missing_parts_total` | Sum of `quantity_missing` for this copy |
 | `missing_lines` | Only lines with `quantity_missing > 0` (set parts and minifig BOM) |
 
+### Missing parts — Phase 17
+
+**`GET /reports/missing-parts?owned_set_ids=1&owned_set_ids=2&limit=50&offset=0`**
+
+Part-centric aggregation grouped by **`part_id` + color**. Omit `owned_set_ids` to include all incomplete copies; pass one or more ids to restrict the report to those set copies (ids without missing parts are ignored).
+
+**Response `200`:**
+
+```json
+{
+  "items": [
+    {
+      "part_id": 10,
+      "part_num": "3001",
+      "part_name": "Brick 2x4",
+      "color_id": 0,
+      "color_name": "Black",
+      "quantity_missing_total": 5,
+      "element_ids": ["300100"],
+      "part_image_url": "/api/parts/10/image",
+      "needed_sets": [
+        {
+          "owned_set_id": 1,
+          "set_num": 6024,
+          "display_label": "Copy #1",
+          "quantity_missing": 2
+        }
+      ]
+    }
+  ],
+  "total": 42
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `quantity_missing_total` | Sum of `quantity_missing` for this part+color across filtered copies |
+| `needed_sets` | Each copy that still needs this part, with per-copy missing quantity |
+
 ## CORS
 
 Backend allows the Vite dev origin (e.g. `http://localhost:5173`) via environment-driven CORS settings for MVP.
