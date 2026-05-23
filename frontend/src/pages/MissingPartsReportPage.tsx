@@ -125,9 +125,12 @@ export function MissingPartsReportPage() {
                   <td>
                     <span className="inventory-table__part-num">{item.part_num}</span>
                     {item.part_name && (
-                      <span className="inventory-table__part-name">
-                        {item.part_name}
-                      </span>
+                      <>
+                        {" - "}
+                        <span className="inventory-table__part-name">
+                          {item.part_name}
+                        </span>
+                      </>
                     )}
                   </td>
                   <td>{item.color_name ?? item.color_id}</td>

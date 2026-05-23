@@ -178,9 +178,12 @@ export function IncompleteSetsReportPage() {
                             {line.part_num}
                           </span>
                           {line.part_name && (
-                            <span className="inventory-table__part-name">
-                              {line.part_name}
-                            </span>
+                            <>
+                              {" - "}
+                              <span className="inventory-table__part-name">
+                                {line.part_name}
+                              </span>
+                            </>
                           )}
                         </td>
                         <td>{line.color_name ?? line.color_id}</td>
