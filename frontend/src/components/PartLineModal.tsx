@@ -29,6 +29,7 @@ interface PartLineModalProps {
   setCopyId: number;
   inventoryKind?: InventoryKind;
   line?: InventoryPartLineDetail;
+  readOnly?: boolean;
   onClose: () => void;
   onSaved: (result?: PartLineModalSaveResult) => void;
 }
@@ -38,6 +39,7 @@ export function PartLineModal({
   setCopyId,
   inventoryKind = "set_part",
   line,
+  readOnly = false,
   onClose,
   onSaved,
 }: PartLineModalProps) {
@@ -263,10 +265,74 @@ export function PartLineModal({
     }
   }
 
-  const title = isEdit ? "Edit part" : "Add part";
+  const title = readOnly && isEdit ? "Part view" : isEdit ? "Edit part" : "Add part";
   const imageUrl = line?.image_url ?? line?.part_image_url ?? null;
   const displayImageUrl = pendingPreview ?? (removeCurrentImage ? null : mediaUrl(imageUrl));
   const canonicalPartNum = isEdit ? (line?.part_num ?? "") : partNum.trim();
+
+  if (readOnly && isEdit && line) {
+    const viewImageUrl = mediaUrl(imageUrl);
+    return (
+      <Modal title={title} onClose={onClose}>
+        <div className="instance-form__grid">
+          <label className="form-field">
+            Part number
+            <input value={line.part_num} readOnly disabled />
+          </label>
+          <label className="form-field">
+            Part name
+            <input value={line.part_name ?? ""} readOnly disabled />
+          </label>
+          <label className="form-field">
+            Color ID
+            <input value={String(line.color_id)} readOnly disabled />
+          </label>
+          <label className="form-field">
+            Color name
+            <input value={line.color_name} readOnly disabled />
+          </label>
+          <label className="form-field">
+            Quantity
+            <input value={String(line.quantity)} readOnly disabled />
+          </label>
+          <label className="form-field">
+            Missing
+            <input value={String(line.missing_quantity)} readOnly disabled />
+          </label>
+        </div>
+
+        {inventoryKind === "set_part" && (
+          <AliasChipEditor
+            partNum={line.part_num}
+            aliases={"aliases" in line ? line.aliases : []}
+            onChange={() => {}}
+            disabled
+          />
+        )}
+
+        <div className="part-line-modal__image">
+          <p className="form-hint">Part image</p>
+          <div className="image-blob-editor">
+            {viewImageUrl ? (
+              <img
+                src={viewImageUrl}
+                alt={`Part ${line.part_num}`}
+                className="image-blob-editor__preview"
+              />
+            ) : (
+              <div className="image-blob-editor__placeholder" aria-hidden />
+            )}
+          </div>
+        </div>
+
+        <div className="modal__actions">
+          <button type="button" className="btn btn--primary" onClick={onClose}>
+            OK
+          </button>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal title={title} onClose={onClose}>

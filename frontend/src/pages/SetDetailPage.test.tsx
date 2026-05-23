@@ -627,6 +627,61 @@ describe("SetDetailPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("opens read-only part view when clicking a part row in view mode", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => setCopyDetailFixture,
+      } as Response),
+    );
+
+    const user = userEvent.setup();
+    renderDetail("view");
+
+    await screen.findByText(/Plate 1 x 1/);
+    await user.click(screen.getByText(/Plate 1 x 1/));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /part view/i }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue("3024")).toBeDisabled();
+    expect(
+      within(dialog).getByRole("button", { name: /^ok$/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: /^update$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens read-only part view when clicking a part row in investigate mode", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => setCopyDetailFixture,
+      } as Response),
+    );
+
+    const user = userEvent.setup();
+    renderDetail("investigate");
+
+    await screen.findByText(/Plate 1 x 1/);
+    await user.click(screen.getByText(/Plate 1 x 1/));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /part view/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: /^ok$/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: /^update$/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("allows investigated toggle and missing edits in investigate mode", async () => {
     const fetchMock = vi
       .fn()

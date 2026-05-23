@@ -13,6 +13,36 @@ describe("PartLineModal", () => {
     vi.unstubAllGlobals();
   });
 
+  it("shows read-only part view with OK button only", () => {
+    render(
+      <PartLineModal
+        mode="edit"
+        setCopyId={1}
+        line={line}
+        readOnly
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /part view/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("3024")).toBeDisabled();
+    expect(screen.getByDisplayValue("Plate 1 x 1")).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^ok$/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^update$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^cancel$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^delete$/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^part photo$/i)).not.toBeInTheDocument();
+  });
+
   it("shows alias chips in edit mode", () => {
     render(
       <PartLineModal

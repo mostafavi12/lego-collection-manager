@@ -616,18 +616,13 @@ export function SetDetailPage() {
                 return (
                   <tr
                     key={line.instance_line_id}
-                    className={
-                      canEditParts ? "data-table__row--clickable" : undefined
-                    }
-                    onClick={
-                      canEditParts
-                        ? () =>
-                            setPartModal({
-                              mode: "edit",
-                              inventoryKind: "set_part",
-                              line,
-                            })
-                        : undefined
+                    className="data-table__row--clickable"
+                    onClick={() =>
+                      setPartModal({
+                        mode: "edit",
+                        inventoryKind: "set_part",
+                        line,
+                      })
                     }
                   >
                     <td>
@@ -715,18 +710,13 @@ export function SetDetailPage() {
                       return (
                         <tr
                           key={line.instance_line_id}
-                          className={
-                            canEditParts ? "data-table__row--clickable" : undefined
-                          }
-                          onClick={
-                            canEditParts
-                              ? () =>
-                                  setPartModal({
-                                    mode: "edit",
-                                    inventoryKind: "minifig_part",
-                                    line,
-                                  })
-                              : undefined
+                          className="data-table__row--clickable"
+                          onClick={() =>
+                            setPartModal({
+                              mode: "edit",
+                              inventoryKind: "minifig_part",
+                              line,
+                            })
                           }
                         >
                           <td>
@@ -773,7 +763,7 @@ export function SetDetailPage() {
         </section>
       )}
 
-      {partModal && canEditParts && (
+      {partModal && (canEditParts || partModal.mode === "edit") && (
         <PartLineModal
           mode={partModal.mode}
           setCopyId={detail.id}
@@ -781,6 +771,7 @@ export function SetDetailPage() {
             partModal.mode === "edit" ? partModal.inventoryKind : "set_part"
           }
           line={partModal.mode === "edit" ? partModal.line : undefined}
+          readOnly={!canEditParts}
           onClose={() => setPartModal(null)}
           onSaved={onPartModalSaved}
         />
