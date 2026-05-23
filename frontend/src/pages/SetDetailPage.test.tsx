@@ -716,9 +716,10 @@ describe("SetDetailPage", () => {
 
     await screen.findByText("Copy details");
     expect(
-      screen.queryByRole("button", { name: /save changes/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /save changes/i }),
+    ).toBeInTheDocument();
     await user.click(screen.getByLabelText(/investigated/i));
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/owned-sets/1"),

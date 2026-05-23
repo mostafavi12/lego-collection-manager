@@ -30,6 +30,7 @@ interface InstanceForm {
   label: string;
   notes: string;
   age: string;
+  investigated: boolean;
   setNum: string;
   catalogName: string;
   catalogTheme: string;
@@ -68,7 +69,8 @@ function formFromDetail(detail: SetCopyDetailResponse): InstanceForm {
     label: detail.label ?? detail.display_label,
     notes: detail.notes ?? "",
     age: detail.age != null ? String(detail.age) : "",
-  setNum: String(detail.catalog.set_num),
+    investigated: detail.investigated,
+    setNum: String(detail.catalog.set_num),
     catalogName: detail.catalog.name ?? "",
     catalogTheme: detail.catalog.theme_name ?? "",
     catalogParts:
@@ -174,7 +176,14 @@ export function SetDetailPage() {
     setSaving(true);
     setError(null);
     try {
-      await updateSetCopy(setCopyId, buildPatchBody(current));
+      const investigateOnlySave =
+        canToggleInvestigated && !canEditCopyFields && !canEditCatalog;
+      await updateSetCopy(
+        setCopyId,
+        investigateOnlySave
+          ? { investigated: current.investigated }
+          : buildPatchBody(current),
+      );
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -185,7 +194,10 @@ export function SetDetailPage() {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!form || (!canEditCopyFields && !canEditCatalog)) {
+    if (
+      !form ||
+      (!canEditCopyFields && !canEditCatalog && !canToggleInvestigated)
+    ) {
       return;
     }
     if (form.setNum.trim() !== originalSetNum) {
@@ -274,6 +286,8 @@ export function SetDetailPage() {
   }
 
   const { catalog, inventory } = detail;
+  const investigateOnlySave =
+    canToggleInvestigated && !canEditCopyFields && !canEditCatalog;
   const pageTitle = formatSetCopyTitle(
     catalog.set_num,
     catalog.name,
@@ -446,9 +460,17 @@ export function SetDetailPage() {
           <label className="checkbox instance-form__checkbox">
             <input
               type="checkbox"
-              checked={detail.investigated}
+              checked={
+                investigateOnlySave ? form.investigated : detail.investigated
+              }
               disabled={saving || !canToggleInvestigated}
-              onChange={() => void toggleInvestigated()}
+              onChange={(e) => {
+                if (investigateOnlySave) {
+                  setForm({ ...form, investigated: e.target.checked });
+                } else {
+                  void toggleInvestigated();
+                }
+              }}
             />
             Investigated
           </label>
@@ -542,7 +564,7 @@ export function SetDetailPage() {
           </label>
         </div>
 
-        {(canEditCopyFields || canEditCatalog) && (
+        {(canEditCopyFields || canEditCatalog || canToggleInvestigated) && (
         <div className="instance-form__actions">
           <button type="submit" className="btn btn--primary" disabled={saving}>
             Save changes
