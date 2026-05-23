@@ -4,6 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AddSetWizard } from "../components/AddSetWizard";
+import { AddSetPage } from "./AddSetPage";
+import { renderWithAppMode } from "../test/renderWithAppMode";
 
 describe("AddSetWizard", () => {
   afterEach(() => {
@@ -362,5 +364,24 @@ describe("AddSetWizard", () => {
     await waitFor(() => {
       expect(onCreated).toHaveBeenCalledWith(22);
     });
+  });
+});
+
+describe("AddSetPage", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("shows edit-mode message in view mode instead of the wizard", () => {
+    renderWithAppMode(<AddSetPage />, { mode: "view" });
+
+    expect(screen.getByRole("heading", { name: /add set/i })).toBeInTheDocument();
+    expect(screen.getByText(/edit mode/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /settings/i })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

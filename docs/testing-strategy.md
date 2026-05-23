@@ -56,13 +56,13 @@ Still **no live Rebrickable** in CI.
 | Phase | Status | Focus |
 |-------|--------|--------|
 | **9** | implemented | `PATCH .../inventory-lines/{instance_line_id}` isolation across two copies of the same `set_num`; `quantity_missing` validation (`test_instance_inventory_api.py`). |
-| **10** | implemented | BLOB round-trip; 5 MB limit; JPEG/PNG only; part image visible on two sets (`test_image_blob_api.py`). |
-| **11A** | implemented | `POST set-parts` returns `part_id`; `PATCH`/`DELETE set-parts`; detail `aliases`; image on add (mock `PUT`); `PartLineModal` Vitest. |
+| **10** | implemented | BLOB round-trip; 5 MB limit; JPEG/PNG only; **`element_images`** + `GET /api/elements/{id}/image`; color-specific line URLs (`test_image_blob_api.py`, `test_element_image_colors.py`, `test_catalog_state.py`). |
+| **11A** | implemented | `POST set-parts` returns `part_id`; `PATCH`/`DELETE set-parts`; detail `aliases`; image on add (mock `PUT`); `PartLineModal` Vitest (edit + read-only **Part view**). |
 | **11B** | implemented | `PATCH /parts/{id}/aliases` symmetry; search by alias across class. |
 | **12** | implemented | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
 | **13** | implemented | Backend: `test_manual_add_api.py`, `test_manual_add_rebrickable_draft.py`. Frontend: `AddSetPage.test.tsx` — new-catalog flow, optional **`parts`** in **`POST`**, mocked **`add-rebrickable-draft`** prefill, existing-set **Cancel/Continue** warning before copy form. |
 | **14** | implemented / partial | `POST /imports/rebrickable/sync`; Import-page **Sync entire collection**; set-detail current-set sync with `owned_set_ids`; image option request mapping for set, minifigure, set-part, and minifig BOM part images; mocked image download counters/failures. Progress/cancel, conflict policy, and arbitrary subset picker remain deferred — see [development-plan.md](./development-plan.md). |
-| **18** | implemented | Frontend: `appMode/capabilities.test.ts`, `SettingsPage.test.tsx`; mode gating on set detail, collection list, import, add set. UI-only; `ensureEditAccess` stub for future Edit password. |
+| **18** | implemented | Frontend: `appMode/capabilities.test.ts`, `SettingsPage.test.tsx`; mode gating on set detail (incl. read-only Part view), collection list, import, add set (`AddSetPage.test.tsx`). UI-only; `ensureEditAccess` stub for future Edit password. |
 
 ### Search
 
@@ -79,17 +79,19 @@ Still **no live Rebrickable** in CI.
 | Area | Cases |
 |------|--------|
 | **Sets list** | `{display_label} — {set_num}`; metadata line (name, theme, parts, age defaults); filter; pagination; **Make a copy** opens modal → preview → POST on confirm. |
-| **Set detail** | Per-copy fields (label, investigated, age, notes); **set number change** warning modal (Cancel / Continue); **delete** with confirm → `DELETE`; no duplicate button; inventory + missing UI. |
+| **Set detail** | Per-copy fields (label, investigated, age, notes); **set number change** warning modal (Cancel / Continue); **delete** with confirm → `DELETE`; no duplicate button; inventory + missing UI; **Part view** read-only modal in View/Investigate; **Edit part** in Edit mode. |
 | **Search** | Debounce (if any), submit triggers correct API, displays multiple copies per `set_num` when applicable. |
-| **Missing UI** | Changing missing quantity calls PATCH; upload calls PUT missing image endpoint; preview uses `part_image_url` / `missing_image_url`. |
-| **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`. |
+| **Missing UI** | Changing missing quantity calls PATCH; missing-photo upload API exists (UI deferred); preview uses resolved `part_image_url` / `missing_image_url` (element or part BLOB). |
+| **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`; display URLs are same-origin only (`resolveImageFetchUrl.test.ts`). |
 | **Import** | File picker posts to CSV endpoint; success message reflects copy count (e.g. `instances_created` in JSON); **Sync entire collection** triggers sync endpoint (spinner / outcome messaging as implemented). |
-| **Settings** | Default View mode; mode persists in localStorage; View hides import/add mutations; Investigate enables investigated + missing on set detail. |
-| **Reports** | Summary stats; incomplete sets with collapsed missing lines; missing-parts table with `owned_set_ids` filter from incomplete-page selection; **Export PDF** on missing-parts report (all rows, current filter). |
+| **Settings** | Default View mode; mode persists in localStorage; View hides import/add mutations; Investigate enables investigated + missing on set detail; part row opens Part view. |
+| **Reports** | Summary stats; incomplete sets with collapsed missing lines; missing-parts table with `owned_set_ids` filter and `set_name` in web Sets links; **Export PDF** (set numbers only in Sets column; `missingPartsReportPdf.test.ts`). |
 
 **Backend reporting tests:** `test_reports_summary_api.py`, `test_reports_incomplete_api.py`, `test_reports_missing_parts_api.py`.
 
-**Frontend reporting tests:** `ReportsPage.test.tsx`, `IncompleteSetsReportPage.test.tsx`, `MissingPartsReportPage.test.tsx`.
+**Backend image / logging tests:** `test_catalog_state.py`, `test_element_image_colors.py`, `test_importer_logging.py` (default `LOG_LEVEL=WARNING`).
+
+**Frontend reporting / utility tests:** `ReportsPage.test.tsx`, `IncompleteSetsReportPage.test.tsx`, `MissingPartsReportPage.test.tsx`, `missingPartsReportPdf.test.ts`, `setCopyTitle.test.ts`, `resolveImageFetchUrl.test.ts`, `fetchImageDataUrl.test.ts`.
 
 **Mocking:** MSW (Mock Service Worker) or fetch mocks to return canned JSON aligned with [api-design.md](./api-design.md).
 

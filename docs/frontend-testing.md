@@ -27,8 +27,8 @@ From the repository root, `./scripts/smoke.sh` runs `npm test` before `npm run b
 
 Detailed scenarios live in [testing-strategy.md](./testing-strategy.md#frontend-vitest--react-testing-library). Summary:
 
-- **Present:** scaffold smoke test (`App.test.tsx`).
-- **As features land:** sets list, set detail, search, missing UI, CSV import — each with mocked API JSON aligned to [api-design.md](./api-design.md).
+- **Present:** Vitest suites colocated with components (`*.test.tsx`) and utilities (`*.test.ts`) — sets list, set detail (incl. Part view), search, import, reports, Settings/app modes, PDF export helpers. See [testing-strategy.md](./testing-strategy.md) for the full table.
+- **As features land:** add or extend colocated tests with mocked API JSON aligned to [api-design.md](./api-design.md).
 
 ## Development workflow
 

@@ -341,12 +341,13 @@ See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch)
 
 - **`GET /reports/missing-parts`** — optional repeatable `owned_set_ids`; grouped rows with `needed_sets` (see [api-design.md](./api-design.md)).
 - Extend [`backend/app/services/reports_service.py`](../backend/app/services/reports_service.py) and report schemas.
-- Frontend: **`MissingPartsReportPage`** at `/reports/missing`; selection toolbar + checkboxes on **`IncompleteSetsReportPage`**; enable link from **`ReportsPage`**.
-- Tests: [`backend/tests/test_reports_missing_parts_api.py`](../backend/tests/test_reports_missing_parts_api.py); Vitest `MissingPartsReportPage.test.tsx` and extended `IncompleteSetsReportPage.test.tsx`.
+- Frontend: **`MissingPartsReportPage`** at `/reports/missing`; selection toolbar + checkboxes on **`IncompleteSetsReportPage`**; enable link from **`ReportsPage`**; client-side **Export PDF** (`missingPartsReportPdf.ts`) with Image column and set numbers only in Sets column; web Sets links use `set_name` + copy label.
+- Tests: [`backend/tests/test_reports_missing_parts_api.py`](../backend/tests/test_reports_missing_parts_api.py); Vitest `MissingPartsReportPage.test.tsx`, `missingPartsReportPdf.test.ts`, and extended `IncompleteSetsReportPage.test.tsx`.
 
 **Exit criteria**
 
 - Missing-parts report works standalone and from incomplete-page selection (none or all selected → all incomplete copies; partial selection → filtered report).
+- PDF export includes local image column; web vs PDF Sets column behavior documented in [api-design.md](./api-design.md).
 - Full reporting flow: summary → incomplete → filtered missing parts.
 - Backend and frontend tests pass.
 
@@ -358,12 +359,12 @@ See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch)
 
 - **`frontend/src/appMode/`** — `AppModeProvider`, `getCapabilities`, `localStorage` persistence, `ensureEditAccess` stub for future Edit password.
 - **`SettingsPage`** at `/settings`; header mode badge; disabled **Add set** / **Import** nav outside Edit.
-- Gating on **Set detail**, **Collection list**, **Import**, and **Add set** routes.
-- Tests: `capabilities.test.ts`, `SettingsPage.test.tsx`, extended Set detail / list / import Vitest; docs updated.
+- Gating on **Set detail** (including read-only **Part view** modal in View/Investigate), **Collection list**, **Import**, and **Add set** routes.
+- Tests: `capabilities.test.ts`, `SettingsPage.test.tsx`, extended Set detail / list / import / Add set Vitest; docs updated.
 
 **Exit criteria**
 
-- Default mode is View; Investigate allows investigated + missing only; Edit enables all current mutations.
+- Default mode is View; Investigate allows investigated + missing only; Edit enables all current mutations; part row click opens **Part view** (read-only) outside Edit.
 - Mode persists across reload; Settings always reachable.
 - Frontend tests pass; no backend auth in this phase.
 
@@ -399,6 +400,7 @@ flowchart LR
     phase11B[Phase11B_Aliases]
     phase12[Phase12_CSVFetch]
     phase13[Phase13_ManualAddWizard]
+    phase14[Phase14_SyncUX]
     phase15[Phase15_ReportingSummary]
     phase16[Phase16_IncompleteSetsReport]
     phase17[Phase17_MissingPartsReport]
@@ -408,7 +410,8 @@ flowchart LR
     phase11A --> phase11B
     phase11B --> phase12
     phase12 --> phase13
-    phase13 --> phase15
+    phase13 --> phase14
+    phase14 --> phase15
     phase15 --> phase16
     phase16 --> phase17
     phase17 --> phase18

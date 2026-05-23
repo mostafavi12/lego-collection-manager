@@ -77,7 +77,7 @@ The app uses a **synchronous** request that completes the sync for the selected 
 }
 ```
 
-Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory). Sync updates set name, set image URL/BLOB when requested, number of parts, part names/images, catalog inventory lines, and per-copy part quantities. Sync preserves theme, year, age, investigated, missing quantities/items, labels, and notes. `download_set_images` stores set box images and minifigure images in SQLite. `part_image_download_mode` is one of `none` (default), `missing` (only parts currently marked missing, including minifig BOM parts), or `all` (all synced inventory parts, including minifig BOM parts).
+Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory). Sync updates set name, set image URL/BLOB when requested, number of parts, part names/images, catalog inventory lines, and per-copy part quantities. Sync preserves theme, year, age, investigated, missing quantities/items, labels, and notes. `download_set_images` stores set box images and minifigure images in SQLite. `part_image_download_mode` is one of `none` (default), `missing` (only parts currently marked missing, including minifig BOM parts), or `all` (all synced inventory parts, including minifig BOM parts). When part-image download is enabled, bytes are stored in **`element_images`** keyed by the line’s primary Element ID (requires persisted element IDs from `elements.csv` enrichment); the response counter remains `part_images_downloaded`.
 
 `download_missing_part_images` is accepted as a legacy compatibility boolean only when `part_image_download_mode` is left at `none`; new clients should use `part_image_download_mode`.
 
@@ -96,7 +96,7 @@ Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at leas
   "part_images_downloaded": 42,
   "image_downloads_failed": [
     {
-      "target": "part:3024",
+      "target": "element:302400",
       "url": "https://cdn.rebrickable.com/media/parts/elements/302400.jpg",
       "message": "HTTP 404"
     }
@@ -152,7 +152,7 @@ Everything under this path is **a physical copy** in the user’s collection (ta
       "name": "Police Car",
       "year": 1980,
       "theme_name": "Classic Town",
-      "image_url": "https://cdn.rebrickable.com/…",
+      "image_url": "/api/catalog-sets/10/image",
       "catalog_sync_state": "ok",
       "investigated": false,
       "label": "eBay May 2026",
@@ -219,11 +219,11 @@ Multiple `items` may share the same `set_num` with different `id`.
         "quantity": 4,
         "element_ids": ["302400", "6252045"],
         "aliases": ["3024b", "3024pr"],
-        "image_url": "https://…",
-        "part_image_url": "/api/parts/42/image",
+        "image_url": "/api/elements/302400/image",
+        "part_image_url": "/api/elements/302400/image",
         "missing_quantity": 1,
         "missing_item_id": 501,
-        "missing_image_url": "/api/parts/42/image"
+        "missing_image_url": "/api/elements/302400/image"
       }
     ],
     "minifigs": [
@@ -255,7 +255,7 @@ Multiple `items` may share the same `set_num` with different `id`.
 }
 ```
 
-`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state. **`image_url`**, **`part_image_url`**, and **`missing_image_url`** are **same-origin API paths only** when a JPEG/PNG BLOB exists locally (e.g. `/api/parts/{part_id}/image`); otherwise **null**. Rebrickable CDN URLs stored in the database during sync are **not** exposed to clients — they are used only as download sources during import/sync.
+`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state. **`image_url`** and **`part_image_url`** are set to the same resolved display URL for the line. All client-facing image fields are **same-origin API paths only** when a JPEG/PNG BLOB exists locally; resolution order is **element BLOB** (`/api/elements/{element_id}/image` for the first persisted Element ID on the line with a BLOB) → **part BLOB** (`/api/parts/{part_id}/image`) → **`null`**. Rebrickable CDN URLs stored in the database during sync are **not** exposed to clients — they are used only as download sources during import/sync.
 
 `aliases` (Phase **11A**): other identifiers for this `part_id` from `part_aliases`, excluding strings equal to `part_num`. Omitted or empty when none. Read-only in detail until Phase **11B** enables editing via `PATCH /parts/{part_id}/aliases`.
 
@@ -360,6 +360,7 @@ If `label` is omitted, server uses `suggested_label` from the preview rules.
 
 | Method | Path | Purpose |
 |--------|------|---------|
+| `GET` | `/elements/{element_id}/image` | Serve color-specific part image bytes (read-only) |
 | `GET` | `/parts/{part_id}/image` | Serve part image bytes |
 | `PUT` | `/parts/{part_id}/image` | Upload/replace (multipart `file`; max 5 MB; JPEG/PNG) |
 | `DELETE` | `/parts/{part_id}/image` | Clear part image |
@@ -369,6 +370,8 @@ If `label` is omitted, server uses `suggested_label` from the preview rules.
 | `GET` | `/catalog-minifigs/{catalog_minifig_id}/image` | Serve minifigure image |
 | `PUT` | `/catalog-minifigs/{catalog_minifig_id}/image` | Upload/replace minifigure image |
 | `DELETE` | `/catalog-minifigs/{catalog_minifig_id}/image` | Clear minifigure image |
+
+**Line display resolution:** inventory `image_url` / `part_image_url` in detail and reports use element BLOBs first, then part BLOBs. **`GET /elements/{element_id}/image`** has no PUT/DELETE; sync and missing uploads may populate `element_images`, while **PartLineModal** part-photo uploads use **`PUT /parts/{part_id}/image`** on the global part row.
 
 **`PUT` response `200`:** `{ "image_url": "/api/parts/{part_id}/image" }` (or catalog-set / catalog-minifig path).
 
@@ -382,9 +385,9 @@ Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, 
 
 **`GET /media/missing/{missing_item_id}`**
 
-- Serves the **part** BLOB for the inventory line linked to this missing row when `quantity_missing` > 0.
-- **`404`** if unknown id, no missing quantity, or no part image.
-- Prefer `GET /parts/{part_id}/image` for direct part access; this route keeps older clients and `missing_image_url` working.
+- Serves the **resolved line image** (element BLOB first, else part BLOB) for the inventory line linked to this missing row when `quantity_missing` > 0.
+- **`404`** if unknown id, no missing quantity, or no local image BLOB.
+- Prefer `GET /elements/{element_id}/image` or `GET /parts/{part_id}/image` for direct access; this route keeps older clients and `missing_image_url` working.
 
 ## Search
 
@@ -398,7 +401,7 @@ Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, 
 **Semantics:**
 
 - **`type=set`:** Match `catalog_sets.set_number` (string prefix on digits for MVP) for sets that have at least one `owned_sets` row; return **`owned_set_id`** values (**one per physical copy**; multiple copies sharing the same catalog set allowed).
-- **`type=part`:** Match `parts.part_num` or `part_aliases.alias` (prefix); return **logical alias classes** that appear in the **catalog BOM** of at least one set in the collection (`set_part_inventory_lines` and minifig BOM lines). Each hit includes canonical **`part_num`**, **`name`**, resolved **`image_url`**, and **`lines`**: one row per actual **`parts.part_num`** in the alias class that has owned-set occurrences. Each line’s **`sets`** list includes catalog **`set_num`**, total template **`quantity`**, an **`owned_set_id`** link, and per-color quantities.
+- **`type=part`:** Match `parts.part_num` or `part_aliases.alias` (prefix); return **logical alias classes** that appear in the **catalog BOM** of at least one set in the collection (`set_part_inventory_lines` and minifig BOM lines). Each hit includes canonical **`part_num`**, **`name`**, resolved **`image_url`** (part BLOB only in MVP search — element BLOBs are used on set detail and reports), and **`lines`**: one row per actual **`parts.part_num`** in the alias class that has owned-set occurrences. Each line’s **`sets`** list includes catalog **`set_num`**, total template **`quantity`**, an **`owned_set_id`** link, and per-color quantities.
 - **`type=element`:** Match persisted LEGO Element IDs (prefix); return one row per matched part/color combination. Each row includes the complete **`element_ids`** list for that part/color, related **`part_num`**, **`part_name`**, color display, and set occurrences.
 - **`type=all`:** Return three buckets (`sets`, `parts`, `elements`).
 
@@ -504,7 +507,7 @@ or
 **`PUT /owned-sets/{owned_set_id}/missing/{missing_item_id}/image`**
 
 - **Body:** `multipart/form-data`, field `file` (JPEG or PNG; max **5 MB**).
-- **Behavior:** Writes bytes to the linked line’s **`parts`** row (`image_blob`, `image_content_type`, `image_byte_size`). Global for that part across all sets.
+- **Behavior:** When the linked inventory line has persisted Element IDs, writes bytes to **`element_images`** for the primary Element ID; otherwise writes to the linked line’s **`parts`** row (`image_blob`, `image_content_type`, `image_byte_size`). Part-modal uploads still use **`PUT /parts/{part_id}/image`** directly.
 - **`404`** if `missing_item_id` does not belong to `owned_set_id`.
 - **`400`** if wrong content type or empty file.
 
@@ -513,8 +516,8 @@ or
 ```json
 {
   "missing_item_id": 501,
-  "missing_image_url": "/api/parts/42/image",
-  "part_image_url": "/api/parts/42/image"
+  "missing_image_url": "/api/elements/302400/image",
+  "part_image_url": "/api/elements/302400/image"
 }
 ```
 
@@ -522,7 +525,7 @@ or
 
 **`DELETE /owned-sets/{owned_set_id}/missing/{missing_item_id}/image`**
 
-- Clears the **part** BLOB (affects every set using that part).
+- Clears the **element** or **part** BLOB used for display on that line (same resolution order as upload).
 - Missing quantity row **remains** unless cleared via `PATCH .../missing` with `quantity_missing: 0`.
 
 **Response `200`:**
@@ -797,7 +800,7 @@ Part-centric aggregation grouped by **`part_id` + color**. Omit `owned_set_ids` 
       "color_name": "Black",
       "quantity_missing_total": 5,
       "element_ids": ["300100"],
-      "part_image_url": "/api/parts/10/image",
+      "part_image_url": "/api/elements/300100/image",
       "needed_sets": [
         {
           "owned_set_id": 1,
@@ -818,7 +821,7 @@ Part-centric aggregation grouped by **`part_id` + color**. Omit `owned_set_ids` 
 | `quantity_missing_total` | Sum of `quantity_missing` for this part+color across filtered copies |
 | `needed_sets` | Each copy that still needs this part, with per-copy missing quantity |
 
-**Export:** the missing-parts report page offers **Export PDF** (client-side). The UI fetches all report rows (paginated API requests with `limit=200`) for the active filter, then downloads a landscape PDF table with an **Image** column (local part BLOBs only), plus Part, Color, Element ID, Needed, and Sets (set numbers only).
+**Export:** the missing-parts report page offers **Export PDF** (client-side). The UI fetches all report rows (paginated API requests with `limit=200`) for the active filter, then downloads a landscape PDF table with an **Image** column (same-origin `/api/elements/...` or `/api/parts/...` URLs only), plus Part, Color, Element ID, Needed, and **Sets** (set numbers only, optional `×qty`). The web UI **Sets** column uses `set_num`, catalog **`set_name`**, and copy **`display_label`** in link text.
 
 ## CORS
 

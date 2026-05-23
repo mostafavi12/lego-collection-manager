@@ -102,9 +102,9 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 - Inventory table supports sorting or stable default order (e.g. by part number, then color).
 - Rebrickable **spare** and **alternate** inventory rows are **not imported** (not shown in the UI).
 - Distinct **stickered vs plain** parts appear as distinct rows matching importer data.
-- User can **add** a set-part via a modal (**+** control); modal supports optional **part image** upload (Phase 11A).
-- User can **open the same modal** by clicking a set-part row to **update** line fields or **delete** the line (**Update** / **Delete** / **Cancel**; Phase 11A).
-- Set-parts table shows **Element IDs** per line; user edits aliases in the same part modal (Phase 11B).
+- User can **add** a set-part via a modal (**+** control) in **Edit** mode; modal supports optional **part image** upload (Phase 11A).
+- User can **open the part modal** by clicking a set-part row: in **Edit** mode the modal is **Edit part** (update/delete); in **View** and **Investigate** modes the modal is read-only **Part view** (title “Part view”, all fields disabled, single **OK** button).
+- Set-parts table shows **Element IDs** per line; user edits aliases in the **Edit part** modal only (Phase 11B).
 
 ### 6. Search by set number and part number
 
@@ -127,7 +127,7 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 - User cannot mark missing more than the **expected quantity** from inventory for that part/color (validation).
 - UI and API expose current missing lines and remaining “complete” status at a glance for **that copy**.
 - Clearing missing removes or zeroes the corresponding records without deleting catalog inventory.
-- User can **upload**, **replace**, and **remove** the photo for a missing line; bytes are stored on the **part** record (global per `part_id`) and served via same-origin API URLs (no dependency on Rebrickable CDN for that photo).
+- User can **upload**, **replace**, and **remove** the photo for a missing line (API implemented; dedicated missing-photo UI is **deferred** — `canEditMissingPhotos` exists for future use); bytes are stored on the line’s primary **Element ID** in **`element_images`** when element IDs exist, otherwise on the **`parts`** record, and served via same-origin API URLs (no dependency on Rebrickable CDN for that photo).
 
 ### 8. Duplicate a set copy (“Make a copy”)
 
@@ -179,7 +179,7 @@ When importing or enriching from Rebrickable (CSV import in Phase 12, optional p
 
 - **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs. **Age** is applied on first import only when Rebrickable exposes `age_range`; afterwards the user controls age on set detail.
 - **CSV import and manual prefill:** do **not** fetch image bytes from Rebrickable CDN URLs.
-- **Rebrickable sync:** may optionally download set image BLOBs, minifigure image BLOBs, and part image BLOBs into SQLite when the user selects those options. Part image modes are **none**, **missing parts only**, or **all synced inventory parts**; both part modes include minifig BOM parts.
+- **Rebrickable sync:** may optionally download set image BLOBs, minifigure image BLOBs, and **element-scoped** part image BLOBs into SQLite when the user selects those options. Part image modes are **none**, **missing parts only**, or **all synced inventory parts**; both part modes include minifig BOM parts. Downloads use the line’s Rebrickable element URL and store bytes in **`element_images`** keyed by primary Element ID (requires persisted element IDs).
 
 User-uploaded and sync-downloaded images are stored in SQLite (Phase 10). There are no local cache folders.
 
@@ -192,14 +192,15 @@ User-uploaded and sync-downloaded images are stored in SQLite (Phase 10). There 
 | `set_num` re-link | **This copy only** (with warning; existing MVP rule). |
 | **Part quantity** on inventory | **This copy only** (Phase 9). |
 | **Missing quantity** per line | **This copy only**; must satisfy `0 ≤ missing ≤ quantity` for that copy’s line. |
-| **Part image** | **Global per `parts` row** — updating the image for part X updates every inventory line that references part X in every set. |
+| **Part image (display)** | **Per inventory line** when Element IDs and element BLOBs exist (color-specific); otherwise **global per `parts` row** fallback. Part-modal uploads still target the global **`parts`** row. |
 | **Part aliases** | **Symmetric equivalence class** — see §11.5. |
 
 ### 11.4 Part images
 
-- Any inventory line **may** have a user-provided image via its part record; missing parts are the primary use case.
-- One image per part (JPEG/PNG BLOB in DB, max 5 MB).
-- **Add** and **edit** part modals (Phase 11A) include upload/replace/delete for the part image (same global `parts` row as inline editors).
+- Inventory lines **may** show a local image resolved from **`element_images`** (first matching Element ID on the line) or from the global **`parts`** BLOB as fallback.
+- One BLOB per Element ID and one global BLOB per part (JPEG/PNG in DB, max 5 MB).
+- **Add** and **edit** part modals in **Edit** mode include upload/replace/delete for the global part image on the **`parts`** row. **Part view** in View/Investigate is read-only (no upload).
+- Rebrickable sync with part-image download populates **`element_images`** for color-specific thumbnails.
 
 ### 11.5 Part aliases (bidirectional)
 
@@ -241,11 +242,13 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 **Acceptance criteria:**
 
 - **Settings** page (`/settings`) with **View**, **Investigate**, and **Edit** modes; choice persists in browser **localStorage**; default is **View**.
-- **View:** browse collection, search, and reports only — no sync, import, add/duplicate, or data edits.
-- **Investigate:** toggle **Investigated** and update **missing** quantities (and missing photos when that UI exists); all other mutations disabled.
+- **View:** browse collection, search, and reports only — no sync, import, add/duplicate, or data edits; clicking a part row opens read-only **Part view**.
+- **Investigate:** toggle **Investigated** and update **missing** quantities; clicking a part row opens read-only **Part view**; all other mutations disabled (missing-photo UI deferred).
 - **Edit:** full app behavior (import, sync, catalog/copy edits, part CRUD, delete, images). Switching to Edit will require a **password** in a future release (stub hook in place).
 - Header shows current mode label; **Add set** and **Import** nav entries are disabled outside Edit with a tooltip pointing to Settings.
 - Mode gating is **UI-only** for MVP (API remains open for local single-user use).
+
+**Capability flags** (frontend `getCapabilities()`): `canSync`, `canImport`, `canAddOrDuplicate`, `canEditCopyFields`, `canEditCatalog`, `canEditQuantities`, `canEditParts`, `canDeleteCopy`, `canEditImages`, `canToggleInvestigated`, `canEditMissing`, `canEditMissingPhotos` (reserved for future missing-photo UI).
 
 ## UX surfaces (MVP)
 
@@ -253,7 +256,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 2. **Set detail** — per-copy fields + shared catalog fields + inventory + missing panel; **delete this copy**; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
 4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Sync entire collection** with image options (Phase **14**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
-5. **Reports** — collection summary (Phase **15**); incomplete sets with missing lines per copy (Phase **16**); missing-parts aggregation with optional set-copy filter and **PDF export** (Phase **17**).
+5. **Reports** — collection summary (Phase **15**); incomplete sets with missing lines per copy (Phase **16**); missing-parts aggregation with optional set-copy filter, web **Sets** links showing catalog name, and **PDF export** with set numbers only in the Sets column (Phase **17**).
 6. **Settings** — app mode (View / Investigate / Edit) per [§11.10](#1110-settings-and-app-modes-phase-18).
 
 ## Non-goals (MVP)

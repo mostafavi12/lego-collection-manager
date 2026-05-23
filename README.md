@@ -36,7 +36,9 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - **Health check:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) returns `{"status":"ok"}`.
 - **API docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (OpenAPI).
 
-**Backend APIs** (CSV import, Rebrickable sync, set copies (`/owned-sets`), search, missing parts, local images) and the **React MVP UI** (sets list, set detail, search, import) are implemented.
+**Backend APIs** (CSV import, Rebrickable sync, set copies (`/owned-sets`), search, missing parts, reports (`/reports/*`), local images including **`GET /api/elements/{element_id}/image`**) and the **React MVP UI** (sets list, set detail, search, import, reports, Settings) are implemented.
+
+**App modes:** View (default), Investigate, and Edit are selected on **`/settings`** and persisted in browser `localStorage` (`lcm.appMode`). View/Investigate gate mutations in the UI; Edit enables full editing.
 
 Configuration is read from the environment (see [`backend/.env.example`](backend/.env.example)). Run Alembic and uvicorn from `backend/` so relative paths resolve under `backend/data/`.
 
@@ -52,7 +54,7 @@ Configuration is read from the environment (see [`backend/.env.example`](backend
 | `AGE_CSV_PATH` | `../data/age.csv` | Optional local age mapping used by the Import page metadata update |
 | `SETS_CSV_PATH` | `../data/sets.csv` | Optional Rebrickable set catalog CSV used by the Import page metadata update |
 
-User-uploaded **part** and **set** images are stored as JPEG/PNG BLOBs in SQLite (see [docs/data-sources.md](docs/data-sources.md)); no upload directory is required.
+User-uploaded and sync-downloaded **part**, **element** (color-specific), **set**, and **minifigure** images are stored as JPEG/PNG BLOBs in SQLite (see [docs/data-sources.md](docs/data-sources.md)); no upload directory is required.
 
 On startup the API **refuses to start** unless the database is at the latest Alembic revision (`alembic upgrade head`). Importers log structured summaries (set counts, failures) to console and the local log file, write failed imports/syncs to the dedicated failure log, and never log API keys.
 

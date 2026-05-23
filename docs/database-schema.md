@@ -10,7 +10,7 @@ SQLite is the **single source of truth** for catalog and collection data. Schema
 |----------|---------|
 | `DATABASE_URL` | SQLAlchemy URL; MVP default `sqlite:///./data/lego.db` (path relative to backend working directory). |
 
-User-uploaded and sync-downloaded images are stored in SQLite BLOB columns on `parts`, `catalog_sets`, and `catalog_minifigs` (see [data-sources.md](./data-sources.md)); no filesystem upload root is required after Phase 10.
+User-uploaded and sync-downloaded images are stored in SQLite BLOB columns on `parts`, `catalog_sets`, `catalog_minifigs`, and **`element_images`** (color-specific part images keyed by LEGO Element ID; see [data-sources.md](./data-sources.md)); no filesystem upload root is required after Phase 10.
 
 Migrations: **Alembic** tracks revisions; application startup fails fast if the DB is not at head (per [development-plan.md](./development-plan.md)).
 
@@ -21,7 +21,7 @@ Migrations: **Alembic** tracks revisions; application startup fails fast if the 
 3. **No duplicate catalog primaries:** Upserts keyed by natural keys (`set_number` + `set_variant`, `part_num`, `color_id` from API, etc.).
 4. **Inventory fidelity:** Stickered vs plain and distinct Rebrickable part numbers are preserved on line tables—**no collapsing** of lines in MVP. Rebrickable **spare** and **alternate** rows are read from the API but **not stored** (see [data-sources.md](./data-sources.md)).
 5. **Missing parts** belong to a **set copy** (`owned_sets` row) and reference a **specific per-copy inventory line** (set-level part row or minifig BOM row) for traceability in the UI.
-6. **Images:** At most one JPEG/PNG BLOB per `parts` row (global part image), per `catalog_sets` row (shared set box image), and per `catalog_minifigs` row. Missing-line uploads attach to the part record.
+6. **Images:** At most one JPEG/PNG BLOB per **`element_images.element_id`** (color-specific display), per **`parts`** row (global part fallback), per **`catalog_sets`** row (shared set box image), and per **`catalog_minifigs`** row. API responses expose **same-origin** paths only when a BLOB exists; Rebrickable CDN URLs on inventory lines are download sources during sync, not client-facing URLs. **Display resolution** for inventory lines: first persisted Element ID with a local element BLOB → `/api/elements/{element_id}/image`; else part BLOB → `/api/parts/{part_id}/image`; else `null`. Missing-line uploads prefer the line’s primary Element ID when element IDs exist, otherwise the part BLOB.
 
 ## Entity-relationship overview
 
@@ -39,6 +39,7 @@ erDiagram
   Part ||--o{ MinifigPartInventoryLine : references
   Color ||--o{ MinifigPartInventoryLine : tints
   MinifigPartInventoryLine ||--o{ InventoryLineElementId : hasElementIds
+  InventoryLineElementId }o--|| ElementImage : mayHaveBlob
   Part ||--o{ PartAlias : alsoKnownAs
   OwnedSet ||--o{ OwnedSetInventoryLine : instanceQty
   OwnedSet ||--o{ MissingItem : tracksGaps
@@ -222,9 +223,25 @@ then served from SQLite for detail and search.
 and `(minifig_part_inventory_line_id, element_id)` when minifig-line FK is set.
 Multiple Element IDs can exist for one inventory line.
 
+### `element_images`
+
+Color-specific part images keyed by LEGO **Element ID** (one BLOB per element). Populated during Rebrickable sync when part-image download modes are enabled, and by missing-part image upload when the inventory line has persisted element IDs.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | |
+| `element_id` | TEXT NOT NULL UNIQUE | LEGO Element ID (matches `inventory_line_element_ids.element_id`). |
+| `image_blob` | BLOB NULL | JPEG/PNG bytes. |
+| `image_content_type` | TEXT NULL | `image/jpeg` or `image/png` when `image_blob` set. |
+| `image_byte_size` | INTEGER NULL | Byte length of `image_blob`. |
+| `source` | TEXT NOT NULL | e.g. `rebrickable`, `user`. |
+| `fetched_at` | TIMESTAMP NOT NULL | UTC. |
+
+Serving: `GET /elements/{element_id}/image` (read-only; no PUT/DELETE on this route). User part-photo uploads from **PartLineModal** still use `PUT /parts/{part_id}/image` on the global part row; sync and missing uploads may write here instead when element IDs are available.
+
 ### `missing_items`
 
-Per **set copy**, links to **one** `owned_set_inventory_lines` row when the user has marked that line as missing (photo optional; stored on `parts.image_blob`).
+Per **set copy**, links to **one** `owned_set_inventory_lines` row when the user has marked that line as missing (photo optional; stored on **`element_images`** when the line has element IDs, else on **`parts.image_blob`**).
 
 | Column | Type | Notes |
 |--------|------|--------|
@@ -280,9 +297,9 @@ Creating a copy (CSV, duplicate, manual add) **copies** template lines into per-
 
 ### Images in SQLite (Phase 10 — implemented)
 
-BLOB columns on `parts`, `catalog_sets`, and `catalog_minifigs` (see table definitions above). Constraints: JPEG or PNG; max **5_242_880** bytes (5 MB); min size **0** allowed. `missing_items.image_path` removed in migration `e1b4c7d29f50`.
+BLOB columns on `parts`, `catalog_sets`, `catalog_minifigs`, and **`element_images`** (see table definitions above). Constraints: JPEG or PNG; max **5_242_880** bytes (5 MB); min size **0** allowed. `missing_items.image_path` removed in migration `e1b4c7d29f50`.
 
-Serving: `GET /parts/{part_id}/image`, `GET /catalog-sets/{catalog_set_id}/image`, `GET /catalog-minifigs/{catalog_minifig_id}/image`, and `GET /media/missing/{missing_item_id}` (part BLOB when missing qty > 0). See [api-design.md](./api-design.md).
+Serving: `GET /parts/{part_id}/image`, `GET /elements/{element_id}/image`, `GET /catalog-sets/{catalog_set_id}/image`, `GET /catalog-minifigs/{catalog_minifig_id}/image`, and `GET /media/missing/{missing_item_id}` (element or part BLOB via display resolution when missing qty > 0). See [api-design.md](./api-design.md).
 
 ### Part aliases (Phase 11B)
 

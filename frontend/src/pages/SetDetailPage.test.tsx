@@ -696,6 +696,18 @@ describe("SetDetailPage", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ...setCopyDetailFixture, investigated: true }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          owned_set_id: 1,
+          missing_item_id: 5,
+          updated_lines: 1,
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...setCopyDetailFixture, investigated: true }),
       } as Response);
     vi.stubGlobal("fetch", fetchMock);
 
@@ -713,6 +725,26 @@ describe("SetDetailPage", () => {
         expect.objectContaining({
           method: "PATCH",
           body: JSON.stringify({ investigated: true }),
+        }),
+      );
+    });
+
+    const missingInput = screen.getByLabelText(/missing quantity for 3024/i);
+    await user.clear(missingInput);
+    await user.type(missingInput, "2");
+    await user.click(
+      screen.getByRole("button", { name: /^save$/i }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/owned-sets/1/missing"),
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            set_part_inventory_line_id: 10,
+            quantity_missing: 2,
+          }),
         }),
       );
     });

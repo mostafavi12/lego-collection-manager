@@ -114,6 +114,10 @@ Rules:
 - Multiple Element IDs for one part/color are valid and are stored as a list.
 - Set detail and search read persisted Element IDs from SQLite; they do not read
   the CSV at request time.
+- When Rebrickable sync runs with part-image download enabled, element image bytes
+  from inventory line CDN URLs are stored in **`element_images`** keyed by Element ID
+  (primary ID on each line). This enables color-specific thumbnails for the same
+  `part_num` in different colors.
 
 ### LEGO themes
 
@@ -173,14 +177,17 @@ User photos are stored as **BLOBs in SQLite**, not on disk:
 
 | Storage | Table | Scope |
 |---------|-------|--------|
-| Part image | `parts` (`image_blob`, `image_content_type`, `image_byte_size`) | **Global** — one image per part; shown in every set that uses that part. |
+| Element image | `element_images` (`image_blob`, …) | **Per Element ID** — color-specific display for inventory lines; populated by sync (part-image download modes) and missing-part upload when element IDs exist. |
+| Part image | `parts` (`image_blob`, `image_content_type`, `image_byte_size`) | **Global fallback** — one image per part; used when no element BLOB exists; target of **PartLineModal** part-photo uploads. |
 | Set box image | `catalog_sets` (same BLOB columns) | **Shared** across all owned instances of that set. |
+| Minifigure image | `catalog_minifigs` (same BLOB columns) | **Shared** per minifig design. |
 
 Rules:
 
 - Accepted formats: **JPEG** and **PNG**; max **5 MB** per [api-design.md](./api-design.md); min size **0** allowed.
-- Missing-part upload (`PUT .../missing/{id}/image`) writes the **part** BLOB (not a per-missing-row file).
-- `GET /media/missing/{missing_item_id}` serves the part BLOB when the line has missing quantity > 0.
+- Missing-part upload (`PUT .../missing/{id}/image`) writes **`element_images`** when the line has persisted Element IDs, otherwise the **`parts`** BLOB.
+- `GET /media/missing/{missing_item_id}` serves the resolved line image (element first, else part) when missing quantity > 0.
+- Rebrickable CDN URLs on inventory lines are **never** returned to clients; they are download sources during sync only.
 - No `UPLOAD_ROOT`, `MEDIA_ROOT`, or thumbnail/cache folders required for normal operation.
 - Images are **not** sent to Rebrickable.
 
