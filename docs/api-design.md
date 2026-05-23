@@ -703,6 +703,34 @@ Part alias editing: [Part aliases (Phase 11B)](#part-aliases-phase-11b) (not par
 
 See also [Rebrickable sync — synchronous](#rebrickable-sync--synchronous) for Import **Sync entire collection**, set detail scoped sync, optional `owned_set_ids`, and image download options.
 
+## Reports
+
+Read-only collection aggregates. Counts refer to **set copies** (`owned_sets`), not distinct catalog set numbers.
+
+### Summary — Phase 15
+
+**`GET /reports/summary`**
+
+**Response `200`:**
+
+```json
+{
+  "total_sets": 12,
+  "investigated_sets": 8,
+  "complete_sets": 5,
+  "total_parts": 4200,
+  "missing_parts": 37
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `total_sets` | All set copies in the collection |
+| `investigated_sets` | Copies with `investigated = true` |
+| `complete_sets` | Investigated copies with no inventory line where `quantity_missing > 0` |
+| `total_parts` | Sum of `quantity` on all `owned_set_inventory_lines` (set parts and minifig BOM) |
+| `missing_parts` | Sum of `quantity_missing` on all `owned_set_inventory_lines` |
+
 ## CORS
 
 Backend allows the Vite dev origin (e.g. `http://localhost:5173`) via environment-driven CORS settings for MVP.

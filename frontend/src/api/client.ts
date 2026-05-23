@@ -14,6 +14,7 @@ import type {
   PartAliasesResponse,
   RebrickableSetDraftResponse,
   RebrickableSyncResponse,
+  ReportsSummaryResponse,
   SearchResponse,
   SetCopyCreateBody,
   SetCopyCreateResponse,
@@ -372,4 +373,8 @@ export function patchPartAliases(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+export function getReportsSummary(): Promise<ReportsSummaryResponse> {
+  return request("/reports/summary");
 }
