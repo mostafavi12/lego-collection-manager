@@ -9,12 +9,14 @@ interface InstanceQuantityEditorProps {
   setCopyId: number;
   line: InventoryLine;
   onUpdated: () => void;
+  readOnly?: boolean;
 }
 
 export function InstanceQuantityEditor({
   setCopyId,
   line,
   onUpdated,
+  readOnly = false,
 }: InstanceQuantityEditorProps) {
   const [qty, setQty] = useState(String(line.quantity));
   const [busy, setBusy] = useState(false);
@@ -42,6 +44,10 @@ export function InstanceQuantityEditor({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (readOnly) {
+    return <span>{line.quantity}</span>;
   }
 
   return (

@@ -234,6 +234,19 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 - **Local metadata update:** the Import page can fill missing age values and unknown themes from local CSV files without calling Rebrickable. It uses `data/age.csv` for age, and `data/sets.csv` plus `data/themes.csv` for theme, storing the parent theme when `parent_id` exists.
 - **Backlog:** progress and cancellation beyond a simple spinner, documented conflict policy vs manual/instance edits, and richer subset selection from list views — see [development-plan.md](./development-plan.md).
 
+### 11.10 Settings and app modes (Phase 18)
+
+**User outcome:** The user chooses how much of the app is editable without leaving the collection context.
+
+**Acceptance criteria:**
+
+- **Settings** page (`/settings`) with **View**, **Investigate**, and **Edit** modes; choice persists in browser **localStorage**; default is **View**.
+- **View:** browse collection, search, and reports only — no sync, import, add/duplicate, or data edits.
+- **Investigate:** toggle **Investigated** and update **missing** quantities (and missing photos when that UI exists); all other mutations disabled.
+- **Edit:** full app behavior (import, sync, catalog/copy edits, part CRUD, delete, images). Switching to Edit will require a **password** in a future release (stub hook in place).
+- Header shows current mode label; **Add set** and **Import** nav entries are disabled outside Edit with a tooltip pointing to Settings.
+- Mode gating is **UI-only** for MVP (API remains open for local single-user use).
+
 ## UX surfaces (MVP)
 
 1. **Sets list** — layout per [§4](#4-sets-list); **Make a copy** with confirmation dialog per row.
@@ -241,6 +254,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 3. **Search** — single entry point or dual mode (set vs part) per API design.
 4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Sync entire collection** with image options (Phase **14**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
 5. **Reports** — collection summary (Phase **15**); incomplete sets with missing lines per copy (Phase **16**); missing-parts aggregation with optional set-copy filter (Phase **17**).
+6. **Settings** — app mode (View / Investigate / Edit) per [§11.10](#1110-settings-and-app-modes-phase-18).
 
 ## Non-goals (MVP)
 

@@ -16,6 +16,7 @@ import type {
 } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { Modal } from "../components/Modal";
+import { useCapabilities } from "../appMode/AppModeContext";
 import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
 import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
 import { MissingLineEditor } from "../components/MissingLineEditor";
@@ -87,6 +88,17 @@ export function SetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const setCopyId = Number(id);
   const navigate = useNavigate();
+  const {
+    canSync,
+    canEditCopyFields,
+    canEditCatalog,
+    canEditQuantities,
+    canEditParts,
+    canDeleteCopy,
+    canEditImages,
+    canToggleInvestigated,
+    canEditMissing,
+  } = useCapabilities();
   const [detail, setDetail] = useState<SetCopyDetailResponse | null>(null);
   const [form, setForm] = useState<InstanceForm | null>(null);
   const [originalSetNum, setOriginalSetNum] = useState("");
@@ -173,7 +185,7 @@ export function SetDetailPage() {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!form) {
+    if (!form || (!canEditCopyFields && !canEditCatalog)) {
       return;
     }
     if (form.setNum.trim() !== originalSetNum) {
@@ -200,7 +212,7 @@ export function SetDetailPage() {
   }
 
   async function toggleInvestigated() {
-    if (!detail) {
+    if (!detail || !canToggleInvestigated) {
       return;
     }
     setSaving(true);
@@ -228,7 +240,7 @@ export function SetDetailPage() {
   }
 
   async function onSyncThisSet() {
-    if (!detail) {
+    if (!detail || !canSync) {
       return;
     }
     setSyncing(true);
@@ -296,6 +308,7 @@ export function SetDetailPage() {
           catalogSetId={catalog.catalog_set_id}
           imageUrl={catalog.image_url}
           setNum={catalog.set_num}
+          disabled={!canEditImages}
           onUpdated={() => void load()}
         />
         <div className="detail-header__body">
@@ -305,6 +318,7 @@ export function SetDetailPage() {
 
       <AsyncMessage error={error} />
 
+      {canSync && (
       <details className="sync-panel">
         <summary>
           <h2>Sync from Rebrickable</h2>
@@ -415,6 +429,7 @@ export function SetDetailPage() {
           </div>
         )}
       </details>
+      )}
 
       <form className="instance-form" onSubmit={(e) => void onSubmit(e)}>
         <h2>Copy details</h2>
@@ -423,6 +438,7 @@ export function SetDetailPage() {
             Label
             <input
               value={form.label}
+              readOnly={!canEditCopyFields}
               disabled={saving}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
             />
@@ -431,7 +447,7 @@ export function SetDetailPage() {
             <input
               type="checkbox"
               checked={detail.investigated}
-              disabled={saving}
+              disabled={saving || !canToggleInvestigated}
               onChange={() => void toggleInvestigated()}
             />
             Investigated
@@ -441,6 +457,7 @@ export function SetDetailPage() {
             <textarea
               rows={2}
               value={form.notes}
+              readOnly={!canEditCopyFields}
               disabled={saving}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
@@ -453,6 +470,7 @@ export function SetDetailPage() {
             Set number (this copy only)
             <input
               value={form.setNum}
+              readOnly={!canEditCatalog}
               disabled={saving}
               onChange={(e) => setForm({ ...form, setNum: e.target.value })}
             />
@@ -461,6 +479,7 @@ export function SetDetailPage() {
             Name
             <input
               value={form.catalogName}
+              readOnly={!canEditCatalog}
               disabled={saving}
               onChange={(e) =>
                 setForm({ ...form, catalogName: e.target.value })
@@ -471,6 +490,7 @@ export function SetDetailPage() {
             Theme
             <input
               value={form.catalogTheme}
+              readOnly={!canEditCatalog}
               disabled={saving}
               onChange={(e) =>
                 setForm({ ...form, catalogTheme: e.target.value })
@@ -485,6 +505,7 @@ export function SetDetailPage() {
               aria-label="Recommended age"
               placeholder="e.g. 8"
               value={form.age}
+              readOnly={!canEditCopyFields}
               disabled={saving}
               onChange={(e) => setForm({ ...form, age: e.target.value })}
             />
@@ -500,6 +521,7 @@ export function SetDetailPage() {
               type="number"
               min={0}
               value={form.catalogParts}
+              readOnly={!canEditCatalog}
               disabled={saving}
               onChange={(e) =>
                 setForm({ ...form, catalogParts: e.target.value })
@@ -511,6 +533,7 @@ export function SetDetailPage() {
             <input
               type="number"
               value={form.catalogYear}
+              readOnly={!canEditCatalog}
               disabled={saving}
               onChange={(e) =>
                 setForm({ ...form, catalogYear: e.target.value })
@@ -519,10 +542,12 @@ export function SetDetailPage() {
           </label>
         </div>
 
+        {(canEditCopyFields || canEditCatalog) && (
         <div className="instance-form__actions">
           <button type="submit" className="btn btn--primary" disabled={saving}>
             Save changes
           </button>
+          {canDeleteCopy && (
           <button
             type="button"
             className="btn btn--ghost"
@@ -531,11 +556,14 @@ export function SetDetailPage() {
           >
             Delete this copy
           </button>
+          )}
         </div>
+        )}
       </form>
 
       <section className="inventory-section">
         <div className="inventory-section__header">
+          {canEditParts && (
           <button
             type="button"
             className="btn btn--small btn--primary inventory-section__add"
@@ -544,6 +572,7 @@ export function SetDetailPage() {
           >
             +
           </button>
+          )}
           <h2>Parts inventory</h2>
         </div>
         <div className="inventory-controls">
@@ -587,9 +616,18 @@ export function SetDetailPage() {
                 return (
                   <tr
                     key={line.instance_line_id}
-                    className="data-table__row--clickable"
-                    onClick={() =>
-                      setPartModal({ mode: "edit", inventoryKind: "set_part", line })
+                    className={
+                      canEditParts ? "data-table__row--clickable" : undefined
+                    }
+                    onClick={
+                      canEditParts
+                        ? () =>
+                            setPartModal({
+                              mode: "edit",
+                              inventoryKind: "set_part",
+                              line,
+                            })
+                        : undefined
                     }
                   >
                     <td>
@@ -614,6 +652,7 @@ export function SetDetailPage() {
                       <InstanceQuantityEditor
                         setCopyId={detail.id}
                         line={line}
+                        readOnly={!canEditQuantities}
                         onUpdated={() => void load()}
                       />
                     </td>
@@ -622,6 +661,7 @@ export function SetDetailPage() {
                         setCopyId={detail.id}
                         line={line}
                         inventoryKind="set_part"
+                        readOnly={!canEditMissing}
                         onUpdated={() => void load()}
                       />
                     </td>
@@ -675,13 +715,18 @@ export function SetDetailPage() {
                       return (
                         <tr
                           key={line.instance_line_id}
-                          className="data-table__row--clickable"
-                          onClick={() =>
-                            setPartModal({
-                              mode: "edit",
-                              inventoryKind: "minifig_part",
-                              line,
-                            })
+                          className={
+                            canEditParts ? "data-table__row--clickable" : undefined
+                          }
+                          onClick={
+                            canEditParts
+                              ? () =>
+                                  setPartModal({
+                                    mode: "edit",
+                                    inventoryKind: "minifig_part",
+                                    line,
+                                  })
+                              : undefined
                           }
                         >
                           <td>
@@ -704,6 +749,7 @@ export function SetDetailPage() {
                             <InstanceQuantityEditor
                               setCopyId={detail.id}
                               line={line}
+                              readOnly={!canEditQuantities}
                               onUpdated={() => void load()}
                             />
                           </td>
@@ -712,6 +758,7 @@ export function SetDetailPage() {
                               setCopyId={detail.id}
                               line={line}
                               inventoryKind="minifig_part"
+                              readOnly={!canEditMissing}
                               onUpdated={() => void load()}
                             />
                           </td>
@@ -726,7 +773,7 @@ export function SetDetailPage() {
         </section>
       )}
 
-      {partModal && (
+      {partModal && canEditParts && (
         <PartLineModal
           mode={partModal.mode}
           setCopyId={detail.id}

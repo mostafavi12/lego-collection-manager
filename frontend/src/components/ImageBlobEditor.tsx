@@ -10,6 +10,7 @@ interface ImageBlobEditorProps {
   onDelete: () => Promise<{ image_url: string | null }>;
   onUpdated: () => void;
   className?: string;
+  disabled?: boolean;
 }
 
 export function ImageBlobEditor({
@@ -20,6 +21,7 @@ export function ImageBlobEditor({
   onDelete,
   onUpdated,
   className = "",
+  disabled = false,
 }: ImageBlobEditorProps) {
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
   const [busy, setBusy] = useState(false);
@@ -69,28 +71,30 @@ export function ImageBlobEditor({
       ) : (
         <div className="image-blob-editor__placeholder" aria-hidden />
       )}
-      <div className="image-blob-editor__actions">
-        <label className="btn btn--small btn--secondary">
-          {uploadLabel}
-          <input
-            type="file"
-            accept="image/jpeg,image/png"
-            className="sr-only"
-            disabled={busy}
-            onChange={(e) => void onFileSelected(e.target.files?.[0])}
-          />
-        </label>
-        {preview && (
-          <button
-            type="button"
-            className="btn btn--small btn--ghost"
-            disabled={busy}
-            onClick={() => void removeImage()}
-          >
-            Remove
-          </button>
-        )}
-      </div>
+      {!disabled ? (
+        <div className="image-blob-editor__actions">
+          <label className="btn btn--small btn--secondary">
+            {uploadLabel}
+            <input
+              type="file"
+              accept="image/jpeg,image/png"
+              className="sr-only"
+              disabled={busy}
+              onChange={(e) => void onFileSelected(e.target.files?.[0])}
+            />
+          </label>
+          {preview && (
+            <button
+              type="button"
+              className="btn btn--small btn--ghost"
+              disabled={busy}
+              onClick={() => void removeImage()}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ) : null}
       {error && <span className="image-blob-editor__error">{error}</span>}
     </div>
   );

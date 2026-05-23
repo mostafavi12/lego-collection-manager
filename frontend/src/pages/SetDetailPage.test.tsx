@@ -1,18 +1,18 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SetDetailPage } from "./SetDetailPage";
 import { setCopyDetailFixture } from "../test/fixtures";
+import { renderWithAppMode } from "../test/renderWithAppMode";
 
-function renderDetail() {
-  return render(
-    <MemoryRouter initialEntries={["/sets/1"]}>
-      <Routes>
-        <Route path="/sets/:id" element={<SetDetailPage />} />
-      </Routes>
-    </MemoryRouter>,
+function renderDetail(mode: "view" | "investigate" | "edit" = "edit") {
+  return renderWithAppMode(
+    <Routes>
+      <Route path="/sets/:id" element={<SetDetailPage />} />
+    </Routes>,
+    { mode, routerProps: { initialEntries: ["/sets/1"] } },
   );
 }
 
@@ -596,6 +596,69 @@ describe("SetDetailPage", () => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/owned-sets/1"),
         expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("hides sync, save, add part, and delete in view mode", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => setCopyDetailFixture,
+      } as Response),
+    );
+
+    renderDetail("view");
+
+    await screen.findByText("Copy details");
+    expect(screen.queryByText(/sync from rebrickable/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /save changes/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /delete this copy/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /add part/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/missing quantity for 3024/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("allows investigated toggle and missing edits in investigate mode", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => setCopyDetailFixture,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...setCopyDetailFixture, investigated: true }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...setCopyDetailFixture, investigated: true }),
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderDetail("investigate");
+
+    await screen.findByText("Copy details");
+    expect(
+      screen.queryByRole("button", { name: /save changes/i }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText(/investigated/i));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/owned-sets/1"),
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ investigated: true }),
+        }),
       );
     });
   });

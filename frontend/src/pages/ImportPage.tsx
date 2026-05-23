@@ -8,10 +8,12 @@ import type {
   RebrickableSyncResponse,
 } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
+import { useCapabilities } from "../appMode/AppModeContext";
 
 type PartImageDownloadMode = "none" | "missing" | "all";
 
 export function ImportPage() {
+  const { canImport } = useCapabilities();
   const fileRef = useRef<HTMLInputElement>(null);
   const [csvResult, setCsvResult] = useState<CsvImportResponse | null>(null);
   const [syncResult, setSyncResult] = useState<RebrickableSyncResponse | null>(null);
@@ -95,6 +97,16 @@ export function ImportPage() {
         loading={(loading === "sync" && !syncResult) || loading === "metadata"}
       />
 
+      {!canImport ? (
+        <article className="import-card">
+          <p>
+            CSV import, Rebrickable sync, and local metadata updates require{" "}
+            <strong>Edit mode</strong>. Switch mode in{" "}
+            <Link to="/settings">Settings</Link>.
+          </p>
+        </article>
+      ) : (
+        <>
       <article className="import-card">
         <h2>CSV import</h2>
         <p>
@@ -315,6 +327,8 @@ export function ImportPage() {
           </div>
         )}
       </article>
+        </>
+      )}
     </section>
   );
 }

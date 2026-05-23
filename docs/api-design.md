@@ -25,6 +25,8 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 | `422` | Request body schema validation (Pydantic). |
 | `503` | Upstream Rebrickable unreachable after retries (optional; may also map to `502`). |
 
+**App modes (Phase 18):** View / Investigate / Edit are enforced in the **frontend UI** only for MVP. The REST API does not require mode headers or tokens. A future Edit password may add client-side gating first, then optional server-side tokens if the API is exposed beyond localhost.
+
 ## Import operations
 
 ### CSV import — synchronous (additive)

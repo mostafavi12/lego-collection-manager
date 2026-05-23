@@ -9,6 +9,7 @@ interface CatalogSetImageEditorProps {
   imageUrl: string | null;
   setNum: string | number;
   onUpdated: () => void;
+  disabled?: boolean;
 }
 
 export function CatalogSetImageEditor({
@@ -16,6 +17,7 @@ export function CatalogSetImageEditor({
   imageUrl,
   setNum,
   onUpdated,
+  disabled = false,
 }: CatalogSetImageEditorProps) {
   return (
     <ImageBlobEditor
@@ -23,6 +25,7 @@ export function CatalogSetImageEditor({
       imageUrl={imageUrl}
       alt={`Set ${setNum}`}
       uploadLabel="Set photo"
+      disabled={disabled}
       onUpload={(file) => uploadCatalogSetImage(catalogSetId, file)}
       onDelete={() => deleteCatalogSetImage(catalogSetId)}
       onUpdated={onUpdated}

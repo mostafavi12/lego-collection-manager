@@ -62,6 +62,7 @@ Still **no live Rebrickable** in CI.
 | **12** | implemented | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; no image bytes written. |
 | **13** | implemented | Backend: `test_manual_add_api.py`, `test_manual_add_rebrickable_draft.py`. Frontend: `AddSetPage.test.tsx` — new-catalog flow, optional **`parts`** in **`POST`**, mocked **`add-rebrickable-draft`** prefill, existing-set **Cancel/Continue** warning before copy form. |
 | **14** | implemented / partial | `POST /imports/rebrickable/sync`; Import-page **Sync entire collection**; set-detail current-set sync with `owned_set_ids`; image option request mapping for set, minifigure, set-part, and minifig BOM part images; mocked image download counters/failures. Progress/cancel, conflict policy, and arbitrary subset picker remain deferred — see [development-plan.md](./development-plan.md). |
+| **18** | implemented | Frontend: `appMode/capabilities.test.ts`, `SettingsPage.test.tsx`; mode gating on set detail, collection list, import, add set. UI-only; `ensureEditAccess` stub for future Edit password. |
 
 ### Search
 
@@ -83,6 +84,7 @@ Still **no live Rebrickable** in CI.
 | **Missing UI** | Changing missing quantity calls PATCH; upload calls PUT missing image endpoint; preview uses `part_image_url` / `missing_image_url`. |
 | **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`. |
 | **Import** | File picker posts to CSV endpoint; success message reflects copy count (e.g. `instances_created` in JSON); **Sync entire collection** triggers sync endpoint (spinner / outcome messaging as implemented). |
+| **Settings** | Default View mode; mode persists in localStorage; View hides import/add mutations; Investigate enables investigated + missing on set detail. |
 | **Reports** | Summary stats; incomplete sets with collapsed missing lines; missing-parts table with `owned_set_ids` filter from incomplete-page selection. |
 
 **Backend reporting tests:** `test_reports_summary_api.py`, `test_reports_incomplete_api.py`, `test_reports_missing_parts_api.py`.

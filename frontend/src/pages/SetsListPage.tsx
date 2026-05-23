@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { listSetCopies, listSetCopyThemeOptions } from "../api/client";
 import type { SetCopyListItem } from "../api/types";
+import { useCapabilities } from "../appMode/AppModeContext";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { AddSetWizard } from "../components/AddSetWizard";
 import { MakeACopyDialog } from "../components/MakeACopyDialog";
@@ -47,6 +48,7 @@ function groupLabel(item: SetCopyListItem, groupBy: GroupBy): string {
 export function SetsListPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { canAddOrDuplicate } = useCapabilities();
   const [items, setItems] = useState<SetCopyListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [themeOptions, setThemeOptions] = useState<string[]>([]);
@@ -121,11 +123,11 @@ export function SetsListPage() {
 
   useEffect(() => {
     const state = location.state as { openAddSet?: boolean } | null;
-    if (state?.openAddSet) {
+    if (state?.openAddSet && canAddOrDuplicate) {
       setAddSetOpen(true);
       navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
     }
-  }, [location.pathname, location.search, location.state, navigate]);
+  }, [canAddOrDuplicate, location.pathname, location.search, location.state, navigate]);
 
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -237,7 +239,17 @@ export function SetsListPage() {
         <button
           type="button"
           className="btn btn--secondary set-card__duplicate"
-          onClick={() => setCopyDialogId(item.id)}
+          disabled={!canAddOrDuplicate}
+          title={
+            canAddOrDuplicate
+              ? undefined
+              : "Switch to Edit mode in Settings"
+          }
+          onClick={() => {
+            if (canAddOrDuplicate) {
+              setCopyDialogId(item.id);
+            }
+          }}
         >
           Make a copy
         </button>
@@ -256,6 +268,7 @@ export function SetsListPage() {
       </header>
 
       <div className="toolbar">
+        {canAddOrDuplicate && (
         <button
           type="button"
           className="btn btn--primary"
@@ -263,6 +276,7 @@ export function SetsListPage() {
         >
           Add set
         </button>
+        )}
         <label className="toolbar__field">
           Investigation
           <select
@@ -391,14 +405,23 @@ export function SetsListPage() {
       {!loading && items.length === 0 && !error && (
         <p className="empty-state">
           Nothing in your collection yet.{" "}
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => setAddSetOpen(true)}
-          >
-            Add a set manually
-          </button>{" "}
-          or <Link to="/import">import a CSV</Link> to get started.
+          {canAddOrDuplicate ? (
+            <>
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => setAddSetOpen(true)}
+              >
+                Add a set manually
+              </button>{" "}
+              or <Link to="/import">import a CSV</Link> to get started.
+            </>
+          ) : (
+            <>
+              Switch to <Link to="/settings">Edit mode</Link> in Settings to add
+              sets or import a CSV.
+            </>
+          )}
         </p>
       )}
 
@@ -470,7 +493,7 @@ export function SetsListPage() {
         </div>
       )}
 
-      {addSetOpen && (
+      {addSetOpen && canAddOrDuplicate && (
         <AddSetWizard
           onClose={() => setAddSetOpen(false)}
           onCreated={(newId) => {
@@ -480,7 +503,7 @@ export function SetsListPage() {
         />
       )}
 
-      {copyDialogId != null && (
+      {copyDialogId != null && canAddOrDuplicate && (
         <MakeACopyDialog
           setCopyId={copyDialogId}
           onClose={() => setCopyDialogId(null)}

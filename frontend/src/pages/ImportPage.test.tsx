@@ -1,9 +1,13 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ImportPage } from "./ImportPage";
+import { renderWithAppMode } from "../test/renderWithAppMode";
+
+function renderImport(mode: "view" | "edit" = "edit") {
+  return renderWithAppMode(<ImportPage />, { mode });
+}
 
 describe("ImportPage", () => {
   afterEach(() => {
@@ -27,11 +31,7 @@ describe("ImportPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <ImportPage />
-      </MemoryRouter>,
-    );
+    renderImport();
 
     const file = new File(["6024-1,9999-1"], "sets.csv", { type: "text/plain" });
     const fileInput = document.querySelector(
@@ -71,11 +71,7 @@ describe("ImportPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <ImportPage />
-      </MemoryRouter>,
-    );
+    renderImport();
 
     const file = new File(["6024-1"], "sets.csv", { type: "text/plain" });
     const fileInput = document.querySelector(
@@ -110,11 +106,7 @@ describe("ImportPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <ImportPage />
-      </MemoryRouter>,
-    );
+    renderImport();
 
     expect(screen.getByLabelText(/download set images/i)).toBeChecked();
     expect(screen.getByLabelText(/do not download images for parts/i)).toBeChecked();
@@ -149,11 +141,7 @@ describe("ImportPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <ImportPage />
-      </MemoryRouter>,
-    );
+    renderImport();
 
     await user.click(screen.getByRole("button", { name: /update missing ages and themes/i }));
 
@@ -165,5 +153,13 @@ describe("ImportPage", () => {
     });
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("Updated 2 age values and 1 theme");
+  });
+
+  it("hides import forms in view mode", () => {
+    renderImport("view");
+    expect(screen.getByText(/edit mode/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /import csv/i }),
+    ).not.toBeInTheDocument();
   });
 });

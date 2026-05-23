@@ -10,6 +10,7 @@ interface MissingLineEditorProps {
   line: InventoryLine;
   inventoryKind: "set_part" | "minifig_part";
   onUpdated: () => void;
+  readOnly?: boolean;
 }
 
 function patchBody(
@@ -34,6 +35,7 @@ export function MissingLineEditor({
   line,
   inventoryKind,
   onUpdated,
+  readOnly = false,
 }: MissingLineEditorProps) {
   const [qty, setQty] = useState(String(line.missing_quantity));
   const [busy, setBusy] = useState(false);
@@ -58,6 +60,10 @@ export function MissingLineEditor({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (readOnly) {
+    return <span>{line.missing_quantity}</span>;
   }
 
   return (

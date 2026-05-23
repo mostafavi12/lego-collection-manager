@@ -5,18 +5,27 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SetsListPage } from "./SetsListPage";
 import { setCopyListFixture } from "../test/fixtures";
+import { AppModeProvider } from "../appMode/AppModeContext";
+import type { AppMode } from "../appMode/types";
 
 function LocationProbe() {
   const location = useLocation();
-  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+  return (
+    <div data-testid="location">{`${location.pathname}${location.search}`}</div>
+  );
 }
 
-function renderPage(initialEntries: string[] = ["/"]) {
+function renderPage(
+  initialEntries: string[] = ["/"],
+  mode: AppMode = "edit",
+) {
   return render(
-    <MemoryRouter initialEntries={initialEntries}>
-      <SetsListPage />
-      <LocationProbe />
-    </MemoryRouter>,
+    <AppModeProvider initialMode={mode}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <SetsListPage />
+        <LocationProbe />
+      </MemoryRouter>
+    </AppModeProvider>,
   );
 }
 
@@ -223,5 +232,17 @@ describe("SetsListPage", () => {
       "href",
       "/sets/1",
     );
+  });
+
+  it("disables make a copy and hides add set in view mode", async () => {
+    vi.stubGlobal("fetch", mockCollectionFetch());
+
+    renderPage(["/"], "view");
+
+    expect(await screen.findByText(/6024 \(Police Car\) - copy A/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^add set$/i })).not.toBeInTheDocument();
+    for (const button of screen.getAllByRole("button", { name: /make a copy/i })) {
+      expect(button).toBeDisabled();
+    }
   });
 });

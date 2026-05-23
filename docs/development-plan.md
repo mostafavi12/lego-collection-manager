@@ -350,6 +350,23 @@ See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch)
 - Full reporting flow: summary → incomplete → filtered missing parts.
 - Backend and frontend tests pass.
 
+## Phase 18 — Settings and app modes — **complete**
+
+**Goal:** Settings page with **View** (default), **Investigate**, and **Edit** modes that gate mutation UI across the frontend.
+
+**Deliverables**
+
+- **`frontend/src/appMode/`** — `AppModeProvider`, `getCapabilities`, `localStorage` persistence, `ensureEditAccess` stub for future Edit password.
+- **`SettingsPage`** at `/settings`; header mode badge; disabled **Add set** / **Import** nav outside Edit.
+- Gating on **Set detail**, **Collection list**, **Import**, and **Add set** routes.
+- Tests: `capabilities.test.ts`, `SettingsPage.test.tsx`, extended Set detail / list / import Vitest; docs updated.
+
+**Exit criteria**
+
+- Default mode is View; Investigate allows investigated + missing only; Edit enables all current mutations.
+- Mode persists across reload; Settings always reachable.
+- Frontend tests pass; no backend auth in this phase.
+
 ## Dependency graph (high level)
 
 ```mermaid
@@ -375,7 +392,7 @@ flowchart LR
     phase6 --> phase7
     phase7 --> phase8
   end
-  subgraph post ["Post-MVP Phases 9-17"]
+  subgraph post ["Post-MVP Phases 9-18"]
     phase9[Phase9_InstanceInventory]
     phase10[Phase10_ImagesInDB]
     phase11A[Phase11A_PartModal]
@@ -385,6 +402,7 @@ flowchart LR
     phase15[Phase15_ReportingSummary]
     phase16[Phase16_IncompleteSetsReport]
     phase17[Phase17_MissingPartsReport]
+    phase18[Phase18_SettingsAppModes]
     phase9 --> phase10
     phase10 --> phase11A
     phase11A --> phase11B
@@ -393,6 +411,7 @@ flowchart LR
     phase13 --> phase15
     phase15 --> phase16
     phase16 --> phase17
+    phase17 --> phase18
   end
   phase8 --> phase9
   phase4a --> phase12
