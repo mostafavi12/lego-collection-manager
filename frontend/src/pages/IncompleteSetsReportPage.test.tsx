@@ -1,9 +1,10 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { IncompleteSetsReportPage } from "./IncompleteSetsReportPage";
+import { MissingPartsReportPage } from "./MissingPartsReportPage";
 
 const incompleteFixture = {
   items: [
@@ -28,8 +29,18 @@ const incompleteFixture = {
         },
       ],
     },
+    {
+      id: 2,
+      set_num: 6030,
+      name: "Fire Car",
+      display_label: "Copy #1",
+      investigated: true,
+      missing_line_count: 1,
+      missing_parts_total: 1,
+      missing_lines: [],
+    },
   ],
-  total: 1,
+  total: 2,
 };
 
 describe("IncompleteSetsReportPage", () => {
@@ -83,5 +94,78 @@ describe("IncompleteSetsReportPage", () => {
     expect(await screen.findByText("Brick 2x4")).toBeInTheDocument();
     expect(screen.getByText("300100")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("navigates to all missing parts when none are selected", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => incompleteFixture,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ items: [], total: 0 }),
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/reports/incomplete"]}>
+        <Routes>
+          <Route path="/reports/incomplete" element={<IncompleteSetsReportPage />} />
+          <Route path="/reports/missing" element={<MissingPartsReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText(/6024 \(Police Car\) - Copy #1/);
+    await user.click(screen.getByRole("button", { name: /Missing parts report/i }));
+
+    expect(await screen.findByText(/Showing all incomplete sets/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/\/reports\/missing-parts(?:\?limit=50&offset=0)?$/),
+        undefined,
+      );
+    });
+  });
+
+  it("navigates with owned_set_ids for a partial selection", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => incompleteFixture,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ items: [], total: 0 }),
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/reports/incomplete"]}>
+        <Routes>
+          <Route path="/reports/incomplete" element={<IncompleteSetsReportPage />} />
+          <Route path="/reports/missing" element={<MissingPartsReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText(/6024 \(Police Car\) - Copy #1/);
+    await user.click(
+      screen.getByLabelText(/Select 6024 \(Police Car\) - Copy #1/i),
+    );
+    await user.click(screen.getByRole("button", { name: /Missing parts report/i }));
+
+    expect(await screen.findByText(/Showing 1 selected set copy/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("owned_set_ids=1"),
+        undefined,
+      );
+    });
   });
 });

@@ -364,3 +364,27 @@ export interface IncompleteSetsReportResponse {
   items: IncompleteSetReportItem[];
   total: number;
 }
+
+export interface MissingPartNeededSet {
+  owned_set_id: number;
+  set_num: number;
+  display_label: string;
+  quantity_missing: number;
+}
+
+export interface MissingPartReportItem {
+  part_id: number;
+  part_num: string;
+  part_name: string | null;
+  color_id: number;
+  color_name: string | null;
+  quantity_missing_total: number;
+  element_ids: string[];
+  part_image_url: string | null;
+  needed_sets: MissingPartNeededSet[];
+}
+
+export interface MissingPartsReportResponse {
+  items: MissingPartReportItem[];
+  total: number;
+}

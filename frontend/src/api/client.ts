@@ -15,6 +15,7 @@ import type {
   RebrickableSetDraftResponse,
   RebrickableSyncResponse,
   IncompleteSetsReportResponse,
+  MissingPartsReportResponse,
   ReportsSummaryResponse,
   SearchResponse,
   SetCopyCreateBody,
@@ -393,4 +394,23 @@ export function getIncompleteSetsReport(params?: {
   }
   const query = search.toString();
   return request(`/reports/incomplete-sets${query ? `?${query}` : ""}`);
+}
+
+export function getMissingPartsReport(params?: {
+  owned_set_ids?: number[];
+  limit?: number;
+  offset?: number;
+}): Promise<MissingPartsReportResponse> {
+  const search = new URLSearchParams();
+  for (const id of params?.owned_set_ids ?? []) {
+    search.append("owned_set_ids", String(id));
+  }
+  if (params?.limit != null) {
+    search.set("limit", String(params.limit));
+  }
+  if (params?.offset != null) {
+    search.set("offset", String(params.offset));
+  }
+  const query = search.toString();
+  return request(`/reports/missing-parts${query ? `?${query}` : ""}`);
 }
