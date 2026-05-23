@@ -299,6 +299,23 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch) reduces need for wizard-only Rebrickable prefill for common flows.
 
+## Phase 15 — Reporting summary
+
+**Goal:** Collection-wide overview with aggregate metrics for set copies, investigation status, completeness, and part totals.
+
+**Deliverables**
+
+- **`GET /reports/summary`** — returns `total_sets`, `investigated_sets`, `complete_sets`, `total_parts`, `missing_parts` (see [api-design.md](./api-design.md)).
+- Service: [`backend/app/services/reports_service.py`](../backend/app/services/reports_service.py).
+- Frontend: **Reports** nav item; **`ReportsPage`** at `/reports` with stat cards; placeholder cards for Phase 16/17 detailed reports.
+- Tests: [`backend/tests/test_reports_summary_api.py`](../backend/tests/test_reports_summary_api.py); Vitest `frontend/src/pages/ReportsPage.test.tsx`.
+
+**Exit criteria**
+
+- `/reports` shows live summary from the API.
+- **Complete** means investigated with zero missing part quantities.
+- Backend and frontend tests pass; no live Rebrickable.
+
 ## Dependency graph (high level)
 
 ```mermaid
@@ -324,18 +341,20 @@ flowchart LR
     phase6 --> phase7
     phase7 --> phase8
   end
-  subgraph post ["Post-MVP Phases 9-14"]
+  subgraph post ["Post-MVP Phases 9-15"]
     phase9[Phase9_InstanceInventory]
     phase10[Phase10_ImagesInDB]
     phase11A[Phase11A_PartModal]
     phase11B[Phase11B_Aliases]
     phase12[Phase12_CSVFetch]
     phase13[Phase13_ManualAddWizard]
+    phase15[Phase15_ReportingSummary]
     phase9 --> phase10
     phase10 --> phase11A
     phase11A --> phase11B
     phase11B --> phase12
     phase12 --> phase13
+    phase13 --> phase15
   end
   phase8 --> phase9
   phase4a --> phase12

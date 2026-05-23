@@ -18,6 +18,11 @@ const NAV = [
     match: (path: string) => path.startsWith("/search"),
   },
   {
+    to: "/reports",
+    label: "Reports",
+    match: (path: string) => path.startsWith("/reports"),
+  },
+  {
     to: "/import",
     label: "Import",
     match: (path: string) => path.startsWith("/import"),

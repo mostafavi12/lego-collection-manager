@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { AddSetPage } from "./pages/AddSetPage";
 import { ImportPage } from "./pages/ImportPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { SetDetailPage } from "./pages/SetDetailPage";
 import { SetsListPage } from "./pages/SetsListPage";
 import { SearchPage } from "./pages/SearchPage";
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="search" element={<SearchPage />} />
           <Route path="add" element={<AddSetPage />} />
           <Route path="import" element={<ImportPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

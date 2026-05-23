@@ -329,3 +329,11 @@ export interface MissingImageResponse {
   missing_image_url: string | null;
   part_image_url: string | null;
 }
+
+export interface ReportsSummaryResponse {
+  total_sets: number;
+  investigated_sets: number;
+  complete_sets: number;
+  total_parts: number;
+  missing_parts: number;
+}
