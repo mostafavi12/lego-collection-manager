@@ -3,7 +3,7 @@ from dataclasses import replace
 from sqlalchemy import func, select
 
 from app.db.models import CatalogSet, OwnedSet
-from app.importers.csv_import_service import import_set_list
+from app.importers.csv_import_service import CsvImportSkippedExistingSet, import_set_list
 from app.rebrickable.dto import ThemeDTO
 from tests.factories import add_catalog_set, add_owned_set
 from tests.test_rebrickable_sync_service import FakeRebrickableClient, _sample_set
@@ -43,6 +43,9 @@ def test_import_reuses_existing_catalog_set(db_session) -> None:
     assert result.instances_created == 0
     assert result.sets_fetched == 0
     assert result.existing_sets_skipped == 1
+    assert result.skipped_existing_sets == [
+        CsvImportSkippedExistingSet(token_index=0, set_num="6024-1")
+    ]
     assert result.catalog_stubs_created == 0
     assert db_session.scalar(select(func.count()).select_from(CatalogSet)) == 1
     assert db_session.scalar(select(func.count()).select_from(OwnedSet)) == 1

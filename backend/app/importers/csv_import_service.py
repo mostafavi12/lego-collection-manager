@@ -29,6 +29,12 @@ CSV_STUB_SOURCE = "csv_import"
 
 
 @dataclass
+class CsvImportSkippedExistingSet:
+    token_index: int
+    set_num: str
+
+
+@dataclass
 class CsvImportSetFailure:
     token_index: int
     set_num: int
@@ -41,6 +47,7 @@ class CsvImportResult:
     catalog_stubs_created: int
     sets_fetched: int
     existing_sets_skipped: int
+    skipped_existing_sets: list[CsvImportSkippedExistingSet]
     sets_failed: list[CsvImportSetFailure]
     errors: list[ParseError]
 
@@ -101,6 +108,7 @@ def import_set_list(
     catalog_stubs_created = 0
     sets_fetched = 0
     existing_sets_skipped = 0
+    skipped_existing_sets: list[CsvImportSkippedExistingSet] = []
     sets_failed: list[CsvImportSetFailure] = []
 
     logger.info(
@@ -111,7 +119,7 @@ def import_set_list(
 
     def process_token(token_index: int, raw_token: str, rb_client: RebrickableReader) -> None:
         nonlocal instances_created, catalog_stubs_created, sets_fetched
-        nonlocal existing_sets_skipped
+        nonlocal existing_sets_skipped, skipped_existing_sets
 
         lsid = parse_user_set_number(raw_token)
         rb_key = to_rebrickable_set_num(lsid)
@@ -128,6 +136,12 @@ def import_set_list(
                 logger.info("CSV import token_existing_copy rb_key=%s", rb_key)
             else:
                 existing_sets_skipped += 1
+                skipped_existing_sets.append(
+                    CsvImportSkippedExistingSet(
+                        token_index=token_index,
+                        set_num=raw_token,
+                    )
+                )
                 logger.info("CSV import token_existing_skipped rb_key=%s", rb_key)
             return
 
@@ -225,6 +239,7 @@ def import_set_list(
         catalog_stubs_created=catalog_stubs_created,
         sets_fetched=sets_fetched,
         existing_sets_skipped=existing_sets_skipped,
+        skipped_existing_sets=skipped_existing_sets,
         sets_failed=sets_failed,
         errors=errors,
     )

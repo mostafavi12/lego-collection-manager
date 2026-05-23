@@ -18,11 +18,17 @@ class CsvImportSetFailure(BaseModel):
     message: str
 
 
+class CsvImportSkippedExistingSet(BaseModel):
+    token_index: int
+    set_num: str
+
+
 class CsvImportResponse(BaseModel):
     instances_created: int
     catalog_stubs_created: int
     sets_fetched: int = 0
     existing_sets_skipped: int = 0
+    skipped_existing_sets: list[CsvImportSkippedExistingSet] = Field(default_factory=list)
     sets_failed: list[CsvImportSetFailure] = Field(default_factory=list)
     errors: list[CsvTokenError]
 

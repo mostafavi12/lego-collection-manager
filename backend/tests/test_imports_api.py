@@ -61,8 +61,34 @@ def test_post_csv_import_creates_instances(api_client, monkeypatch) -> None:
     assert body["instances_created"] == 3
     assert body["sets_fetched"] == 3
     assert body["existing_sets_skipped"] == 0
+    assert body["skipped_existing_sets"] == []
     assert body["catalog_stubs_created"] == 0
     assert body["errors"] == []
+
+
+def test_post_csv_import_skips_existing_sets(api_client, monkeypatch, db_session) -> None:
+    from tests.factories import add_catalog_set, add_owned_set
+
+    monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")
+    catalog = add_catalog_set(db_session)
+    add_owned_set(db_session, catalog)
+    db_session.commit()
+
+    content = "6024-1,10281-1"
+    with _patch_csv_import(_csv_fake_client()):
+        response = api_client.post(
+            "/api/imports/csv",
+            files={"file": ("sets.txt", content.encode("utf-8"), "text/plain")},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["existing_sets_skipped"] == 1
+    assert body["skipped_existing_sets"] == [
+        {"token_index": 0, "set_num": "6024-1"},
+    ]
+    assert body["instances_created"] == 1
+    assert body["sets_fetched"] == 1
 
 
 def test_post_csv_import_passes_existing_set_mode(api_client, monkeypatch) -> None:

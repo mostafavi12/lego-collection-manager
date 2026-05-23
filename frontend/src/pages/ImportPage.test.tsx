@@ -19,6 +19,7 @@ describe("ImportPage", () => {
         catalog_stubs_created: 0,
         sets_fetched: 2,
         existing_sets_skipped: 0,
+        skipped_existing_sets: [],
         sets_failed: [],
         errors: [],
       }),
@@ -54,14 +55,15 @@ describe("ImportPage", () => {
     expect(status).toHaveTextContent("instance");
   });
 
-  it("can import existing sets as new copies", async () => {
+  it("shows skipped existing sets in the import report", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        instances_created: 1,
+        instances_created: 0,
         catalog_stubs_created: 0,
         sets_fetched: 0,
-        existing_sets_skipped: 0,
+        existing_sets_skipped: 1,
+        skipped_existing_sets: [{ token_index: 0, set_num: "6024-1" }],
         sets_failed: [],
         errors: [],
       }),
@@ -80,14 +82,15 @@ describe("ImportPage", () => {
       'input[type="file"]',
     ) as HTMLInputElement;
     await user.upload(fileInput, file);
-    await user.click(screen.getByLabelText(/create a new copy/i));
     await user.click(screen.getByRole("button", { name: /import csv/i }));
 
-    await waitFor(() => {
-      const requestInit = fetchMock.mock.calls[0][1] as RequestInit;
-      const body = requestInit.body as FormData;
-      expect(body.get("existing_set_mode")).toBe("copy");
-    });
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent(
+      /not imported because .* already exist in your collection/i,
+    );
+    expect(status).toHaveTextContent("6024-1");
+    const body = (fetchMock.mock.calls[0][1] as RequestInit).body as FormData;
+    expect(body.get("existing_set_mode")).toBe("skip");
   });
 
   it("passes selected image options to sync endpoint", async () => {

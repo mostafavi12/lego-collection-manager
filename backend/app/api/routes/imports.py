@@ -13,6 +13,7 @@ from app.rebrickable.exceptions import RebrickableConfigError
 from app.schemas.imports import (
     CsvImportResponse,
     CsvImportSetFailure,
+    CsvImportSkippedExistingSet,
     CsvTokenError,
     ExistingSetImportMode,
     ImageDownloadFailure,
@@ -53,6 +54,13 @@ async def import_csv(
         catalog_stubs_created=result.catalog_stubs_created,
         sets_fetched=result.sets_fetched,
         existing_sets_skipped=result.existing_sets_skipped,
+        skipped_existing_sets=[
+            CsvImportSkippedExistingSet(
+                token_index=skipped.token_index,
+                set_num=skipped.set_num,
+            )
+            for skipped in result.skipped_existing_sets
+        ],
         sets_failed=[
             CsvImportSetFailure(
                 token_index=f.token_index,

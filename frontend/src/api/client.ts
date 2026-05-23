@@ -210,13 +210,10 @@ export function searchCatalog(params: {
   return request(`/search?${search}`);
 }
 
-export function importCsv(
-  file: File,
-  existingSetMode: "skip" | "copy" = "skip",
-): Promise<CsvImportResponse> {
+export function importCsv(file: File): Promise<CsvImportResponse> {
   const form = new FormData();
   form.append("file", file);
-  form.append("existing_set_mode", existingSetMode);
+  form.append("existing_set_mode", "skip");
   return request("/imports/csv", { method: "POST", body: form });
 }
 

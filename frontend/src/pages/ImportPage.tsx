@@ -10,7 +10,6 @@ import type {
 import { AsyncMessage } from "../components/AsyncMessage";
 
 type PartImageDownloadMode = "none" | "missing" | "all";
-type ExistingSetMode = "skip" | "copy";
 
 export function ImportPage() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -23,7 +22,6 @@ export function ImportPage() {
   const [downloadSetImages, setDownloadSetImages] = useState(true);
   const [partImageDownloadMode, setPartImageDownloadMode] =
     useState<PartImageDownloadMode>("none");
-  const [existingSetMode, setExistingSetMode] = useState<ExistingSetMode>("skip");
 
   async function onCsvSubmit(event: FormEvent) {
     event.preventDefault();
@@ -36,7 +34,7 @@ export function ImportPage() {
     setError(null);
     setCsvResult(null);
     try {
-      const result = await importCsv(file, existingSetMode);
+      const result = await importCsv(file);
       setCsvResult(result);
       if (fileRef.current) {
         fileRef.current.value = "";
@@ -101,38 +99,16 @@ export function ImportPage() {
         <h2>CSV import</h2>
         <p>
           Upload a plain text file with comma-separated LEGO set numbers (no
-          header). Each token creates a <strong>new physical copy</strong> in your
-          collection and loads set metadata and parts from Rebrickable when the API
-          key is configured. Images are not downloaded. Recommended{" "}
+          header). Each new set number creates a <strong>new physical copy</strong>{" "}
+          in your collection and loads set metadata and parts from Rebrickable when
+          the API key is configured. Set numbers that already exist in your
+          collection are skipped. Images are not downloaded. Recommended{" "}
           <strong>age</strong> is often missing from Rebrickable — use the local
-          metadata update below or set it on the set detail page.
+          metadata update below or set it on the set detail page. To add another
+          copy of a set you already own, use <strong>Make a copy</strong> on the
+          collection list.
         </p>
         <form onSubmit={(e) => void onCsvSubmit(e)}>
-          <fieldset className="sync-panel__radio-group">
-            <legend>Existing LEGO sets</legend>
-            <label className="checkbox">
-              <input
-                type="radio"
-                name="existing-set-mode"
-                value="skip"
-                checked={existingSetMode === "skip"}
-                disabled={loading === "csv"}
-                onChange={() => setExistingSetMode("skip")}
-              />
-              Skip already existing LEGO Sets
-            </label>
-            <label className="checkbox">
-              <input
-                type="radio"
-                name="existing-set-mode"
-                value="copy"
-                checked={existingSetMode === "copy"}
-                disabled={loading === "csv"}
-                onChange={() => setExistingSetMode("copy")}
-              />
-              Create a new copy for already existing LEGO Sets
-            </label>
-          </fieldset>
           <input ref={fileRef} type="file" accept=".csv,.txt,text/plain" />
           <button
             type="submit"
@@ -148,13 +124,6 @@ export function ImportPage() {
               Created <strong>{csvResult.instances_created}</strong> instance
               {csvResult.instances_created === 1 ? "" : "s"}; fetched{" "}
               <strong>{csvResult.sets_fetched}</strong> from Rebrickable
-              {csvResult.existing_sets_skipped > 0 && (
-                <>
-                  {" "}
-                  ({csvResult.existing_sets_skipped} existing set
-                  {csvResult.existing_sets_skipped === 1 ? "" : "s"} skipped)
-                </>
-              )}
               {csvResult.catalog_stubs_created > 0 && (
                 <>
                   {" "}
@@ -165,6 +134,24 @@ export function ImportPage() {
               )}
               .
             </p>
+            {csvResult.skipped_existing_sets.length > 0 && (
+              <div className="import-skipped">
+                <p>
+                  The following set
+                  {csvResult.skipped_existing_sets.length === 1 ? "" : "s"} were
+                  not imported because{" "}
+                  {csvResult.skipped_existing_sets.length === 1 ? "it" : "they"}{" "}
+                  already exist in your collection:
+                </p>
+                <ul className="import-errors">
+                  {csvResult.skipped_existing_sets.map((skipped) => (
+                    <li key={`${skipped.token_index}-${skipped.set_num}`}>
+                      Token {skipped.token_index} ({skipped.set_num})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {csvResult.sets_failed.length > 0 && (
               <ul className="import-errors">
                 {csvResult.sets_failed.map((fail) => (
