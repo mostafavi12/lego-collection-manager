@@ -89,15 +89,22 @@ def test_create_additional_copy(api_client, db_session) -> None:
     catalog = add_catalog_set(db_session)
     part = add_part(db_session, part_num="3024")
     color = add_color(db_session, external_id=0, name="Black")
-    add_set_part_inventory_line(
+    line = add_set_part_inventory_line(
         db_session,
         catalog_set=catalog,
         part=part,
         color=color,
         quantity=4,
     )
-    add_owned_set(db_session, catalog)
+    existing = add_owned_set(db_session, catalog, investigated=True)
     db_session.commit()
+
+    detail_existing = api_client.get(f"/api/owned-sets/{existing.id}").json()
+    instance_line_id = detail_existing["inventory"]["set_parts"][0]["instance_line_id"]
+    api_client.patch(
+        f"/api/owned-sets/{existing.id}/inventory-lines/{instance_line_id}",
+        json={"quantity_missing": 2},
+    )
 
     response = api_client.post(
         "/api/owned-sets",
@@ -107,9 +114,15 @@ def test_create_additional_copy(api_client, db_session) -> None:
     body = response.json()
     assert body["catalog_created"] is False
     assert body["label"] == "Copy #2"
+    assert body["investigated"] is False
+    assert body["missing_count"] == 0
 
     detail = api_client.get(f"/api/owned-sets/{body['id']}").json()
     assert len(detail["inventory"]["set_parts"]) == 1
+    part_row = detail["inventory"]["set_parts"][0]
+    assert part_row["quantity"] == line.quantity
+    assert part_row["missing_quantity"] == 0
+    assert part_row["missing_item_id"] is None
 
 
 def test_create_copy_rejects_catalog_body(api_client, db_session) -> None:

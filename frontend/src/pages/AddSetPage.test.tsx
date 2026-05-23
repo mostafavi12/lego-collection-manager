@@ -244,4 +244,123 @@ describe("AddSetWizard", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it("shows existing-set warning before the copy form", async () => {
+    const onCreated = vi.fn();
+    const preview = {
+      set_num: 6024,
+      catalog_exists: true,
+      set_name: "Police Car",
+      existing_copy_count: 1,
+      suggested_label: "Copy #2",
+      theme_name: "Town",
+      year: 1985,
+      num_parts: 100,
+      age: 8,
+      image_url: null,
+      set_parts: [
+        {
+          part_num: "3024",
+          part_name: "Plate 1 x 1",
+          color_name: "Black",
+          quantity: 3,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => preview,
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AddSetWizard onClose={() => {}} onCreated={onCreated} />
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText(/lego set number/i), "6024-1");
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+
+    expect(
+      await screen.findByRole("heading", { name: /set already exists/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/filled with the part list from the database/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/missing items/i)).toBeInTheDocument();
+    expect(screen.getByText(/not copied to the new copy/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(
+      screen.getByRole("heading", { name: /add lego set/i }),
+    ).toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
+  it("continues to copy form after existing-set warning", async () => {
+    const onCreated = vi.fn();
+    const preview = {
+      set_num: 6024,
+      catalog_exists: true,
+      set_name: "Police Car",
+      existing_copy_count: 1,
+      suggested_label: "Copy #2",
+      theme_name: "Town",
+      year: 1985,
+      num_parts: 100,
+      age: 8,
+      image_url: null,
+      set_parts: [],
+    };
+    const createJson = {
+      catalog_created: false,
+      id: 22,
+      set_num: 6024,
+      name: "Police Car",
+      year: 1985,
+      theme_name: "Town",
+      image_url: null,
+      catalog_sync_state: "synced",
+      investigated: false,
+      label: "Copy #2",
+      display_label: "Copy #2",
+      copy_index: 2,
+      age: 8,
+      num_parts: 100,
+      missing_count: 0,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => preview,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => createJson,
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AddSetWizard onClose={() => {}} onCreated={onCreated} />
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText(/lego set number/i), "6024-1");
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+    await user.click(await screen.findByRole("button", { name: /^continue$/i }));
+
+    expect(
+      await screen.findByRole("heading", { name: /add instance — 6024/i }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledWith(22);
+    });
+  });
 });

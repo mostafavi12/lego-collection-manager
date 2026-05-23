@@ -217,7 +217,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 ### 11.7 Manual add set (Phase 13)
 
 1. User enters **set number** (only required field).
-2. If set number **already exists:** message that a **new copy** is being created; read-only catalog summary + optional template **parts** preview; user sets **label**; **submit** creates the copy (**two-step** wizard; no standalone “confirm-only” third step today).
+2. If set number **already exists:** a **Cancel / Continue** warning states that a **new copy** will be created, filled from the **catalog part list in the database**, and that **missing items** and **investigated** status are **not** copied; **Continue** opens read-only catalog summary + optional template **parts** preview; user sets **label**; **submit** creates the copy (**two-step** wizard plus the existing-set warning).
 3. If set number **is new:** user enters **shared catalog** metadata (name, theme, year, part count, optional **age**), **copy label**, optional **manual part rows**, and optional **Fetch from Rebrickable** (**`GET /owned-sets/add-rebrickable-draft`**; no image bytes)—which fills metadata and **set-level** inventory lines (**spares/alternates omitted**); minifigs and full BOM still come from **CSV** (§11.6), **sync** (Phase **14**), or later refinement. User **submits** to create **`source=user`** catalog + **first** copy. Omitting part rows yields an empty template; inventory can still be added via **PartLineModal** or **`POST /owned-sets`** with **`parts`**. (**Two-step** wizard; no standalone “confirm-only” third step.)
 
 ### 11.8 Part alias editing in modal (Phase 11B)

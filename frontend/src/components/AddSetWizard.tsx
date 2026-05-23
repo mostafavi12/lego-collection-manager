@@ -39,8 +39,10 @@ const emptyPart = (): PartDraft => ({
   quantity: "1",
 });
 
+type WizardStep = 1 | "existing-warning" | 2;
+
 export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<WizardStep>(1);
   const [setNum, setSetNum] = useState("");
   const [preview, setPreview] = useState<AddSetPreviewResponse | null>(null);
   const [label, setLabel] = useState("");
@@ -85,7 +87,7 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
         setParts([emptyPart()]);
         setDraftHint(null);
       }
-      setStep(2);
+      setStep(result.catalog_exists ? "existing-warning" : 2);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not look up set number",
@@ -205,6 +207,45 @@ export function AddSetWizard({ onClose, onCreated }: AddSetWizardProps) {
     setPreview(null);
     setError(null);
     setDraftHint(null);
+  }
+
+  function cancelExistingWarning() {
+    backToStepOne();
+  }
+
+  function continueExistingWarning() {
+    setStep(2);
+  }
+
+  if (step === "existing-warning" && preview?.catalog_exists) {
+    return (
+      <Modal title="Set already exists" onClose={onClose}>
+        <p>
+          Set number <strong>{preview.set_num}</strong>
+          {preview.set_name ? ` (${preview.set_name})` : ""} is already in your
+          collection. If you continue, a new copy will be created and filled with
+          the part list from the database.{" "}
+          <strong>Missing items</strong> and <strong>investigated</strong> status
+          are not copied to the new copy.
+        </p>
+        <div className="modal__actions">
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={cancelExistingWarning}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={continueExistingWarning}
+          >
+            Continue
+          </button>
+        </div>
+      </Modal>
+    );
   }
 
   if (step === 1) {
