@@ -518,6 +518,50 @@ describe("SetDetailPage", () => {
     expect(partLabels[1]).toHaveTextContent("3024");
   });
 
+  it("sorts set parts by color then element id by default", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            instance_line_id: 100,
+            part_num: "3024",
+            color_name: "Red",
+            element_ids: ["300121"],
+            missing_quantity: 0,
+          },
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            instance_line_id: 101,
+            catalog_line_id: 11,
+            part_id: 43,
+            part_num: "3001",
+            color_name: "Black",
+            element_ids: ["302400"],
+            missing_quantity: 0,
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    renderDetail();
+
+    await screen.findByRole("heading", { name: /parts inventory/i });
+    expect(screen.getByLabelText(/sort parts/i)).toHaveValue("color");
+    const partLabels = screen.getAllByText(/^(3024|3001)$/, { selector: "strong" });
+    expect(partLabels[0]).toHaveTextContent("3001");
+    expect(partLabels[1]).toHaveTextContent("3024");
+  });
+
   it("deletes copy after confirmation", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "DELETE") {

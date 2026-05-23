@@ -88,6 +88,15 @@ def _element_ids_for_catalog_line(
     return sorted(element.element_id for element in line.element_ids)
 
 
+def _sort_key_color_then_element_id(line: IncompleteSetMissingLine) -> tuple[str, int, str]:
+    primary_element = line.element_ids[0] if line.element_ids else ""
+    return (
+        (line.color_name or "").casefold(),
+        line.color_id,
+        primary_element,
+    )
+
+
 def _missing_line_from_instance(
     instance_line: OwnedSetInventoryLine,
 ) -> IncompleteSetMissingLine | None:
@@ -194,11 +203,7 @@ def list_incomplete_sets(
         copy_idx = index_map.get(catalog_set.id, {}).get(owned_set.id, 1)
         missing_lines = sorted(
             lines_by_owned_set.get(owned_set.id, []),
-            key=lambda line: (
-                line.part_name or "",
-                line.part_num,
-                line.color_name or "",
-            ),
+            key=_sort_key_color_then_element_id,
         )
         items.append(
             IncompleteSetReportItem(
@@ -331,11 +336,7 @@ def list_missing_parts(
 
     sorted_buckets = sorted(
         aggregated.values(),
-        key=lambda bucket: (
-            bucket["missing_line"].part_name or "",
-            bucket["missing_line"].part_num,
-            bucket["missing_line"].color_name or "",
-        ),
+        key=lambda bucket: _sort_key_color_then_element_id(bucket["missing_line"]),
     )
     total = len(sorted_buckets)
     page_buckets = sorted_buckets[offset : offset + limit]

@@ -36,8 +36,27 @@ interface InstanceForm {
   catalogYear: string;
 }
 
-type PartInventorySort = "element_id" | "part_num" | "missing";
+type PartInventorySort = "color" | "element_id" | "part_num" | "missing";
 type PartImageDownloadMode = "none" | "missing" | "all";
+
+function compareColorThenElementId(
+  a: SetPartLineDetail,
+  b: SetPartLineDetail,
+): number {
+  const colorCompare = (a.color_name ?? String(a.color_id)).localeCompare(
+    b.color_name ?? String(b.color_id),
+    undefined,
+    { sensitivity: "base" },
+  );
+  if (colorCompare !== 0) {
+    return colorCompare;
+  }
+  return formatElementIds(a.element_ids).localeCompare(
+    formatElementIds(b.element_ids),
+    undefined,
+    { numeric: true },
+  );
+}
 
 function formatElementIds(elementIds: string[]): string {
   return elementIds.length > 0 ? elementIds.join(", ") : "No Element ID";
@@ -81,7 +100,7 @@ export function SetDetailPage() {
     useState<PartImageDownloadMode>("none");
   const [showMissingOnly, setShowMissingOnly] = useState(false);
   const [imageRefreshToken, setImageRefreshToken] = useState(0);
-  const [partSort, setPartSort] = useState<PartInventorySort>("element_id");
+  const [partSort, setPartSort] = useState<PartInventorySort>("color");
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [partModal, setPartModal] = useState<
@@ -254,11 +273,14 @@ export function SetDetailPage() {
       if (partSort === "missing") {
         return (
           b.missing_quantity - a.missing_quantity ||
-          formatElementIds(a.element_ids).localeCompare(formatElementIds(b.element_ids), undefined, { numeric: true })
+          compareColorThenElementId(a, b)
         );
       }
       if (partSort === "part_num") {
         return a.part_num.localeCompare(b.part_num, undefined, { numeric: true });
+      }
+      if (partSort === "color") {
+        return compareColorThenElementId(a, b);
       }
       return formatElementIds(a.element_ids).localeCompare(formatElementIds(b.element_ids), undefined, { numeric: true });
     });
@@ -539,6 +561,7 @@ export function SetDetailPage() {
               value={partSort}
               onChange={(e) => setPartSort(e.target.value as PartInventorySort)}
             >
+              <option value="color">Color</option>
               <option value="element_id">Element ID</option>
               <option value="part_num">Part number</option>
               <option value="missing">Missing quantity</option>

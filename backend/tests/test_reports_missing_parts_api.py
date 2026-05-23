@@ -1,6 +1,7 @@
 from tests.factories import (
     add_catalog_set,
     add_color,
+    add_element_id_for_set_part_line,
     add_missing_item_for_set_line,
     add_owned_set,
     add_part,
@@ -83,11 +84,42 @@ def test_missing_parts_filters_by_owned_set_ids(api_client, db_session) -> None:
     assert body["items"][0]["needed_sets"][0]["owned_set_id"] == owned_a.id
 
 
+def test_missing_parts_sorts_by_color_then_element_id(api_client, db_session) -> None:
+    catalog = add_catalog_set(db_session)
+    part_a = add_part(db_session, part_num="3001")
+    part_b = add_part(db_session, part_num="3002")
+    color_black = add_color(db_session, external_id=0, name="Black")
+    color_red = add_color(db_session, external_id=4, name="Red")
+    line_black = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part_a,
+        color=color_black,
+    )
+    line_red = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part_b,
+        color=color_red,
+    )
+    add_element_id_for_set_part_line(db_session, line=line_black, element_id="302400")
+    add_element_id_for_set_part_line(db_session, line=line_red, element_id="300121")
+    owned = add_owned_set(db_session, catalog)
+    add_missing_item_for_set_line(db_session, owned_set=owned, line=line_red)
+    add_missing_item_for_set_line(db_session, owned_set=owned, line=line_black)
+    db_session.commit()
+
+    response = api_client.get("/api/reports/missing-parts")
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["color_name"] for item in items] == ["Black", "Red"]
+
+
 def test_missing_parts_pagination(api_client, db_session) -> None:
     catalog = add_catalog_set(db_session)
     color = add_color(db_session)
     owned = add_owned_set(db_session, catalog)
-    for idx, part_num in enumerate(("3001", "3002")):
+    for part_num in ("3001", "3002"):
         part = add_part(db_session, part_num=part_num)
         line = add_set_part_inventory_line(
             db_session,

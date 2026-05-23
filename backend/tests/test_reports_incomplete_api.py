@@ -123,3 +123,37 @@ def test_incomplete_sets_includes_element_ids(api_client, db_session) -> None:
     assert response.status_code == 200
     missing_line = response.json()["items"][0]["missing_lines"][0]
     assert missing_line["element_ids"] == ["302400"]
+
+
+def test_incomplete_sets_sorts_missing_lines_by_color_then_element_id(
+    api_client, db_session
+) -> None:
+    catalog = add_catalog_set(db_session)
+    part_a = add_part(db_session, part_num="3001")
+    part_b = add_part(db_session, part_num="3002")
+    color_black = add_color(db_session, external_id=0, name="Black")
+    color_red = add_color(db_session, external_id=4, name="Red")
+    line_black = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part_a,
+        color=color_black,
+    )
+    line_red = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part_b,
+        color=color_red,
+    )
+    add_element_id_for_set_part_line(db_session, line=line_black, element_id="302400")
+    add_element_id_for_set_part_line(db_session, line=line_red, element_id="300121")
+    owned = add_owned_set(db_session, catalog)
+    add_missing_item_for_set_line(db_session, owned_set=owned, line=line_red)
+    add_missing_item_for_set_line(db_session, owned_set=owned, line=line_black)
+    db_session.commit()
+
+    response = api_client.get("/api/reports/incomplete-sets")
+    assert response.status_code == 200
+    lines = response.json()["items"][0]["missing_lines"]
+    assert [line["color_name"] for line in lines] == ["Black", "Red"]
+    assert [line["element_ids"][0] for line in lines] == ["302400", "300121"]
