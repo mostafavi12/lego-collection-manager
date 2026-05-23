@@ -35,7 +35,10 @@ describe("ReportsPage", () => {
     expect(screen.getByText("Set copies in collection")).toBeInTheDocument();
     expect(screen.getByText("4,200")).toBeInTheDocument();
     expect(screen.getByText("37")).toBeInTheDocument();
-    expect(screen.getByText(/Coming in Phase 16/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Incomplete sets/i })).toHaveAttribute(
+      "href",
+      "/reports/incomplete",
+    );
     expect(screen.getByText(/Coming in Phase 17/i)).toBeInTheDocument();
 
     expect(fetchMock).toHaveBeenCalledWith(

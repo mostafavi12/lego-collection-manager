@@ -337,3 +337,30 @@ export interface ReportsSummaryResponse {
   total_parts: number;
   missing_parts: number;
 }
+
+export interface IncompleteSetMissingLine {
+  part_id: number;
+  part_num: string;
+  part_name: string | null;
+  color_id: number;
+  color_name: string | null;
+  quantity_missing: number;
+  element_ids: string[];
+  part_image_url: string | null;
+}
+
+export interface IncompleteSetReportItem {
+  id: number;
+  set_num: number;
+  name: string | null;
+  display_label: string;
+  investigated: boolean;
+  missing_line_count: number;
+  missing_parts_total: number;
+  missing_lines: IncompleteSetMissingLine[];
+}
+
+export interface IncompleteSetsReportResponse {
+  items: IncompleteSetReportItem[];
+  total: number;
+}
