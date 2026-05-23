@@ -123,7 +123,7 @@ describe("SetDetailPage", () => {
     );
   });
 
-  it("prefers color-specific inventory image URLs over generic part images", async () => {
+  it("shows local part image URLs from the API", async () => {
     const detail = {
       ...setCopyDetailFixture,
       inventory: {
@@ -131,7 +131,7 @@ describe("SetDetailPage", () => {
         set_parts: [
           {
             ...setCopyDetailFixture.inventory.set_parts[0]!,
-            image_url: "https://cdn.example/elements/3024-red.png",
+            image_url: "/api/parts/42/image",
             part_image_url: "/api/parts/42/image",
           },
         ],
@@ -154,7 +154,7 @@ describe("SetDetailPage", () => {
     expect(partCell).not.toBeNull();
     expect(partCell?.querySelector("img")).toHaveAttribute(
       "src",
-      "https://cdn.example/elements/3024-red.png",
+      "/api/parts/42/image",
     );
   });
 

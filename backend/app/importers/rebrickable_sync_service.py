@@ -9,7 +9,7 @@ from typing import Protocol
 logger = logging.getLogger(__name__)
 
 from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
     CatalogMinifig,
@@ -44,7 +44,7 @@ from app.services.image_download import (
     ImageDownloader,
     download_catalog_minifig_image,
     download_catalog_set_image,
-    download_part_image,
+    download_element_image,
 )
 from app.services.failure_log import record_import_failure
 from app.services.theme_catalog import display_theme_for
@@ -492,37 +492,119 @@ def _all_parts_for_catalog(session: Session, catalog_set_id: int) -> list[Part]:
     return unique
 
 
+def _catalog_set_part_lines(
+    session: Session,
+    catalog_set_id: int,
+) -> list[SetPartInventoryLine]:
+    return session.scalars(
+        select(SetPartInventoryLine)
+        .where(SetPartInventoryLine.catalog_set_id == catalog_set_id)
+        .options(selectinload(SetPartInventoryLine.element_ids))
+    ).all()
+
+
+def _catalog_minifig_part_lines(
+    session: Session,
+    catalog_set_id: int,
+) -> list[MinifigPartInventoryLine]:
+    return session.scalars(
+        select(MinifigPartInventoryLine)
+        .join(
+            SetMinifigInventoryLine,
+            SetMinifigInventoryLine.catalog_minifig_id
+            == MinifigPartInventoryLine.catalog_minifig_id,
+        )
+        .where(SetMinifigInventoryLine.catalog_set_id == catalog_set_id)
+        .options(selectinload(MinifigPartInventoryLine.element_ids))
+    ).all()
+
+
+def _missing_set_part_line_ids(session: Session, catalog_set_id: int) -> set[int]:
+    rows = session.scalars(
+        select(SetPartInventoryLine.id)
+        .join(
+            OwnedSetInventoryLine,
+            OwnedSetInventoryLine.set_part_inventory_line_id == SetPartInventoryLine.id,
+        )
+        .where(
+            SetPartInventoryLine.catalog_set_id == catalog_set_id,
+            OwnedSetInventoryLine.quantity_missing > 0,
+        )
+    ).all()
+    return set(rows)
+
+
+def _missing_minifig_part_line_ids(session: Session, catalog_set_id: int) -> set[int]:
+    rows = session.scalars(
+        select(MinifigPartInventoryLine.id)
+        .join(
+            OwnedSetInventoryLine,
+            OwnedSetInventoryLine.minifig_part_inventory_line_id
+            == MinifigPartInventoryLine.id,
+        )
+        .join(OwnedSet, OwnedSet.id == OwnedSetInventoryLine.owned_set_id)
+        .where(
+            OwnedSet.catalog_set_id == catalog_set_id,
+            OwnedSetInventoryLine.quantity_missing > 0,
+        )
+    ).all()
+    return set(rows)
+
+
+def _download_line_element_image(
+    session: Session,
+    line: SetPartInventoryLine | MinifigPartInventoryLine,
+    downloader: ImageDownloader,
+    result: RebrickableSyncResult,
+) -> None:
+    element_ids = sorted(element.element_id for element in line.element_ids)
+    if not line.image_url or not element_ids:
+        return
+    primary_element_id = element_ids[0]
+    try:
+        if download_element_image(
+            session,
+            primary_element_id,
+            line.image_url,
+            downloader,
+            replace_existing=True,
+        ):
+            result.part_images_downloaded += 1
+    except ImageDownloadError as exc:
+        record_import_failure(
+            operation="image_download",
+            message=str(exc),
+            error_type=type(exc).__name__,
+            extra={
+                "target": f"element:{primary_element_id}",
+                "url": line.image_url,
+            },
+        )
+        result.image_downloads_failed.append(
+            ImageSyncFailure(
+                target=f"element:{primary_element_id}",
+                url=line.image_url,
+                message=str(exc),
+            )
+        )
+
+
 def _download_missing_part_images(
     session: Session,
     catalog_set_id: int,
     downloader: ImageDownloader,
     result: RebrickableSyncResult,
 ) -> None:
-    for part in _missing_parts_for_catalog(session, catalog_set_id):
-        if not part.image_url:
+    missing_set_line_ids = _missing_set_part_line_ids(session, catalog_set_id)
+    missing_minifig_line_ids = _missing_minifig_part_line_ids(session, catalog_set_id)
+    for line in _catalog_set_part_lines(session, catalog_set_id):
+        if line.id not in missing_set_line_ids:
             continue
-        try:
-            if download_part_image(
-                session,
-                part,
-                downloader,
-                replace_existing=True,
-            ):
-                result.part_images_downloaded += 1
-        except ImageDownloadError as exc:
-            record_import_failure(
-                operation="image_download",
-                message=str(exc),
-                error_type=type(exc).__name__,
-                extra={"target": f"part:{part.id}", "url": part.image_url},
-            )
-            result.image_downloads_failed.append(
-                ImageSyncFailure(
-                    target=f"part:{part.id}",
-                    url=part.image_url,
-                    message=str(exc),
-                )
-            )
+        _download_line_element_image(session, line, downloader, result)
+    for line in _catalog_minifig_part_lines(session, catalog_set_id):
+        if line.id not in missing_minifig_line_ids:
+            continue
+        _download_line_element_image(session, line, downloader, result)
 
 
 def _download_all_part_images(
@@ -531,31 +613,10 @@ def _download_all_part_images(
     downloader: ImageDownloader,
     result: RebrickableSyncResult,
 ) -> None:
-    for part in _all_parts_for_catalog(session, catalog_set_id):
-        if not part.image_url:
-            continue
-        try:
-            if download_part_image(
-                session,
-                part,
-                downloader,
-                replace_existing=True,
-            ):
-                result.part_images_downloaded += 1
-        except ImageDownloadError as exc:
-            record_import_failure(
-                operation="image_download",
-                message=str(exc),
-                error_type=type(exc).__name__,
-                extra={"target": f"part:{part.id}", "url": part.image_url},
-            )
-            result.image_downloads_failed.append(
-                ImageSyncFailure(
-                    target=f"part:{part.id}",
-                    url=part.image_url,
-                    message=str(exc),
-                )
-            )
+    for line in _catalog_set_part_lines(session, catalog_set_id):
+        _download_line_element_image(session, line, downloader, result)
+    for line in _catalog_minifig_part_lines(session, catalog_set_id):
+        _download_line_element_image(session, line, downloader, result)
 
 
 def ensure_api_key_configured() -> None:

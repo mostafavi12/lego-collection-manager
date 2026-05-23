@@ -6,16 +6,19 @@ from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import CatalogMinifig, CatalogSet, Part
+from app.db.models import CatalogMinifig, CatalogSet, ElementImage, MinifigPartInventoryLine, Part, SetPartInventoryLine
 from app.services.image_blob import (
     ImageBlobError,
     catalog_minifig_has_image,
     catalog_set_has_image,
+    element_has_image,
     part_has_image,
     set_catalog_minifig_image,
     set_catalog_set_image,
+    set_element_image,
     set_part_image,
 )
 
@@ -114,6 +117,34 @@ def download_part_image(
         set_part_image(
             session,
             part.id,
+            content=image.content,
+            content_type=image.content_type,
+        )
+    except ImageBlobError as exc:
+        raise ImageDownloadError(str(exc)) from exc
+    return True
+
+
+def download_element_image(
+    session: Session,
+    element_id: str,
+    source_url: str,
+    downloader: ImageDownloader,
+    *,
+    replace_existing: bool = False,
+) -> bool:
+    if not source_url:
+        return False
+    existing = session.scalar(
+        select(ElementImage).where(ElementImage.element_id == element_id)
+    )
+    if existing is not None and element_has_image(existing) and not replace_existing:
+        return False
+    image = downloader.download(source_url)
+    try:
+        set_element_image(
+            session,
+            element_id,
             content=image.content,
             content_type=image.content_type,
         )

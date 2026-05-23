@@ -255,11 +255,11 @@ Multiple `items` may share the same `set_num` with different `id`.
 }
 ```
 
-`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state. Inventory line `image_url` is the color-specific Rebrickable element image for that part/color when available; clients should prefer it for row thumbnails. When a part has a user BLOB, `part_image_url` is `/api/parts/{part_id}/image`; `missing_image_url` is the same URL when `missing_quantity` > 0 and a part image exists, otherwise null.
+`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state. **`image_url`**, **`part_image_url`**, and **`missing_image_url`** are **same-origin API paths only** when a JPEG/PNG BLOB exists locally (e.g. `/api/parts/{part_id}/image`); otherwise **null**. Rebrickable CDN URLs stored in the database during sync are **not** exposed to clients — they are used only as download sources during import/sync.
 
 `aliases` (Phase **11A**): other identifiers for this `part_id` from `part_aliases`, excluding strings equal to `part_num`. Omitted or empty when none. Read-only in detail until Phase **11B** enables editing via `PATCH /parts/{part_id}/aliases`.
 
-**Catalog `image_url`:** Rebrickable CDN URL when synced, or `/api/catalog-sets/{catalog_set_id}/image` when the user uploaded a set BLOB.
+**Catalog `image_url`:** `/api/catalog-sets/{catalog_set_id}/image` when a set BLOB exists locally; otherwise **null**.
 
 ### Update set copy (`PATCH`)
 
@@ -802,6 +802,7 @@ Part-centric aggregation grouped by **`part_id` + color**. Omit `owned_set_ids` 
         {
           "owned_set_id": 1,
           "set_num": 6024,
+          "set_name": "Police Car",
           "display_label": "Copy #1",
           "quantity_missing": 2
         }
@@ -816,6 +817,8 @@ Part-centric aggregation grouped by **`part_id` + color**. Omit `owned_set_ids` 
 |-------|---------|
 | `quantity_missing_total` | Sum of `quantity_missing` for this part+color across filtered copies |
 | `needed_sets` | Each copy that still needs this part, with per-copy missing quantity |
+
+**Export:** the missing-parts report page offers **Export PDF** (client-side). The UI fetches all report rows (paginated API requests with `limit=200`) for the active filter, then downloads a landscape PDF table with an **Image** column (local part BLOBs only), plus Part, Color, Element ID, Needed, and Sets (set numbers only).
 
 ## CORS
 

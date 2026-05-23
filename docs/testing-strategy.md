@@ -85,7 +85,7 @@ Still **no live Rebrickable** in CI.
 | **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`. |
 | **Import** | File picker posts to CSV endpoint; success message reflects copy count (e.g. `instances_created` in JSON); **Sync entire collection** triggers sync endpoint (spinner / outcome messaging as implemented). |
 | **Settings** | Default View mode; mode persists in localStorage; View hides import/add mutations; Investigate enables investigated + missing on set detail. |
-| **Reports** | Summary stats; incomplete sets with collapsed missing lines; missing-parts table with `owned_set_ids` filter from incomplete-page selection. |
+| **Reports** | Summary stats; incomplete sets with collapsed missing lines; missing-parts table with `owned_set_ids` filter from incomplete-page selection; **Export PDF** on missing-parts report (all rows, current filter). |
 
 **Backend reporting tests:** `test_reports_summary_api.py`, `test_reports_incomplete_api.py`, `test_reports_missing_parts_api.py`.
 

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config.image_settings import get_max_image_bytes, normalize_content_type
-from app.db.models import CatalogMinifig, CatalogSet, Part
+from app.db.models import CatalogMinifig, CatalogSet, ElementImage, Part, utc_now
 
 
 class ImageBlobError(Exception):
@@ -46,6 +47,13 @@ def catalog_minifig_has_image(catalog_minifig: CatalogMinifig) -> bool:
     return (
         catalog_minifig.image_blob is not None
         and catalog_minifig.image_content_type is not None
+    )
+
+
+def element_has_image(element_image: ElementImage) -> bool:
+    return (
+        element_image.image_blob is not None
+        and element_image.image_content_type is not None
     )
 
 
@@ -171,3 +179,55 @@ def clear_catalog_minifig_image(
     catalog_minifig.image_byte_size = None
     session.flush()
     return catalog_minifig
+
+
+def get_element_image(session: Session, element_id: str) -> StoredImage | None:
+    row = session.scalar(
+        select(ElementImage).where(ElementImage.element_id == element_id)
+    )
+    if row is None or not element_has_image(row):
+        return None
+    assert row.image_blob is not None
+    assert row.image_content_type is not None
+    return StoredImage(content=row.image_blob, content_type=row.image_content_type)
+
+
+def set_element_image(
+    session: Session,
+    element_id: str,
+    *,
+    content: bytes,
+    content_type: str,
+    source: str = "rebrickable",
+) -> ElementImage:
+    normalized = validate_image_upload(content, content_type)
+    row = session.scalar(
+        select(ElementImage).where(ElementImage.element_id == element_id)
+    )
+    if row is None:
+        row = ElementImage(
+            element_id=element_id,
+            source=source,
+            fetched_at=utc_now(),
+        )
+        session.add(row)
+    row.image_blob = content
+    row.image_content_type = normalized
+    row.image_byte_size = len(content)
+    row.source = source
+    row.fetched_at = utc_now()
+    session.flush()
+    return row
+
+
+def clear_element_image(session: Session, element_id: str) -> ElementImage:
+    row = session.scalar(
+        select(ElementImage).where(ElementImage.element_id == element_id)
+    )
+    if row is None:
+        raise ImageBlobError("Element image not found", status_code=404)
+    row.image_blob = None
+    row.image_content_type = None
+    row.image_byte_size = None
+    session.flush()
+    return row

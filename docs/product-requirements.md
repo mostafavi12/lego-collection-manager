@@ -253,7 +253,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 2. **Set detail** — per-copy fields + shared catalog fields + inventory + missing panel; **delete this copy**; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
 4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Sync entire collection** with image options (Phase **14**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
-5. **Reports** — collection summary (Phase **15**); incomplete sets with missing lines per copy (Phase **16**); missing-parts aggregation with optional set-copy filter (Phase **17**).
+5. **Reports** — collection summary (Phase **15**); incomplete sets with missing lines per copy (Phase **16**); missing-parts aggregation with optional set-copy filter and **PDF export** (Phase **17**).
 6. **Settings** — app mode (View / Investigate / Edit) per [§11.10](#1110-settings-and-app-modes-phase-18).
 
 ## Non-goals (MVP)
@@ -262,7 +262,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 - Cloud sync, backup, or merge across devices.
 - BrickLink, BrickOwl, or other marketplaces; pricing or availability.
 - Native mobile apps.
-- **PDF/print report export** (in-app reporting UI and read APIs are implemented in Phases **15–17**; export/print remains out of scope).
+- **PDF/print export** for reports other than the missing-parts report (missing-parts PDF export is implemented on `/reports/missing`).
 - Advanced analytics, wish lists, or part-out planning.
 
 ## Related documents

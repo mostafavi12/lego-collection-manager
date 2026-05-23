@@ -109,7 +109,7 @@ export function SearchPage() {
                     <li key={part.part_num} className="result-list__part-hit">
                       {part.image_url && (
                         <img
-                          src={mediaUrl(part.image_url) ?? part.image_url}
+                          src={mediaUrl(part.image_url) ?? undefined}
                           alt=""
                           className="result-list__thumb"
                         />

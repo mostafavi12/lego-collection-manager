@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { getMissingPartsReport, mediaUrl } from "../api/client";
+import { getMissingPartsReport, fetchAllMissingPartsReport, mediaUrl } from "../api/client";
 import type { MissingPartReportItem } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { formatSetCopyTitle } from "../utils/setCopyTitle";
+import { downloadMissingPartsPdf } from "../utils/missingPartsReportPdf";
 
 const PAGE_SIZE = 50;
 
@@ -31,7 +32,9 @@ export function MissingPartsReportPage() {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const load = useCallback(
     async (nextOffset: number) => {
@@ -68,6 +71,31 @@ export function MissingPartsReportPage() {
     void load((nextPage - 1) * PAGE_SIZE);
   }
 
+  const filterLabel = filtered
+    ? `Showing ${ownedSetIds.length} selected set ${ownedSetIds.length === 1 ? "copy" : "copies"}.`
+    : "Showing all incomplete sets.";
+
+  async function onExportPdf() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const allItems = await fetchAllMissingPartsReport({
+        owned_set_ids: filtered ? ownedSetIds : undefined,
+      });
+      if (allItems.length === 0) {
+        setExportError("No missing parts to export.");
+        return;
+      }
+      await downloadMissingPartsPdf(allItems, { filterLabel });
+    } catch (err) {
+      setExportError(
+        err instanceof Error ? err.message : "Could not export PDF",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <section className="page">
       <header className="page__header">
@@ -84,12 +112,21 @@ export function MissingPartsReportPage() {
       </header>
 
       <p className="report-filter-banner" role="status">
-        {filtered
-          ? `Showing ${ownedSetIds.length} selected set ${ownedSetIds.length === 1 ? "copy" : "copies"}.`
-          : "Showing all incomplete sets."}
+        {filterLabel}
       </p>
 
-      <AsyncMessage error={error} loading={loading && items.length === 0} />
+      <div className="report-toolbar">
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={loading || exporting || total === 0}
+          onClick={() => void onExportPdf()}
+        >
+          {exporting ? "Exporting…" : "Export PDF"}
+        </button>
+      </div>
+
+      <AsyncMessage error={error ?? exportError} loading={loading && items.length === 0} />
 
       {!loading && items.length === 0 && !error && (
         <p className="empty-state">No missing parts to report.</p>
@@ -143,7 +180,7 @@ export function MissingPartsReportPage() {
                           <Link to={`/sets/${setRow.owned_set_id}`}>
                             {formatSetCopyTitle(
                               setRow.set_num,
-                              null,
+                              setRow.set_name,
                               setRow.display_label,
                             )}
                           </Link>

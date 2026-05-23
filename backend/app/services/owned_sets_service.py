@@ -39,9 +39,11 @@ from app.schemas.owned_sets import (
 from app.services.catalog_cleanup import delete_catalog_set_data
 from app.services.catalog_state import (
     catalog_sync_state,
+    load_element_image_urls,
     missing_image_url_for_part,
     resolve_catalog_image_url,
     resolve_catalog_minifig_image_url,
+    resolve_line_image_url,
     resolve_part_image_url,
 )
 from app.services.instance_inventory import (
@@ -331,6 +333,11 @@ def get_owned_set_detail(
         .order_by(SetPartInventoryLine.id)
     ).all()
 
+    all_element_ids: set[str] = set()
+    for line in set_part_catalog_lines:
+        all_element_ids.update(_element_ids_for_inventory_line(line))
+    element_url_by_id = load_element_image_urls(session, all_element_ids)
+
     set_parts: list[SetPartLineDetail] = []
     for line in set_part_catalog_lines:
         part = line.part
@@ -339,6 +346,29 @@ def get_owned_set_detail(
         if instance_line is None:
             continue
         missing = instance_line.missing_item
+        line_element_ids = _element_ids_for_inventory_line(line)
+        resolved_image_url = resolve_line_image_url(
+            element_ids=line_element_ids,
+            part=part,
+            element_url_by_id=element_url_by_id,
+        )
+        # #region agent log
+        from app.debug_agent_log import debug_agent_log
+
+        debug_agent_log(
+            location="owned_sets_service.py:set_parts",
+            message="inventory line image resolution",
+            data={
+                "part_num": part.part_num,
+                "color_name": color.name,
+                "element_ids": line_element_ids,
+                "line_stored_image_url": line.image_url,
+                "part_level_url": resolve_part_image_url(part),
+                "resolved_image_url": resolved_image_url,
+            },
+            hypothesis_id="H1",
+        )
+        # #endregion
         set_parts.append(
             SetPartLineDetail(
                 instance_line_id=instance_line.id,
@@ -349,14 +379,17 @@ def get_owned_set_detail(
                 color_id=color.external_id,
                 color_name=color.name,
                 quantity=instance_line.quantity,
-                element_ids=_element_ids_for_inventory_line(line),
+                element_ids=line_element_ids,
                 aliases=_aliases_for_part(part),
-                image_url=line.image_url or resolve_part_image_url(part),
-                part_image_url=resolve_part_image_url(part),
+                image_url=resolved_image_url,
+                part_image_url=resolved_image_url,
                 missing_quantity=instance_line.quantity_missing,
                 missing_item_id=missing.id if missing else None,
                 missing_image_url=missing_image_url_for_part(
-                    part, quantity_missing=instance_line.quantity_missing
+                    part,
+                    quantity_missing=instance_line.quantity_missing,
+                    element_ids=line_element_ids,
+                    element_url_by_id=element_url_by_id,
                 ),
             )
         )
@@ -382,12 +415,25 @@ def get_owned_set_detail(
             .order_by(MinifigPartInventoryLine.id)
         ).all()
 
+        minifig_element_ids: set[str] = set()
+        for part_line, _part, _color in part_rows:
+            minifig_element_ids.update(_element_ids_for_inventory_line(part_line))
+        element_url_by_id.update(
+            load_element_image_urls(session, minifig_element_ids - set(element_url_by_id))
+        )
+
         parts: list[MinifigPartLineDetail] = []
         for part_line, part, color in part_rows:
             instance_line = instance_by_minifig_line.get(part_line.id)
             if instance_line is None:
                 continue
             missing = instance_line.missing_item
+            line_element_ids = _element_ids_for_inventory_line(part_line)
+            resolved_image_url = resolve_line_image_url(
+                element_ids=line_element_ids,
+                part=part,
+                element_url_by_id=element_url_by_id,
+            )
             parts.append(
                 MinifigPartLineDetail(
                     instance_line_id=instance_line.id,
@@ -398,13 +444,16 @@ def get_owned_set_detail(
                     color_id=color.external_id,
                     color_name=color.name,
                     quantity=instance_line.quantity,
-                    element_ids=_element_ids_for_inventory_line(part_line),
-                    image_url=part_line.image_url or resolve_part_image_url(part),
-                    part_image_url=resolve_part_image_url(part),
+                    element_ids=line_element_ids,
+                    image_url=resolved_image_url,
+                    part_image_url=resolved_image_url,
                     missing_quantity=instance_line.quantity_missing,
                     missing_item_id=missing.id if missing else None,
                     missing_image_url=missing_image_url_for_part(
-                        part, quantity_missing=instance_line.quantity_missing
+                        part,
+                        quantity_missing=instance_line.quantity_missing,
+                        element_ids=line_element_ids,
+                        element_url_by_id=element_url_by_id,
                     ),
                 )
             )

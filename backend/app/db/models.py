@@ -343,6 +343,18 @@ class InventoryLineElementId(Base):
     )
 
 
+class ElementImage(Base):
+    __tablename__ = "element_images"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    element_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    image_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    image_content_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_byte_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class OwnedSetInventoryLine(Base):
     __tablename__ = "owned_set_inventory_lines"
     __table_args__ = (

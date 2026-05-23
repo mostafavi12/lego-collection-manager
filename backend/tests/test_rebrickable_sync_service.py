@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from app.db.models import (
     CatalogMinifig,
     CatalogSet,
+    ElementImage,
     InventoryLineElementId,
     MinifigPartInventoryLine,
     OwnedSetInventoryLine,
@@ -117,7 +118,7 @@ def _sample_part_line(
         quantity=4,
         is_spare=is_spare,
         is_alternate=False,
-        image_url=None,
+        image_url=image_url,
         inventory_id=100,
     )
 
@@ -156,17 +157,22 @@ def fake_client() -> FakeRebrickableClient:
     )
 
 
-def test_sync_populates_catalog(db_session, fake_client, tmp_path, monkeypatch) -> None:
-    elements_csv = tmp_path / "elements.csv"
-    elements_csv.write_text(
+@pytest.fixture
+def elements_csv(tmp_path, monkeypatch):
+    path = tmp_path / "elements.csv"
+    path.write_text(
         "element_id,part_num,color_id,design_id\n"
         "302400,3024,0,3024\n"
         "6252045,3024,0,3024\n"
+        "300100,3001,0,3001\n"
         "973000,973,0,973\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("ELEMENTS_CSV_PATH", str(elements_csv))
+    monkeypatch.setenv("ELEMENTS_CSV_PATH", str(path))
     clear_element_catalog_cache()
+
+
+def test_sync_populates_catalog(db_session, fake_client, elements_csv) -> None:
     catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     db_session.commit()
@@ -398,7 +404,9 @@ def test_sync_can_download_set_images(db_session, fake_client) -> None:
     assert minifig.image_content_type == "image/png"
 
 
-def test_sync_downloads_only_missing_part_images(db_session, fake_client) -> None:
+def test_sync_downloads_only_missing_part_images(
+    db_session, fake_client, elements_csv
+) -> None:
     catalog = add_catalog_set(db_session)
     owned = add_owned_set(db_session, catalog)
     fake_client.set_parts["6024-1"] = [
@@ -433,15 +441,20 @@ def test_sync_downloads_only_missing_part_images(db_session, fake_client) -> Non
 
     assert result.part_images_downloaded == 1
     assert downloader.urls == ["https://cdn.example/3024.png"]
-    missing_part = db_session.scalar(select(Part).where(Part.part_num == "3024"))
-    other_part = db_session.scalar(select(Part).where(Part.part_num == "3001"))
-    assert missing_part is not None
-    assert other_part is not None
-    assert missing_part.image_blob == b"image-bytes"
-    assert other_part.image_blob is None
+    element_row = db_session.scalar(
+        select(ElementImage).where(ElementImage.element_id == "302400")
+    )
+    other_element = db_session.scalar(
+        select(ElementImage).where(ElementImage.element_id == "300100")
+    )
+    assert element_row is not None
+    assert element_row.image_blob == b"image-bytes"
+    assert other_element is None or other_element.image_blob is None
 
 
-def test_sync_downloads_missing_minifig_part_images(db_session, fake_client) -> None:
+def test_sync_downloads_missing_minifig_part_images(
+    db_session, fake_client, elements_csv
+) -> None:
     catalog = add_catalog_set(db_session)
     owned = add_owned_set(db_session, catalog)
     db_session.commit()
@@ -474,13 +487,14 @@ def test_sync_downloads_missing_minifig_part_images(db_session, fake_client) -> 
 
     assert result.part_images_downloaded == 1
     assert downloader.urls == ["https://cdn.example/973-element.png"]
-    minifig_part = db_session.scalar(select(Part).where(Part.part_num == "973"))
-    assert minifig_part is not None
-    assert minifig_part.image_url == "https://cdn.example/973-element.png"
-    assert minifig_part.image_blob == b"image-bytes"
+    element_row = db_session.scalar(
+        select(ElementImage).where(ElementImage.element_id == "973000")
+    )
+    assert element_row is not None
+    assert element_row.image_blob == b"image-bytes"
 
 
-def test_sync_downloads_all_part_images(db_session, fake_client) -> None:
+def test_sync_downloads_all_part_images(db_session, fake_client, elements_csv) -> None:
     catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
     fake_client.set_parts["6024-1"] = [
@@ -513,12 +527,10 @@ def test_sync_downloads_all_part_images(db_session, fake_client) -> None:
         "https://cdn.example/3001.png",
         "https://cdn.example/973-element.png",
     ]
-    first = db_session.scalar(select(Part).where(Part.part_num == "3024"))
-    second = db_session.scalar(select(Part).where(Part.part_num == "3001"))
-    minifig_part = db_session.scalar(select(Part).where(Part.part_num == "973"))
-    assert first is not None
-    assert second is not None
-    assert minifig_part is not None
-    assert first.image_blob == b"image-bytes"
-    assert second.image_blob == b"image-bytes"
-    assert minifig_part.image_blob == b"image-bytes"
+    element_rows = db_session.scalars(
+        select(ElementImage).where(
+            ElementImage.element_id.in_(["302400", "300100", "973000"])
+        )
+    ).all()
+    assert len(element_rows) == 3
+    assert all(row.image_blob == b"image-bytes" for row in element_rows)

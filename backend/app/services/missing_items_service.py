@@ -1,4 +1,4 @@
-"""Missing-part tracking; photos stored on the global Part row."""
+"""Missing-part tracking; photos stored on element or part rows."""
 
 from __future__ import annotations
 
@@ -17,8 +17,19 @@ from app.db.models import (
     SetPartInventoryLine,
 )
 from app.schemas.missing import MissingImageResponse, MissingUpsertRequest, MissingUpsertResponse
-from app.services.catalog_state import missing_image_url_for_part, resolve_part_image_url
-from app.services.image_blob import clear_part_image, set_part_image
+from app.services.catalog_state import (
+    load_element_image_urls,
+    resolve_line_image_url,
+)
+from app.services.image_blob import (
+    ImageBlobError,
+    clear_element_image,
+    clear_part_image,
+    get_element_image,
+    get_part_image,
+    set_element_image,
+    set_part_image,
+)
 from app.services.instance_inventory import (
     InstanceInventoryError,
     resolve_or_create_instance_line_for_catalog_ref,
@@ -51,6 +62,63 @@ def _part_for_instance_line(
     if line is None:
         return None
     return session.get(Part, line.part_id)
+
+
+def _catalog_line_for_instance_line(
+    session: Session,
+    instance_line: OwnedSetInventoryLine,
+) -> SetPartInventoryLine | MinifigPartInventoryLine | None:
+    if instance_line.set_part_inventory_line_id is not None:
+        return session.scalar(
+            select(SetPartInventoryLine)
+            .where(SetPartInventoryLine.id == instance_line.set_part_inventory_line_id)
+            .options(selectinload(SetPartInventoryLine.element_ids))
+        )
+    if instance_line.minifig_part_inventory_line_id is None:
+        return None
+    return session.scalar(
+        select(MinifigPartInventoryLine)
+        .where(
+            MinifigPartInventoryLine.id
+            == instance_line.minifig_part_inventory_line_id
+        )
+        .options(selectinload(MinifigPartInventoryLine.element_ids))
+    )
+
+
+def _element_ids_for_catalog_line(
+    line: SetPartInventoryLine | MinifigPartInventoryLine,
+) -> list[str]:
+    return sorted(element.element_id for element in line.element_ids)
+
+
+def _primary_element_id_for_instance_line(
+    session: Session,
+    instance_line: OwnedSetInventoryLine,
+) -> str | None:
+    catalog_line = _catalog_line_for_instance_line(session, instance_line)
+    if catalog_line is None:
+        return None
+    element_ids = _element_ids_for_catalog_line(catalog_line)
+    return element_ids[0] if element_ids else None
+
+
+def _image_urls_for_instance_line(
+    session: Session,
+    instance_line: OwnedSetInventoryLine,
+    part: Part,
+) -> tuple[str | None, str | None]:
+    catalog_line = _catalog_line_for_instance_line(session, instance_line)
+    element_ids = (
+        _element_ids_for_catalog_line(catalog_line) if catalog_line is not None else []
+    )
+    element_url_by_id = load_element_image_urls(session, element_ids)
+    resolved = resolve_line_image_url(
+        element_ids=element_ids,
+        part=part,
+        element_url_by_id=element_url_by_id,
+    )
+    return resolved, resolved
 
 
 def upsert_missing(
@@ -131,14 +199,25 @@ def upload_missing_image(
     if part is None:
         raise MissingItemError("Part not found for inventory line", status_code=404)
 
-    set_part_image(session, part.id, content=content, content_type=content_type)
+    primary_element_id = _primary_element_id_for_instance_line(session, instance_line)
+    if primary_element_id is not None:
+        set_element_image(
+            session,
+            primary_element_id,
+            content=content,
+            content_type=content_type,
+            source="user",
+        )
+    else:
+        set_part_image(session, part.id, content=content, content_type=content_type)
     missing.updated_at = utc_now()
     session.flush()
 
+    missing_url, part_url = _image_urls_for_instance_line(session, instance_line, part)
     return MissingImageResponse(
         missing_item_id=missing.id,
-        missing_image_url=resolve_part_image_url(part),
-        part_image_url=resolve_part_image_url(part),
+        missing_image_url=missing_url,
+        part_image_url=part_url,
     )
 
 
@@ -148,9 +227,17 @@ def delete_missing_image(
     missing_item_id: int,
 ) -> MissingImageResponse:
     missing = _get_missing_for_owned_set(session, owned_set_id, missing_item_id)
-    part = _part_for_instance_line(session, missing.owned_set_inventory_line)
+    instance_line = missing.owned_set_inventory_line
+    part = _part_for_instance_line(session, instance_line)
     if part is not None:
-        clear_part_image(session, part.id)
+        primary_element_id = _primary_element_id_for_instance_line(session, instance_line)
+        if primary_element_id is not None:
+            try:
+                clear_element_image(session, primary_element_id)
+            except ImageBlobError:
+                pass
+        else:
+            clear_part_image(session, part.id)
     missing.updated_at = utc_now()
     session.flush()
     return MissingImageResponse(
@@ -173,8 +260,11 @@ def resolve_missing_image_for_serving(
     part = _part_for_instance_line(session, instance_line)
     if part is None:
         return None
-    from app.services.image_blob import get_part_image
-
+    primary_element_id = _primary_element_id_for_instance_line(session, instance_line)
+    if primary_element_id is not None:
+        stored = get_element_image(session, primary_element_id)
+        if stored is not None:
+            return stored.content, stored.content_type
     stored = get_part_image(session, part.id)
     if stored is None:
         return None

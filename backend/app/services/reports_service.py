@@ -24,7 +24,7 @@ from app.schemas.reports import (
     MissingPartsReportResponse,
     ReportsSummaryResponse,
 )
-from app.services.catalog_state import resolve_part_image_url
+from app.services.catalog_state import load_element_image_urls, resolve_line_image_url
 from app.services.instance_inventory import count_lines_with_missing
 from app.services.instance_labels import copy_index_map, display_label
 
@@ -97,8 +97,18 @@ def _sort_key_color_then_element_id(line: IncompleteSetMissingLine) -> tuple[str
     )
 
 
+def _element_ids_for_instance_line(instance_line: OwnedSetInventoryLine) -> list[str]:
+    if instance_line.set_part_inventory_line is not None:
+        return _element_ids_for_catalog_line(instance_line.set_part_inventory_line)
+    if instance_line.minifig_part_inventory_line is not None:
+        return _element_ids_for_catalog_line(instance_line.minifig_part_inventory_line)
+    return []
+
+
 def _missing_line_from_instance(
     instance_line: OwnedSetInventoryLine,
+    *,
+    element_url_by_id: dict[str, str],
 ) -> IncompleteSetMissingLine | None:
     if instance_line.quantity_missing <= 0:
         return None
@@ -107,14 +117,19 @@ def _missing_line_from_instance(
         catalog_line = instance_line.set_part_inventory_line
         part = catalog_line.part
         color = catalog_line.color
-        image_url = catalog_line.image_url or resolve_part_image_url(part)
     elif instance_line.minifig_part_inventory_line is not None:
         catalog_line = instance_line.minifig_part_inventory_line
         part = catalog_line.part
         color = catalog_line.color
-        image_url = catalog_line.image_url or resolve_part_image_url(part)
     else:
         return None
+
+    element_ids = _element_ids_for_catalog_line(catalog_line)
+    image_url = resolve_line_image_url(
+        element_ids=element_ids,
+        part=part,
+        element_url_by_id=element_url_by_id,
+    )
 
     return IncompleteSetMissingLine(
         part_id=part.id,
@@ -123,7 +138,7 @@ def _missing_line_from_instance(
         color_id=color.external_id,
         color_name=color.name,
         quantity_missing=instance_line.quantity_missing,
-        element_ids=_element_ids_for_catalog_line(catalog_line),
+        element_ids=element_ids,
         part_image_url=image_url,
     )
 
@@ -189,10 +204,18 @@ def list_incomplete_sets(
         )
     ).all()
 
+    all_element_ids: set[str] = set()
+    for instance_line in instance_lines:
+        all_element_ids.update(_element_ids_for_instance_line(instance_line))
+    element_url_by_id = load_element_image_urls(session, all_element_ids)
+
     lines_by_owned_set: dict[int, list[IncompleteSetMissingLine]] = defaultdict(list)
     missing_parts_totals: dict[int, int] = defaultdict(int)
     for instance_line in instance_lines:
-        missing_line = _missing_line_from_instance(instance_line)
+        missing_line = _missing_line_from_instance(
+            instance_line,
+            element_url_by_id=element_url_by_id,
+        )
         if missing_line is None:
             continue
         lines_by_owned_set[instance_line.owned_set_id].append(missing_line)
@@ -243,7 +266,7 @@ def _scope_owned_set_ids_with_missing(
 def _owned_set_metadata(
     session: Session,
     owned_set_ids: list[int],
-) -> dict[int, tuple[int, str]]:
+) -> dict[int, tuple[int, str | None, str]]:
     if not owned_set_ids:
         return {}
 
@@ -257,6 +280,7 @@ def _owned_set_metadata(
     return {
         owned_set.id: (
             catalog_set.set_number,
+            catalog_set.name,
             display_label(
                 owned_set.label,
                 index_map.get(catalog_set.id, {}).get(owned_set.id, 1),
@@ -307,9 +331,17 @@ def list_missing_parts(
 
     owned_set_meta = _owned_set_metadata(session, scope_ids)
 
+    all_element_ids: set[str] = set()
+    for instance_line in instance_lines:
+        all_element_ids.update(_element_ids_for_instance_line(instance_line))
+    element_url_by_id = load_element_image_urls(session, all_element_ids)
+
     aggregated: dict[tuple[int, int], dict] = {}
     for instance_line in instance_lines:
-        missing_line = _missing_line_from_instance(instance_line)
+        missing_line = _missing_line_from_instance(
+            instance_line,
+            element_url_by_id=element_url_by_id,
+        )
         if missing_line is None:
             continue
 
@@ -349,7 +381,8 @@ def list_missing_parts(
                 MissingPartNeededSet(
                     owned_set_id=owned_set_id,
                     set_num=owned_set_meta[owned_set_id][0],
-                    display_label=owned_set_meta[owned_set_id][1],
+                    set_name=owned_set_meta[owned_set_id][1],
+                    display_label=owned_set_meta[owned_set_id][2],
                     quantity_missing=quantity,
                 )
                 for owned_set_id, quantity in bucket["needed_by_set"].items()

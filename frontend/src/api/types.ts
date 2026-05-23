@@ -374,6 +374,7 @@ export interface IncompleteSetsReportResponse {
 export interface MissingPartNeededSet {
   owned_set_id: number;
   set_num: number;
+  set_name: string | null;
   display_label: string;
   quantity_missing: number;
 }

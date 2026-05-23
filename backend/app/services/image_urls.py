@@ -18,9 +18,9 @@ def missing_part_image_url(part_id: int) -> str:
     return f"/api/media/missing/part/{part_id}"
 
 
-def pick_display_image_url(
-    *,
-    local_url: str | None,
-    remote_url: str | None,
-) -> str | None:
-    return local_url or remote_url
+def element_image_url(element_id: str) -> str:
+    return f"/api/elements/{element_id}/image"
+
+
+def pick_display_image_url(*, local_url: str | None) -> str | None:
+    return local_url

@@ -39,6 +39,7 @@ class IncompleteSetsReportResponse(BaseModel):
 class MissingPartNeededSet(BaseModel):
     owned_set_id: int
     set_num: int
+    set_name: str | None
     display_label: str
     quantity_missing: int
 

@@ -15,6 +15,7 @@ import type {
   RebrickableSetDraftResponse,
   RebrickableSyncResponse,
   IncompleteSetsReportResponse,
+  MissingPartReportItem,
   MissingPartsReportResponse,
   ReportsSummaryResponse,
   SearchResponse,
@@ -410,4 +411,30 @@ export function getMissingPartsReport(params?: {
   }
   const query = search.toString();
   return request(`/reports/missing-parts${query ? `?${query}` : ""}`);
+}
+
+const MISSING_PARTS_REPORT_PAGE_SIZE = 200;
+
+export async function fetchAllMissingPartsReport(params?: {
+  owned_set_ids?: number[];
+}): Promise<MissingPartReportItem[]> {
+  const items: MissingPartReportItem[] = [];
+  let offset = 0;
+  let total = 0;
+
+  do {
+    const page = await getMissingPartsReport({
+      ...params,
+      limit: MISSING_PARTS_REPORT_PAGE_SIZE,
+      offset,
+    });
+    total = page.total;
+    items.push(...page.items);
+    offset += page.items.length;
+    if (page.items.length === 0) {
+      break;
+    }
+  } while (items.length < total);
+
+  return items;
 }

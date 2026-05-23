@@ -2,6 +2,7 @@ from sqlalchemy import select
 
 from app.db.models import MissingItem, OwnedSet
 from tests.factories import (
+    TINY_PNG,
     add_catalog_set,
     add_catalog_stub,
     add_missing_item_for_set_line,
@@ -10,6 +11,7 @@ from tests.factories import (
     add_theme,
     add_part,
     add_color,
+    add_element_id_for_set_part_line,
     add_minifig_with_parts,
 )
 
@@ -160,11 +162,14 @@ def test_get_owned_set_detail(api_client, db_session) -> None:
     assert len(body["inventory"]["minifigs"][0]["parts"]) == 1
 
 
-def test_get_owned_set_detail_prefers_line_image_urls(api_client, db_session) -> None:
+def test_get_owned_set_detail_exposes_element_image_urls(
+    api_client, db_session
+) -> None:
+    from app.services.image_blob import set_element_image
+
     catalog = add_catalog_set(db_session)
     owned = add_owned_set(db_session, catalog)
     part = add_part(db_session, part_num="3024")
-    part.image_url = "https://cdn.example/generic-3024.png"
     color = add_color(db_session, external_id=4, name="Red")
     line = add_set_part_inventory_line(
         db_session,
@@ -172,7 +177,13 @@ def test_get_owned_set_detail_prefers_line_image_urls(api_client, db_session) ->
         part=part,
         color=color,
     )
-    line.image_url = "https://cdn.example/elements/3024-red.png"
+    add_element_id_for_set_part_line(db_session, line=line, element_id="302424")
+    set_element_image(
+        db_session,
+        "302424",
+        content=TINY_PNG,
+        content_type="image/png",
+    )
     _, _, minifig_line = add_minifig_with_parts(db_session, catalog_set=catalog)
     minifig_line.part.image_url = "https://cdn.example/generic-973.png"
     minifig_line.image_url = "https://cdn.example/elements/973-yellow.png"
@@ -183,11 +194,11 @@ def test_get_owned_set_detail_prefers_line_image_urls(api_client, db_session) ->
     assert response.status_code == 200
     body = response.json()
     set_part = body["inventory"]["set_parts"][0]
-    assert set_part["image_url"] == "https://cdn.example/elements/3024-red.png"
-    assert set_part["part_image_url"] == "https://cdn.example/generic-3024.png"
+    assert set_part["image_url"] == "/api/elements/302424/image"
+    assert set_part["part_image_url"] == "/api/elements/302424/image"
     minifig_part = body["inventory"]["minifigs"][0]["parts"][0]
-    assert minifig_part["image_url"] == "https://cdn.example/elements/973-yellow.png"
-    assert minifig_part["part_image_url"] == "https://cdn.example/generic-973.png"
+    assert minifig_part["image_url"] is None
+    assert minifig_part["part_image_url"] is None
 
 
 def test_get_owned_set_not_found(api_client) -> None:

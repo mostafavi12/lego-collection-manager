@@ -53,6 +53,8 @@ def test_missing_parts_aggregates_across_sets(api_client, db_session) -> None:
     by_id = {row["owned_set_id"]: row for row in item["needed_sets"]}
     assert by_id[owned_a.id]["quantity_missing"] == 2
     assert by_id[owned_b.id]["quantity_missing"] == 1
+    assert by_id[owned_a.id]["set_name"] == "Police Car"
+    assert by_id[owned_b.id]["set_name"] == "Police Car"
 
 
 def test_missing_parts_filters_by_owned_set_ids(api_client, db_session) -> None:

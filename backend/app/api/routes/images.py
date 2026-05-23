@@ -9,11 +9,13 @@ from app.db.deps import get_db
 from app.schemas.images import ImageDeleteResponse, ImageUploadResponse
 from app.services.image_blob import (
     ImageBlobError,
+    clear_element_image,
     clear_catalog_set_image,
     clear_catalog_minifig_image,
     clear_part_image,
     get_catalog_minifig_image,
     get_catalog_set_image,
+    get_element_image,
     get_part_image,
     set_catalog_minifig_image,
     set_catalog_set_image,
@@ -22,6 +24,7 @@ from app.services.image_blob import (
 from app.services.image_urls import (
     catalog_minifig_image_url,
     catalog_set_image_url,
+    element_image_url,
     part_image_url,
 )
 
@@ -161,3 +164,11 @@ def delete_catalog_minifig_image_route(
     except ImageBlobError as exc:
         _raise_image_error(exc)
     return ImageDeleteResponse(image_url=None)
+
+
+@router.get("/elements/{element_id}/image")
+def get_element_image_route(element_id: str, db: Session = Depends(get_db)) -> Response:
+    stored = get_element_image(db, element_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return _image_response(stored)
