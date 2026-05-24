@@ -19,13 +19,21 @@ if not exist "%LCM_SERVER_EXE%" (
 
 if not exist "%LCM_INSTALL_ROOT%\data" mkdir "%LCM_INSTALL_ROOT%\data"
 
-cd /d "%LCM_SERVER_DIR%"
-start "LEGO Collection Manager" "%LCM_SERVER_EXE%"
+if not exist "%LCM_INSTALL_ROOT%\web\index.html" (
+  echo.
+  echo ERROR: Web UI not found:
+  echo   %LCM_INSTALL_ROOT%\web\index.html
+  echo.
+  pause
+  exit /b 1
+)
 
+cd /d "%LCM_SERVER_DIR%"
 echo.
 echo LEGO Collection Manager is starting.
 echo Your browser should open shortly at http://127.0.0.1:8000/
 echo.
 echo Keep this window open while using the app. Close it to stop the server.
 echo.
+"%LCM_SERVER_EXE%"
 pause

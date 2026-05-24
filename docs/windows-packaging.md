@@ -81,7 +81,12 @@ See [`.github/workflows/release-windows.yml`](../.github/workflows/release-windo
 - Push a tag `v*` (for example `v0.1.0`), or
 - **workflow_dispatch** with a version string.
 
-Download the ZIP from the workflow run **Artifacts**.
+Download the ZIP from:
+
+- **GitHub Releases** (when you pushed a `v*` tag) — attached to the release, or
+- **Actions → Release Windows portable ZIP → Artifacts** (`lego-collection-manager-windows-portable`)
+
+The file `backend/pyinstaller.spec` must be committed (it is exempted from `*.spec` in `.gitignore`). If the workflow reports “Spec file not found”, the spec was missing from the repository at that tag.
 
 ## Upgrading
 

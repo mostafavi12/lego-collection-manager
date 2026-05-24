@@ -14,6 +14,7 @@ This folder holds the **authoritative product and technical contracts** for the 
 | [smoke-test.md](./smoke-test.md) | Local dev smoke test (`./scripts/smoke.sh`) |
 | [ci.md](./ci.md) | GitHub Actions: push/PR checks (backend tests, frontend build) |
 | [windows-packaging.md](./windows-packaging.md) | Portable Windows ZIP build, install, and upgrade |
+| [windows-portable-checklist.md](./windows-portable-checklist.md) | What the ZIP must contain; repo + user requirements |
 | [windows-smoke-test.md](./windows-smoke-test.md) | Manual checklist for validating a Windows ZIP build |
 
 Repository-wide **engineering defaults** (preferred stack, “no live API in tests”, etc.) live in [`.cursor/rules/project-rules.mdc`](../.cursor/rules/project-rules.mdc).
