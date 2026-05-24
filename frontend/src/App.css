@@ -596,6 +596,39 @@
   gap: 0.35rem;
 }
 
+.image-blob-editor__preview-btn {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+.image-blob-editor__preview-btn:focus-visible {
+  outline: 2px solid var(--color-accent, #2563eb);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  cursor: zoom-out;
+}
+
+.image-lightbox__image {
+  max-width: min(92vw, 56rem);
+  max-height: 92vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+
 .part-image-editor .image-blob-editor__preview,
 .part-image-editor .image-blob-editor__placeholder {
   width: 2.5rem;

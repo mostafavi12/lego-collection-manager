@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { mediaUrl } from "../api/client";
+import { ImageLightbox } from "./ImageLightbox";
 
 interface ImageBlobEditorProps {
   imageUrl: string | null;
@@ -11,6 +12,8 @@ interface ImageBlobEditorProps {
   onUpdated: () => void;
   className?: string;
   disabled?: boolean;
+  /** When true, clicking the preview opens a larger view; click again to close. */
+  enlargeOnClick?: boolean;
 }
 
 export function ImageBlobEditor({
@@ -22,14 +25,22 @@ export function ImageBlobEditor({
   onUpdated,
   className = "",
   disabled = false,
+  enlargeOnClick = false,
 }: ImageBlobEditorProps) {
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
+  const [enlarged, setEnlarged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setPreviewUrl(imageUrl);
   }, [imageUrl]);
+
+  useEffect(() => {
+    if (!previewUrl) {
+      setEnlarged(false);
+    }
+  }, [previewUrl]);
 
   async function onFileSelected(file: File | undefined) {
     if (!file) {
@@ -67,7 +78,18 @@ export function ImageBlobEditor({
   return (
     <div className={`image-blob-editor ${className}`.trim()}>
       {preview ? (
-        <img src={preview} alt={alt} className="image-blob-editor__preview" />
+        enlargeOnClick ? (
+          <button
+            type="button"
+            className="image-blob-editor__preview-btn"
+            aria-label={`View larger: ${alt}`}
+            onClick={() => setEnlarged(true)}
+          >
+            <img src={preview} alt="" className="image-blob-editor__preview" />
+          </button>
+        ) : (
+          <img src={preview} alt={alt} className="image-blob-editor__preview" />
+        )
       ) : (
         <div className="image-blob-editor__placeholder" aria-hidden />
       )}
@@ -96,6 +118,13 @@ export function ImageBlobEditor({
         </div>
       ) : null}
       {error && <span className="image-blob-editor__error">{error}</span>}
+      {enlargeOnClick && preview && enlarged && (
+        <ImageLightbox
+          src={preview}
+          alt={alt}
+          onClose={() => setEnlarged(false)}
+        />
+      )}
     </div>
   );
 }

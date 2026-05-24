@@ -25,6 +25,7 @@ export function CatalogSetImageEditor({
       imageUrl={imageUrl}
       alt={`Set ${setNum}`}
       uploadLabel="Set photo"
+      enlargeOnClick
       disabled={disabled}
       onUpload={(file) => uploadCatalogSetImage(catalogSetId, file)}
       onDelete={() => deleteCatalogSetImage(catalogSetId)}
