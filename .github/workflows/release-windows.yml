@@ -75,7 +75,9 @@ jobs:
 
       - name: Verify PyInstaller output
         shell: bash
-        run: test -f backend/dist/lcm-server/lcm-server.exe
+        run: |
+          test -f backend/dist/lcm-server/lcm-server.exe
+          test -f backend/dist/lcm-server/_internal/alembic/env.py
 
       - name: Assemble portable ZIP
         shell: pwsh
@@ -96,6 +98,7 @@ jobs:
             "README.txt",
             "config.env.example",
             "lcm-server\lcm-server.exe",
+            "lcm-server\_internal\alembic\env.py",
             "web\index.html"
           )
           foreach ($rel in $required) {

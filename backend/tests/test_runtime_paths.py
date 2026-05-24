@@ -1,9 +1,13 @@
 from pathlib import Path
 
+from alembic.script import ScriptDirectory
+
 from app.runtime_paths import (
     configure_runtime,
+    get_alembic_script_location,
     get_data_dir,
     get_install_root,
+    make_alembic_config,
     sqlite_url_for_path,
 )
 
@@ -30,3 +34,34 @@ def test_sqlite_url_for_path_windows_friendly(tmp_path) -> None:
     url = sqlite_url_for_path(db)
     assert url.startswith("sqlite:///")
     assert "lego.db" in url
+
+
+def test_make_alembic_config_script_location_not_cwd_relative(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Portable launcher cwd differs from the bundle dir containing alembic.ini."""
+    bundle = tmp_path / "bundle"
+    launcher_cwd = tmp_path / "launcher"
+    bundle.mkdir()
+    launcher_cwd.mkdir()
+
+    alembic_dir = bundle / "alembic"
+    versions = alembic_dir / "versions"
+    versions.mkdir(parents=True)
+    (alembic_dir / "env.py").write_text("# stub\n")
+    (versions / "0001_stub.py").write_text(
+        'revision = "0001"\ndown_revision = None\n'
+    )
+    (bundle / "alembic.ini").write_text(
+        "[alembic]\nscript_location = %(here)s/alembic\n"
+    )
+
+    monkeypatch.chdir(launcher_cwd)
+    monkeypatch.setenv("LCM_ALEMBIC_INI", str(bundle / "alembic.ini"))
+
+    config = make_alembic_config()
+    script = ScriptDirectory.from_config(config)
+
+    assert get_alembic_script_location() == alembic_dir.resolve()
+    assert script.dir == str(alembic_dir.resolve())
+    assert script.get_current_head() == "0001"

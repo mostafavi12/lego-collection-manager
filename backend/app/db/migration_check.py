@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import os
 
-from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine
 
 from app.db.session import get_database_url
-from app.runtime_paths import get_alembic_ini_path
+from app.runtime_paths import make_alembic_config
 
 
 class DatabaseMigrationError(RuntimeError):
@@ -18,8 +17,7 @@ class DatabaseMigrationError(RuntimeError):
 
 
 def get_alembic_head_revision() -> str:
-    config = Config(str(get_alembic_ini_path()))
-    script = ScriptDirectory.from_config(config)
+    script = ScriptDirectory.from_config(make_alembic_config())
     head = script.get_current_head()
     if head is None:
         raise DatabaseMigrationError("No Alembic head revision found")

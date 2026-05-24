@@ -61,6 +61,20 @@ def get_alembic_ini_path() -> Path:
     return get_backend_root() / "alembic.ini"
 
 
+def get_alembic_script_location() -> Path:
+    """Directory containing migration scripts (versions/, env.py)."""
+    return get_alembic_ini_path().parent / "alembic"
+
+
+def make_alembic_config():
+    """Alembic config with script_location anchored to the ini file directory."""
+    from alembic.config import Config
+
+    config = Config(str(get_alembic_ini_path()))
+    config.set_main_option("script_location", str(get_alembic_script_location()))
+    return config
+
+
 def sqlite_url_for_path(db_path: Path) -> str:
     return f"sqlite:///{db_path.resolve().as_posix()}"
 
