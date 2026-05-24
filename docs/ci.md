@@ -37,6 +37,10 @@ For a **sequential local smoke test** (CI steps plus `alembic upgrade head` and 
 - **No API keys** are required for these jobs. Tests must not call live external APIs (see [`.cursor/rules/project-rules.mdc`](../.cursor/rules/project-rules.mdc) and [`testing-strategy.md`](./testing-strategy.md)).
 - The frontend build does not need `VITE_API_BASE_URL` unless the Vite config treats it as required at build time; if that changes, document any required `env:` entries in the workflow and here.
 
+## Windows release build (separate workflow)
+
+Portable Windows ZIP packaging is **not** part of PR CI. It runs in [`.github/workflows/release-windows.yml`](../.github/workflows/release-windows.yml) on `windows-latest` when you push a `v*` tag or use **workflow_dispatch**. See [windows-packaging.md](./windows-packaging.md).
+
 ## Optional: branch protection
 
 In the GitHub repository **Settings → Branches**, you can require the **CI** workflow (or the individual job names) to pass before merging. Exact UI labels depend on GitHub’s current checks API.

@@ -99,6 +99,10 @@ See [`docs/smoke-test.md`](docs/smoke-test.md).
 
 Example LEGO set numbers for CSV import experiments live in [`data/sample_sets.csv`](data/sample_sets.csv).
 
+## Windows portable ZIP
+
+Non-technical users can run a **portable ZIP** on Windows (no Python/Node install). Build instructions, upgrade path, and troubleshooting are in [`docs/windows-packaging.md`](docs/windows-packaging.md). Validate a build with [`docs/windows-smoke-test.md`](docs/windows-smoke-test.md).
+
 ## Documentation
 
 Product and technical specs are in [`docs/`](docs/). Use [`docs/README.md`](docs/README.md) as an index of each specification file.

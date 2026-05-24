@@ -13,6 +13,8 @@ This folder holds the **authoritative product and technical contracts** for the 
 | [frontend-testing.md](./frontend-testing.md) | Vitest commands, layout, mocking, dev workflow |
 | [smoke-test.md](./smoke-test.md) | Local dev smoke test (`./scripts/smoke.sh`) |
 | [ci.md](./ci.md) | GitHub Actions: push/PR checks (backend tests, frontend build) |
+| [windows-packaging.md](./windows-packaging.md) | Portable Windows ZIP build, install, and upgrade |
+| [windows-smoke-test.md](./windows-smoke-test.md) | Manual checklist for validating a Windows ZIP build |
 
 Repository-wide **engineering defaults** (preferred stack, “no live API in tests”, etc.) live in [`.cursor/rules/project-rules.mdc`](../.cursor/rules/project-rules.mdc).
 

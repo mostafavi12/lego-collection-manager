@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from app.api.routes import images, imports, media, owned_sets, parts, reports, search
 from app.db.migration_check import ensure_database_at_head
+from app.frontend_static import register_frontend_routes
 from app.logging_config import configure_logging
 
 load_dotenv()
@@ -37,3 +38,6 @@ app.include_router(reports.router, prefix="/api")
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+register_frontend_routes(app)

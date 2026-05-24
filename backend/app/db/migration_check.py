@@ -10,6 +10,7 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine
 
 from app.db.session import get_database_url
+from app.runtime_paths import get_alembic_ini_path
 
 
 class DatabaseMigrationError(RuntimeError):
@@ -17,7 +18,7 @@ class DatabaseMigrationError(RuntimeError):
 
 
 def get_alembic_head_revision() -> str:
-    config = Config("alembic.ini")
+    config = Config(str(get_alembic_ini_path()))
     script = ScriptDirectory.from_config(config)
     head = script.get_current_head()
     if head is None:
