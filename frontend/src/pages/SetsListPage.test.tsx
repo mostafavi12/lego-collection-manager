@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { SetCopyListResponse } from "../api/types";
 import { SetsListPage } from "./SetsListPage";
 import { setCopyListFixture } from "../test/fixtures";
 import { AppModeProvider } from "../appMode/AppModeContext";
@@ -36,20 +37,49 @@ function okJson(body: unknown): Response {
   } as Response;
 }
 
+function makeManySetCopies(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    ...setCopyListFixture.items[0],
+    id: index + 1,
+    label: `copy ${index + 1}`,
+    display_label: `copy ${index + 1}`,
+    name: `Set item ${index + 1}`,
+  }));
+}
+
 function mockCollectionFetch(listBody: unknown = setCopyListFixture) {
   return vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.includes("/owned-sets/theme-options")) {
       return Promise.resolve(okJson({ themes: ["Space", "Town"] }));
     }
+    if (url.includes("/owned-sets")) {
+      const body = listBody as SetCopyListResponse;
+      const urlObj = new URL(url, "http://local.test");
+      const offset = Number(urlObj.searchParams.get("offset") ?? "0");
+      const limit = Number(urlObj.searchParams.get("limit") ?? "50");
+      return Promise.resolve(
+        okJson({
+          total: body.total,
+          items: body.items.slice(offset, offset + limit),
+        }),
+      );
+    }
     return Promise.resolve(okJson(listBody));
   });
+}
+
+function listFetchCalls(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mock.calls
+    .map(([input]) => String(input))
+    .filter((url) => url.includes("/owned-sets?") || url.endsWith("/owned-sets"));
 }
 
 describe("SetsListPage", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it("renders display label before set number", async () => {
@@ -125,13 +155,12 @@ describe("SetsListPage", () => {
     renderPage();
     await screen.findByText(/6024 \(Police Car\) - copy A/);
 
+    const initialListCalls = listFetchCalls(fetchMock).length;
     await user.selectOptions(screen.getByLabelText(/sort by/i), "theme");
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenLastCalledWith(
-        expect.stringContaining("sort_by=theme"),
-        undefined,
-      );
-    });
+    expect(listFetchCalls(fetchMock).length).toBe(initialListCalls);
+    for (const url of listFetchCalls(fetchMock)) {
+      expect(url).not.toContain("sort_by=theme");
+    }
 
     await user.click(screen.getByRole("checkbox", { name: "All" }));
     await user.click(screen.getByRole("checkbox", { name: "Space" }));
@@ -159,6 +188,92 @@ describe("SetsListPage", () => {
     expect(screen.getByRole("heading", { name: "Age 8" })).toBeInTheDocument();
   });
 
+  it("shows pagination when grouping a large filtered collection", async () => {
+    const manyItems = makeManySetCopies(65);
+    const fetchMock = mockCollectionFetch({ total: 65, items: manyItems });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderPage();
+    expect(
+      await screen.findByRole("heading", {
+        name: "6024 (Set item 1) - copy 1",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "None" }));
+    await user.click(screen.getByRole("checkbox", { name: "Theme" }));
+
+    expect(screen.getByText(/page 1 of 4/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /next/i }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "6024 (Set item 21) - copy 21",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("groups first then sorts groups and items within groups", async () => {
+    const groupedFixture = {
+      total: 3,
+      items: [
+        {
+          ...setCopyListFixture.items[0],
+          id: 1,
+          theme_name: "Town",
+          name: "Zebra Set",
+          age: 8,
+        },
+        {
+          ...setCopyListFixture.items[1],
+          id: 2,
+          theme_name: "Space",
+          name: "Alpha Set",
+          age: 4,
+        },
+        {
+          ...setCopyListFixture.items[0],
+          id: 3,
+          theme_name: "Town",
+          name: "Beta Set",
+          age: 4,
+        },
+      ],
+    };
+    const fetchMock = mockCollectionFetch(groupedFixture);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/Zebra Set/);
+
+    await user.click(screen.getByRole("checkbox", { name: "None" }));
+    await user.click(screen.getByRole("checkbox", { name: "Theme" }));
+    await user.selectOptions(screen.getByLabelText(/sort by/i), "name");
+    await user.selectOptions(screen.getByLabelText(/direction/i), "asc");
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        expect.not.stringContaining("sort_by=name"),
+        undefined,
+      );
+    });
+
+    const categoryHeadings = Array.from(
+      document.querySelectorAll(".set-category > h2"),
+    ).map((heading) => heading.textContent);
+    expect(categoryHeadings).toEqual(["Space", "Town"]);
+
+    const townCards = screen
+      .getByRole("heading", { name: "Town" })
+      .closest("section")!
+      .querySelectorAll(".set-card__title");
+    expect(Array.from(townCards).map((node) => node.textContent)).toEqual([
+      expect.stringContaining("Beta Set"),
+      expect.stringContaining("Zebra Set"),
+    ]);
+  });
+
   it("loads theme filter options from the whole collection", async () => {
     const fetchMock = mockCollectionFetch();
     vi.stubGlobal("fetch", fetchMock);
@@ -172,66 +287,141 @@ describe("SetsListPage", () => {
   });
 
   it("shows direct page navigation when there are more than two pages", async () => {
-    const fetchMock = mockCollectionFetch({ ...setCopyListFixture, total: 65 });
+    const manyItems = makeManySetCopies(65);
+    const fetchMock = mockCollectionFetch({ total: 65, items: manyItems });
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
     renderPage(["/?page=2"]);
 
-    await screen.findByText(/6024 \(Police Car\) - copy A/);
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("offset=20"),
-        undefined,
-      );
-    });
+    expect(
+      await screen.findByRole("heading", {
+        name: "6024 (Set item 21) - copy 21",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "6024 (Set item 1) - copy 1" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/page 2 of 4/i)).toBeInTheDocument();
+    expect(listFetchCalls(fetchMock)).toEqual([
+      expect.stringContaining("limit=200"),
+    ]);
 
     const pageInput = screen.getByLabelText(/page number/i);
     await user.clear(pageInput);
     await user.type(pageInput, "99");
     await user.click(screen.getByRole("button", { name: /go to page #/i }));
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("offset=60"),
-        undefined,
-      );
-    });
+    expect(
+      await screen.findByRole("heading", {
+        name: "6024 (Set item 61) - copy 61",
+      }),
+    ).toBeInTheDocument();
+    expect(listFetchCalls(fetchMock)).toHaveLength(1);
 
     await user.clear(pageInput);
     await user.type(pageInput, "0");
     await user.click(screen.getByRole("button", { name: /go to page #/i }));
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("offset=0"),
-        undefined,
-      );
-    });
+    expect(
+      await screen.findByRole("heading", {
+        name: "6024 (Set item 1) - copy 1",
+      }),
+    ).toBeInTheDocument();
+    expect(listFetchCalls(fetchMock)).toHaveLength(1);
   });
 
   it("keeps the current page in the collection URL before opening a set", async () => {
-    const fetchMock = mockCollectionFetch({ ...setCopyListFixture, total: 65 });
+    const manyItems = makeManySetCopies(65);
+    const fetchMock = mockCollectionFetch({ total: 65, items: manyItems });
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
     renderPage();
 
-    await screen.findByText(/6024 \(Police Car\) - copy A/);
+    expect(
+      await screen.findByRole("heading", {
+        name: "6024 (Set item 1) - copy 1",
+      }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /next/i }));
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("offset=20"),
-        undefined,
-      );
-    });
+    expect(
+      await screen.findByRole("heading", {
+        name: "6024 (Set item 21) - copy 21",
+      }),
+    ).toBeInTheDocument();
+    expect(listFetchCalls(fetchMock)).toHaveLength(1);
     expect(screen.getByTestId("location")).toHaveTextContent("/?page=2");
-    expect(screen.getByRole("link", { name: /6024 \(Police Car\) - copy A/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Set item 21/i })).toHaveAttribute(
       "href",
-      "/sets/1",
+      "/sets/21",
     );
+  });
+
+  it("loads the full filtered collection for client-side sort and group", async () => {
+    const manyItems = makeManySetCopies(250);
+    const fetchMock = mockCollectionFetch({ total: 250, items: manyItems });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+
+    expect(await screen.findByText(/page 1 of 13/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listFetchCalls(fetchMock)).toHaveLength(2);
+    });
+    expect(listFetchCalls(fetchMock)[1]).toContain("offset=200");
+  });
+
+  it("defaults to theme grouping and set number sorting", async () => {
+    vi.stubGlobal("fetch", mockCollectionFetch());
+
+    renderPage();
+
+    await screen.findByText(/6024 \(Police Car\) - copy A/);
+    expect(screen.getByLabelText(/sort by/i)).toHaveValue("set_num");
+    expect(screen.getByRole("heading", { name: "Town" })).toBeInTheDocument();
+  });
+
+  it("persists sort and group preferences to localStorage", async () => {
+    vi.stubGlobal("fetch", mockCollectionFetch());
+
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/6024 \(Police Car\) - copy A/);
+
+    await user.selectOptions(screen.getByLabelText(/sort by/i), "name");
+    await user.selectOptions(screen.getByLabelText(/direction/i), "desc");
+    await user.click(screen.getByRole("checkbox", { name: "None" }));
+    await user.click(screen.getByRole("checkbox", { name: "Age" }));
+
+    expect(localStorage.getItem("lcm.setsListPreferences")).toBe(
+      JSON.stringify({
+        sortBy: "name",
+        sortDir: "desc",
+        groupBy: ["age"],
+      }),
+    );
+  });
+
+  it("restores sort and group preferences from localStorage", async () => {
+    localStorage.setItem(
+      "lcm.setsListPreferences",
+      JSON.stringify({
+        sortBy: "theme",
+        sortDir: "desc",
+        groupBy: ["theme", "age"],
+      }),
+    );
+    vi.stubGlobal("fetch", mockCollectionFetch());
+
+    renderPage();
+
+    await screen.findByText(/6024 \(Police Car\) - copy A/);
+    expect(screen.getByLabelText(/sort by/i)).toHaveValue("theme");
+    expect(screen.getByLabelText(/direction/i)).toHaveValue("desc");
+    expect(screen.getByRole("heading", { name: "Town" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Age 8" })).toBeInTheDocument();
   });
 
   it("disables make a copy and hides add set in view mode", async () => {

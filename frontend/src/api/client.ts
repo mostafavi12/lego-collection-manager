@@ -117,6 +117,14 @@ export function createSetCopy(
   });
 }
 
+const SET_COPY_LIST_MAX_PAGE = 200;
+
+export type SetCopyListFilters = {
+  investigated?: boolean;
+  themes?: string[];
+  missing_only?: boolean;
+};
+
 export function listSetCopies(params: {
   limit?: number;
   offset?: number;
@@ -152,6 +160,39 @@ export function listSetCopies(params: {
   }
   const qs = search.toString();
   return request(`/owned-sets${qs ? `?${qs}` : ""}`);
+}
+
+/** Loads every set copy matching filters (paginated API requests). */
+export async function listAllFilteredSetCopies(
+  filters: SetCopyListFilters,
+): Promise<SetCopyListResponse> {
+  const first = await listSetCopies({
+    ...filters,
+    limit: SET_COPY_LIST_MAX_PAGE,
+    offset: 0,
+    sort_by: "created",
+    sort_dir: "asc",
+  });
+  const items: SetCopyListItem[] = [...first.items];
+  if (first.total <= items.length) {
+    return { items, total: first.total };
+  }
+  let offset = items.length;
+  while (offset < first.total) {
+    const page = await listSetCopies({
+      ...filters,
+      limit: SET_COPY_LIST_MAX_PAGE,
+      offset,
+      sort_by: "created",
+      sort_dir: "asc",
+    });
+    if (page.items.length === 0) {
+      break;
+    }
+    items.push(...page.items);
+    offset += page.items.length;
+  }
+  return { items, total: first.total };
 }
 
 export function listSetCopyThemeOptions(): Promise<SetCopyThemeOptionsResponse> {

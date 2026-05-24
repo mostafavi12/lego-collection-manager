@@ -1,20 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { listSetCopies, listSetCopyThemeOptions } from "../api/client";
+import { listAllFilteredSetCopies, listSetCopyThemeOptions } from "../api/client";
 import type { SetCopyListItem } from "../api/types";
 import { useCapabilities } from "../appMode/AppModeContext";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { AddSetWizard } from "../components/AddSetWizard";
 import { MakeACopyDialog } from "../components/MakeACopyDialog";
+import {
+  buildGroupedSections,
+  paginateGroupedSections,
+  sortSetCopyItems,
+  type GroupBy,
+  type SetSortBy,
+  type SortDir,
+} from "../utils/setCopyListProcessing";
+import {
+  readStoredSetsListPreferences,
+  writeStoredSetsListPreferences,
+} from "./setsListPreferencesStorage";
 import { formatSetCopyTitle } from "../utils/setCopyTitle";
 
 const PAGE_SIZE = 20;
 
 type InvestigatedFilter = "all" | "true" | "false";
-type SetSortBy = "created" | "set_num" | "name" | "theme" | "num_parts" | "age";
-type SortDir = "asc" | "desc";
-type GroupBy = "theme" | "age";
 
 function formatMeta(item: SetCopyListItem): string {
   const theme = item.theme_name?.trim() || "Unknown theme";
@@ -38,19 +47,11 @@ function toggleValue<T extends string>(values: T[], value: T): T[] {
     : [...values, value];
 }
 
-function groupLabel(item: SetCopyListItem, groupBy: GroupBy): string {
-  if (groupBy === "theme") {
-    return item.theme_name?.trim() || "Unknown theme";
-  }
-  return item.age != null ? `Age ${item.age}` : "Age unknown";
-}
-
 export function SetsListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { canAddOrDuplicate } = useCapabilities();
   const [items, setItems] = useState<SetCopyListItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [themeOptions, setThemeOptions] = useState<string[]>([]);
   const [offset, setOffset] = useState(() =>
     offsetForPage(pageFromSearch(location.search)),
@@ -58,9 +59,15 @@ export function SetsListPage() {
   const [filter, setFilter] = useState<InvestigatedFilter>("all");
   const [themeFilter, setThemeFilter] = useState<string[]>([]);
   const [missingOnly, setMissingOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<SetSortBy>("created");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [groupBy, setGroupBy] = useState<GroupBy[]>([]);
+  const [sortBy, setSortBy] = useState<SetSortBy>(
+    () => readStoredSetsListPreferences().sortBy,
+  );
+  const [sortDir, setSortDir] = useState<SortDir>(
+    () => readStoredSetsListPreferences().sortDir,
+  );
+  const [groupBy, setGroupBy] = useState<GroupBy[]>(
+    () => readStoredSetsListPreferences().groupBy,
+  );
   const [pageInput, setPageInput] = useState(() =>
     String(pageFromSearch(location.search)),
   );
@@ -75,27 +82,26 @@ export function SetsListPage() {
     try {
       const investigated =
         filter === "all" ? undefined : filter === "true";
-      const data = await listSetCopies({
-        limit: PAGE_SIZE,
-        offset,
+      const data = await listAllFilteredSetCopies({
         investigated,
         themes: themeFilter,
         missing_only: missingOnly,
-        sort_by: sortBy,
-        sort_dir: sortDir,
       });
       setItems(data.items);
-      setTotal(data.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load sets");
     } finally {
       setLoading(false);
     }
-  }, [filter, missingOnly, offset, sortBy, sortDir, themeFilter]);
+  }, [filter, missingOnly, themeFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    writeStoredSetsListPreferences({ sortBy, sortDir, groupBy });
+  }, [groupBy, sortBy, sortDir]);
 
   useEffect(() => {
     let ignore = false;
@@ -129,21 +135,39 @@ export function SetsListPage() {
     }
   }, [canAddOrDuplicate, location.pathname, location.search, location.state, navigate]);
 
+  const sortedItems = useMemo(
+    () => sortSetCopyItems(items, sortBy, sortDir),
+    [items, sortBy, sortDir],
+  );
+  const groupedItems = useMemo(
+    () => buildGroupedSections(items, groupBy, sortBy, sortDir),
+    [groupBy, items, sortBy, sortDir],
+  );
+  const visibleGroupedItems = useMemo(
+    () => paginateGroupedSections(groupedItems, offset, PAGE_SIZE),
+    [groupedItems, offset],
+  );
+  const visibleItems = useMemo(
+    () => sortedItems.slice(offset, offset + PAGE_SIZE),
+    [offset, sortedItems],
+  );
+  const showPagination = sortedItems.length > PAGE_SIZE;
+
   const page = Math.floor(offset / PAGE_SIZE) + 1;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sortedItems.length / PAGE_SIZE));
 
   useEffect(() => {
     setPageInput(String(page));
   }, [page]);
 
   useEffect(() => {
-    if (total === 0) {
+    if (sortedItems.length === 0) {
       return;
     }
     if (page > totalPages) {
       goToPage(totalPages, { replace: true });
     }
-  }, [page, total, totalPages]);
+  }, [page, sortedItems.length, totalPages]);
 
   function goToPage(nextPage: number, options?: { replace?: boolean }) {
     if (!Number.isFinite(nextPage)) {
@@ -170,25 +194,6 @@ export function SetsListPage() {
   function resetToFirstPage() {
     goToPage(1, { replace: true });
   }
-  const groupedItems = useMemo(() => {
-    if (groupBy.length === 0) {
-      return [];
-    }
-    const primary = groupBy[0]!;
-    const secondary = groupBy[1];
-    const groups = new Map<string, Map<string, SetCopyListItem[]>>();
-    for (const item of items) {
-      const primaryLabel = groupLabel(item, primary);
-      const secondaryLabel = secondary ? groupLabel(item, secondary) : "";
-      const secondaryMap = groups.get(primaryLabel) ?? new Map<string, SetCopyListItem[]>();
-      const bucket = secondaryMap.get(secondaryLabel) ?? [];
-      bucket.push(item);
-      secondaryMap.set(secondaryLabel, bucket);
-      groups.set(primaryLabel, secondaryMap);
-    }
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [groupBy, items]);
-
   const themeFilterLabel =
     themeFilter.length === 0
       ? "All"
@@ -262,8 +267,8 @@ export function SetsListPage() {
       <header className="page__header">
         <h1>Your sets</h1>
         <p className="page__lede">
-          {total} copy{total === 1 ? "" : "ies"} in your collection (each LEGO set
-          number may appear multiple times).
+          {sortedItems.length} copy{sortedItems.length === 1 ? "" : "ies"} in your
+          collection (each LEGO set number may appear multiple times).
         </p>
       </header>
 
@@ -373,7 +378,10 @@ export function SetsListPage() {
                 <input
                   type="checkbox"
                   checked={groupBy.length === 0}
-                  onChange={() => setGroupBy([])}
+                  onChange={() => {
+                    resetToFirstPage();
+                    setGroupBy([]);
+                  }}
                 />
                 None
               </label>
@@ -381,9 +389,10 @@ export function SetsListPage() {
                 <input
                   type="checkbox"
                   checked={groupBy.includes("theme")}
-                  onChange={() =>
-                    setGroupBy((current) => toggleValue(current, "theme"))
-                  }
+                  onChange={() => {
+                    resetToFirstPage();
+                    setGroupBy((current) => toggleValue(current, "theme"));
+                  }}
                 />
                 Theme
               </label>
@@ -391,7 +400,10 @@ export function SetsListPage() {
                 <input
                   type="checkbox"
                   checked={groupBy.includes("age")}
-                  onChange={() => setGroupBy((current) => toggleValue(current, "age"))}
+                  onChange={() => {
+                    resetToFirstPage();
+                    setGroupBy((current) => toggleValue(current, "age"));
+                  }}
                 />
                 Age
               </label>
@@ -402,7 +414,7 @@ export function SetsListPage() {
 
       <AsyncMessage error={error} loading={loading && items.length === 0} />
 
-      {!loading && items.length === 0 && !error && (
+      {!loading && sortedItems.length === 0 && !error && (
         <p className="empty-state">
           Nothing in your collection yet.{" "}
           {canAddOrDuplicate ? (
@@ -427,10 +439,10 @@ export function SetsListPage() {
 
       {groupBy.length > 0 ? (
         <div className="set-categories" aria-label="Sets grouped by selected fields">
-          {groupedItems.map(([primaryLabel, secondaryMap]) => (
+          {visibleGroupedItems.map(({ primaryLabel, secondaries }) => (
             <section key={primaryLabel} className="set-category">
               <h2>{primaryLabel}</h2>
-              {Array.from(secondaryMap.entries()).map(([secondaryLabel, bucket]) => (
+              {secondaries.map(({ secondaryLabel, items: bucket }) => (
                 <section
                   key={`${primaryLabel}-${secondaryLabel || "items"}`}
                   className="set-category__age"
@@ -444,11 +456,11 @@ export function SetsListPage() {
         </div>
       ) : (
         <ul className="set-list" aria-label="Sets in collection">
-          {items.map(renderSetCard)}
+          {visibleItems.map(renderSetCard)}
         </ul>
       )}
 
-      {total > PAGE_SIZE && (
+      {showPagination && (
         <div className="pagination">
           <div className="pagination__main">
             <button
@@ -465,7 +477,7 @@ export function SetsListPage() {
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={offset + PAGE_SIZE >= total || loading}
+              disabled={offset + PAGE_SIZE >= sortedItems.length || loading}
               onClick={() => goToPage(page + 1)}
             >
               Next
