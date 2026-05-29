@@ -195,10 +195,81 @@ def test_get_owned_set_detail_exposes_element_image_urls(
     body = response.json()
     set_part = body["inventory"]["set_parts"][0]
     assert set_part["image_url"] == "/api/elements/302424/image"
-    assert set_part["part_image_url"] == "/api/elements/302424/image"
+    assert set_part["part_image_url"] is None
     minifig_part = body["inventory"]["minifigs"][0]["parts"][0]
     assert minifig_part["image_url"] is None
     assert minifig_part["part_image_url"] is None
+
+
+def test_get_owned_set_detail_part_image_url_is_part_blob_only(
+    api_client, db_session
+) -> None:
+    from app.services.image_blob import set_element_image, set_part_image
+
+    catalog = add_catalog_set(db_session)
+    owned = add_owned_set(db_session, catalog)
+    part = add_part(db_session, part_num="3024")
+    color = add_color(db_session, external_id=4, name="Red")
+    line = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part,
+        color=color,
+    )
+    add_element_id_for_set_part_line(db_session, line=line, element_id="302424")
+    set_element_image(
+        db_session,
+        "302424",
+        content=TINY_PNG,
+        content_type="image/png",
+    )
+    set_part_image(
+        db_session,
+        part.id,
+        content=TINY_PNG,
+        content_type="image/png",
+    )
+    db_session.commit()
+
+    body = api_client.get(f"/api/owned-sets/{owned.id}").json()
+    set_part = body["inventory"]["set_parts"][0]
+    assert set_part["image_url"] == "/api/elements/302424/image"
+    assert set_part["part_image_url"] == f"/api/parts/{part.id}/image"
+
+
+def test_get_owned_set_detail_part_image_user_removed_after_delete(
+    api_client, db_session
+) -> None:
+    from app.services.image_blob import clear_part_image, set_element_image
+
+    catalog = add_catalog_set(db_session)
+    owned = add_owned_set(db_session, catalog)
+    part = add_part(db_session, part_num="3024")
+    color = add_color(db_session, external_id=4, name="Red")
+    line = add_set_part_inventory_line(
+        db_session,
+        catalog_set=catalog,
+        part=part,
+        color=color,
+    )
+    add_element_id_for_set_part_line(db_session, line=line, element_id="302424")
+    set_element_image(
+        db_session,
+        "302424",
+        content=TINY_PNG,
+        content_type="image/png",
+    )
+    db_session.commit()
+
+    clear_part_image(db_session, part.id)
+    db_session.commit()
+
+    set_part = api_client.get(f"/api/owned-sets/{owned.id}").json()["inventory"][
+        "set_parts"
+    ][0]
+    assert set_part["image_url"] == "/api/elements/302424/image"
+    assert set_part["part_image_url"] is None
+    assert set_part["part_image_user_removed"] is True
 
 
 def test_get_owned_set_not_found(api_client) -> None:

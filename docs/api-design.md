@@ -220,7 +220,8 @@ Multiple `items` may share the same `set_num` with different `id`.
         "element_ids": ["302400", "6252045"],
         "aliases": ["3024b", "3024pr"],
         "image_url": "/api/elements/302400/image",
-        "part_image_url": "/api/elements/302400/image",
+        "part_image_url": null,
+        "part_image_user_removed": false,
         "missing_quantity": 1,
         "missing_item_id": 501,
         "missing_image_url": "/api/elements/302400/image"
@@ -244,6 +245,10 @@ Multiple `items` may share the same `set_num` with different `id`.
             "color_id": 14,
             "color_name": "Yellow",
             "quantity": 1,
+            "element_ids": [],
+            "image_url": null,
+            "part_image_url": null,
+            "part_image_user_removed": false,
             "missing_quantity": 0,
             "missing_item_id": null,
             "missing_image_url": null
@@ -255,7 +260,19 @@ Multiple `items` may share the same `set_num` with different `id`.
 }
 ```
 
-`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state. **`image_url`** and **`part_image_url`** are set to the same resolved display URL for the line. All client-facing image fields are **same-origin API paths only** when a JPEG/PNG BLOB exists locally; resolution order is **element BLOB** (`/api/elements/{element_id}/image` for the first persisted Element ID on the line with a BLOB) → **part BLOB** (`/api/parts/{part_id}/image`) → **`null`**. Rebrickable CDN URLs stored in the database during sync are **not** exposed to clients — they are used only as download sources during import/sync.
+`quantity` and `missing_quantity` are **per copy** (`owned_set_inventory_lines`). `missing_quantity`, `missing_item_id`, and `missing_image_url` reflect **this copy’s** missing state.
+
+**Inventory line images (set detail):**
+
+| Field | Meaning |
+|-------|---------|
+| `image_url` | **Line display URL:** first persisted Element ID on the line with a local element BLOB (`/api/elements/{element_id}/image`), else the global part BLOB (`/api/parts/{part_id}/image`) when present, else `null`. |
+| `part_image_url` | **Part BLOB only:** `/api/parts/{part_id}/image` when `parts.image_blob` exists, else `null` (never an element path). |
+| `part_image_user_removed` | `true` after **`DELETE /parts/{part_id}/image`** (or equivalent clear) while element/catalog images may still exist; cleared on **`PUT /parts/{part_id}/image`**. |
+
+The UI resolves thumbnails and modal previews with **`part_image_url` first**, then **`image_url`** unless `part_image_user_removed` is `true` (then no fallback to element/catalog images for part-photo display).
+
+All client-facing image fields are **same-origin API paths only** when a JPEG/PNG BLOB exists locally. Rebrickable CDN URLs stored in the database during sync are **not** exposed to clients — they are used only as download sources during import/sync.
 
 `aliases` (Phase **11A**): other identifiers for this `part_id` from `part_aliases`, excluding strings equal to `part_num`. Omitted or empty when none. Read-only in detail until Phase **11B** enables editing via `PATCH /parts/{part_id}/aliases`.
 
@@ -371,7 +388,7 @@ If `label` is omitted, server uses `suggested_label` from the preview rules.
 | `PUT` | `/catalog-minifigs/{catalog_minifig_id}/image` | Upload/replace minifigure image |
 | `DELETE` | `/catalog-minifigs/{catalog_minifig_id}/image` | Clear minifigure image |
 
-**Line display resolution:** inventory `image_url` / `part_image_url` in detail and reports use element BLOBs first, then part BLOBs. **`GET /elements/{element_id}/image`** has no PUT/DELETE; sync and missing uploads may populate `element_images`, while **PartLineModal** part-photo uploads use **`PUT /parts/{part_id}/image`** on the global part row.
+**Line display resolution:** `image_url` on inventory lines uses element BLOBs first, then part BLOBs. `part_image_url` is the part BLOB path only. **`DELETE /parts/{part_id}/image`** clears the part BLOB and sets `parts.part_image_user_removed`; element BLOBs are unchanged. **`GET /elements/{element_id}/image`** has no PUT/DELETE; sync and missing uploads may populate `element_images`, while **PartLineModal** part-photo uploads use **`PUT /parts/{part_id}/image`** on the global part row.
 
 **`PUT` response `200`:** `{ "image_url": "/api/parts/{part_id}/image" }` (or catalog-set / catalog-minifig path).
 
@@ -379,7 +396,7 @@ If `label` is omitted, server uses `suggested_label` from the preview rules.
 
 **`GET`** returns raw bytes with stored `Content-Type`. **`404`** when no BLOB. **`413`** when upload exceeds size limit.
 
-Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `part_image_url`, and `catalog.image_url` as same-origin paths when BLOBs exist.
+Detail JSON exposes `catalog.catalog_set_id`, line `part_id`, `image_url`, `part_image_url`, `part_image_user_removed`, and `catalog.image_url` as same-origin paths when BLOBs exist.
 
 ### Media (missing-line convenience)
 

@@ -123,6 +123,98 @@ describe("SetDetailPage", () => {
     );
   });
 
+  it("shows element image in list when only element blob exists", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            image_url: "/api/elements/302400/image",
+            part_image_url: null,
+            part_image_user_removed: false,
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    renderDetail();
+
+    await screen.findByText(/Plate 1 x 1/);
+    expect(document.querySelector(".part-cell__img")).toHaveAttribute(
+      "src",
+      "/api/elements/302400/image",
+    );
+  });
+
+  it("does not show element image in list when part photo was user-removed", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            image_url: "/api/elements/302400/image",
+            part_image_url: null,
+            part_image_user_removed: true,
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    renderDetail();
+
+    await screen.findByText(/Plate 1 x 1/);
+    expect(document.querySelector(".part-cell__img")).toBeNull();
+  });
+
+  it("shows part blob in list when both element and part images exist", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            image_url: "/api/elements/302424/image",
+            part_image_url: "/api/parts/42/image",
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    renderDetail();
+
+    await screen.findByText(/Plate 1 x 1/);
+    expect(document.querySelector(".part-cell__img")).toHaveAttribute(
+      "src",
+      "/api/parts/42/image",
+    );
+  });
+
   it("shows local part image URLs from the API", async () => {
     const detail = {
       ...setCopyDetailFixture,
@@ -328,7 +420,7 @@ describe("SetDetailPage", () => {
     expect(
       within(dialog).getByRole("heading", { name: /edit part/i }),
     ).toBeInTheDocument();
-    expect(within(dialog).getByDisplayValue("3024")).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue("302400, 6252045")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: /^update$/i })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
   });
@@ -646,7 +738,11 @@ describe("SetDetailPage", () => {
     expect(
       within(dialog).getByRole("heading", { name: /part view/i }),
     ).toBeInTheDocument();
-    expect(within(dialog).getByDisplayValue("3024")).toBeDisabled();
+    expect(within(dialog).getByLabelText(/^element id$/i)).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue("302400, 6252045")).toBeDisabled();
+    expect(
+      within(dialog).queryByLabelText(/^part number$/i),
+    ).not.toBeInTheDocument();
     expect(
       within(dialog).getByRole("button", { name: /^ok$/i }),
     ).toBeInTheDocument();
@@ -674,6 +770,11 @@ describe("SetDetailPage", () => {
     expect(
       within(dialog).getByRole("heading", { name: /part view/i }),
     ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/^element id$/i)).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue("302400, 6252045")).toBeDisabled();
+    expect(
+      within(dialog).queryByLabelText(/^part number$/i),
+    ).not.toBeInTheDocument();
     expect(
       within(dialog).getByRole("button", { name: /^ok$/i }),
     ).toBeInTheDocument();

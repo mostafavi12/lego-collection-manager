@@ -80,6 +80,7 @@ def set_part_image(
     part.image_blob = content
     part.image_content_type = normalized
     part.image_byte_size = len(content)
+    part.part_image_user_removed = False
     session.flush()
     return part
 
@@ -91,6 +92,7 @@ def clear_part_image(session: Session, part_id: int) -> Part:
     part.image_blob = None
     part.image_content_type = None
     part.image_byte_size = None
+    part.part_image_user_removed = True
     session.flush()
     return part
 

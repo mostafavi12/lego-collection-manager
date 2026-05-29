@@ -126,6 +126,9 @@ class Part(Base):
     image_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     image_content_type: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_byte_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    part_image_user_removed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0")
+    )
     source: Mapped[str] = mapped_column(Text, nullable=False)
     source_ref: Mapped[str] = mapped_column(Text, nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

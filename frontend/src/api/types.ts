@@ -105,6 +105,7 @@ export interface SetPartLineDetail {
   aliases: string[];
   image_url: string | null;
   part_image_url: string | null;
+  part_image_user_removed?: boolean;
   missing_quantity: number;
   missing_item_id: number | null;
   missing_image_url: string | null;
@@ -122,6 +123,7 @@ export interface MinifigPartLineDetail {
   element_ids: string[];
   image_url: string | null;
   part_image_url: string | null;
+  part_image_user_removed?: boolean;
   missing_quantity: number;
   missing_item_id: number | null;
   missing_image_url: string | null;

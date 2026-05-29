@@ -364,7 +364,7 @@ See [api-design.md](./api-design.md) for sync contract. Phase **12** (CSV fetch)
 
 **Exit criteria**
 
-- Default mode is View; Investigate allows investigated + missing only; Edit enables all current mutations; part row click opens **Part view** (read-only) outside Edit.
+- Default mode is View; Investigate allows investigated + missing + part-photo edit in **Part view**; Edit enables all current mutations; part row click opens **Part view** outside Edit (read-only catalog fields; optional part-photo editor in Investigate).
 - Mode persists across reload; Settings always reachable.
 - Frontend tests pass; no backend auth in this phase.
 

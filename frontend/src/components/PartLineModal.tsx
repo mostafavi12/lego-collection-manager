@@ -17,9 +17,15 @@ import {
 } from "./AliasChipEditor";
 import { AsyncMessage } from "./AsyncMessage";
 import { Modal } from "./Modal";
+import { PartImageEditor } from "./PartImageEditor";
+import { partPhotoDisplayUrl } from "../utils/partPhotoDisplay";
 
 type InventoryPartLineDetail = SetPartLineDetail | MinifigPartLineDetail;
 type InventoryKind = "set_part" | "minifig_part";
+
+function formatElementIds(elementIds: string[]): string {
+  return elementIds.length > 0 ? elementIds.join(", ") : "No Element ID";
+}
 export interface PartLineModalSaveResult {
   imageChanged: boolean;
 }
@@ -30,6 +36,7 @@ interface PartLineModalProps {
   inventoryKind?: InventoryKind;
   line?: InventoryPartLineDetail;
   readOnly?: boolean;
+  canEditPartImage?: boolean;
   onClose: () => void;
   onSaved: (result?: PartLineModalSaveResult) => void;
 }
@@ -40,6 +47,7 @@ export function PartLineModal({
   inventoryKind = "set_part",
   line,
   readOnly = false,
+  canEditPartImage = false,
   onClose,
   onSaved,
 }: PartLineModalProps) {
@@ -266,18 +274,25 @@ export function PartLineModal({
   }
 
   const title = readOnly && isEdit ? "Part view" : isEdit ? "Edit part" : "Add part";
-  const imageUrl = line?.image_url ?? line?.part_image_url ?? null;
-  const displayImageUrl = pendingPreview ?? (removeCurrentImage ? null : mediaUrl(imageUrl));
+  const partPhotoDisplay =
+    line == null ? null : partPhotoDisplayUrl(line);
+  const displayImageUrl =
+    pendingPreview ??
+    (removeCurrentImage ? null : mediaUrl(partPhotoDisplay));
   const canonicalPartNum = isEdit ? (line?.part_num ?? "") : partNum.trim();
 
   if (readOnly && isEdit && line) {
-    const viewImageUrl = mediaUrl(imageUrl);
+    const viewImageUrl = mediaUrl(partPhotoDisplayUrl(line));
     return (
       <Modal title={title} onClose={onClose}>
         <div className="instance-form__grid">
           <label className="form-field">
-            Part number
-            <input value={line.part_num} readOnly disabled />
+            Element ID
+            <input
+              value={formatElementIds(line.element_ids)}
+              readOnly
+              disabled
+            />
           </label>
           <label className="form-field">
             Part name
@@ -301,28 +316,30 @@ export function PartLineModal({
           </label>
         </div>
 
-        {inventoryKind === "set_part" && (
-          <AliasChipEditor
-            partNum={line.part_num}
-            aliases={"aliases" in line ? line.aliases : []}
-            onChange={() => {}}
-            disabled
-          />
-        )}
-
         <div className="part-line-modal__image">
-          <p className="form-hint">Part image</p>
-          <div className="image-blob-editor">
-            {viewImageUrl ? (
-              <img
-                src={viewImageUrl}
-                alt={`Part ${line.part_num}`}
-                className="image-blob-editor__preview"
-              />
-            ) : (
-              <div className="image-blob-editor__placeholder" aria-hidden />
-            )}
-          </div>
+          <p className="form-hint">
+            {canEditPartImage ? "Part photo (shared across all sets)" : "Part image"}
+          </p>
+          {canEditPartImage ? (
+            <PartImageEditor
+              partId={line.part_id}
+              partNum={line.part_num}
+              imageUrl={mediaUrl(partPhotoDisplayUrl(line))}
+              onUpdated={() => onSaved({ imageChanged: true })}
+            />
+          ) : (
+            <div className="image-blob-editor">
+              {viewImageUrl ? (
+                <img
+                  src={viewImageUrl}
+                  alt={`Part ${line.part_num}`}
+                  className="image-blob-editor__preview"
+                />
+              ) : (
+                <div className="image-blob-editor__placeholder" aria-hidden />
+              )}
+            </div>
+          )}
         </div>
 
         <div className="modal__actions">
@@ -373,16 +390,26 @@ export function PartLineModal({
           </p>
           <AsyncMessage error={error} />
           <div className="instance-form__grid">
-            <label className="form-field">
-              Part number
-              <input
-                value={partNum}
-                disabled={loading || isEdit}
-                readOnly={isEdit}
-                onChange={(e) => setPartNum(e.target.value)}
-                autoFocus={!isEdit}
-              />
-            </label>
+            {isEdit && line ? (
+              <label className="form-field">
+                Element ID
+                <input
+                  value={formatElementIds(line.element_ids)}
+                  readOnly
+                  disabled
+                />
+              </label>
+            ) : (
+              <label className="form-field">
+                Part number
+                <input
+                  value={partNum}
+                  disabled={loading}
+                  onChange={(e) => setPartNum(e.target.value)}
+                  autoFocus
+                />
+              </label>
+            )}
             <label className="form-field">
               Part name
               <input

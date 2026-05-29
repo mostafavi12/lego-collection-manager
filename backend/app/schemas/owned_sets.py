@@ -85,6 +85,7 @@ class SetPartLineDetail(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     image_url: str | None
     part_image_url: str | None
+    part_image_user_removed: bool = False
     missing_quantity: int
     missing_item_id: int | None
     missing_image_url: str | None
@@ -102,6 +103,7 @@ class MinifigPartLineDetail(BaseModel):
     element_ids: list[str] = Field(default_factory=list)
     image_url: str | None
     part_image_url: str | None
+    part_image_user_removed: bool = False
     missing_quantity: int
     missing_item_id: int | None
     missing_image_url: str | None

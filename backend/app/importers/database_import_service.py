@@ -403,6 +403,7 @@ def _upsert_part_from_source(
         target_part.image_blob = source_part.image_blob
         target_part.image_content_type = source_part.image_content_type
         target_part.image_byte_size = source_part.image_byte_size
+        target_part.part_image_user_removed = source_part.part_image_user_removed
         target_part.fetched_at = source_part.fetched_at
     target_session.flush()
     _copy_part_aliases(target_session, source_session, source_part.id, target_part.id)

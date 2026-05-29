@@ -28,7 +28,9 @@ describe("PartLineModal", () => {
     expect(
       screen.getByRole("heading", { name: /part view/i }),
     ).toBeInTheDocument();
-    expect(screen.getByDisplayValue("3024")).toBeDisabled();
+    expect(screen.getByDisplayValue("302400, 6252045")).toBeDisabled();
+    expect(screen.queryByLabelText(/^part number$/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^element id$/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue("Plate 1 x 1")).toBeDisabled();
     expect(screen.getByRole("button", { name: /^ok$/i })).toBeInTheDocument();
     expect(
@@ -41,6 +43,23 @@ describe("PartLineModal", () => {
       screen.queryByRole("button", { name: /^delete$/i }),
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^part photo$/i)).not.toBeInTheDocument();
+  });
+
+  it("shows part photo editor in read-only part view when canEditPartImage", () => {
+    render(
+      <PartLineModal
+        mode="edit"
+        setCopyId={1}
+        line={{ ...line, part_image_url: "/api/parts/42/image" }}
+        readOnly
+        canEditPartImage
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText(/^part photo$/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^ok$/i })).toBeInTheDocument();
   });
 
   it("shows alias chips in edit mode", () => {

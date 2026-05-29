@@ -44,6 +44,7 @@ from app.services.catalog_state import (
     resolve_catalog_image_url,
     resolve_catalog_minifig_image_url,
     resolve_line_image_url,
+    resolve_part_image_url,
 )
 from app.services.instance_inventory import (
     clear_instance_inventory,
@@ -364,7 +365,8 @@ def get_owned_set_detail(
                 element_ids=line_element_ids,
                 aliases=_aliases_for_part(part),
                 image_url=resolved_image_url,
-                part_image_url=resolved_image_url,
+                part_image_url=resolve_part_image_url(part),
+                part_image_user_removed=part.part_image_user_removed,
                 missing_quantity=instance_line.quantity_missing,
                 missing_item_id=missing.id if missing else None,
                 missing_image_url=missing_image_url_for_part(
@@ -428,7 +430,8 @@ def get_owned_set_detail(
                     quantity=instance_line.quantity,
                     element_ids=line_element_ids,
                     image_url=resolved_image_url,
-                    part_image_url=resolved_image_url,
+                    part_image_url=resolve_part_image_url(part),
+                    part_image_user_removed=part.part_image_user_removed,
                     missing_quantity=instance_line.quantity_missing,
                     missing_item_id=missing.id if missing else None,
                     missing_image_url=missing_image_url_for_part(

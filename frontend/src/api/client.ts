@@ -76,9 +76,11 @@ async function request<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, init);
+  const url = `${API_BASE}${path}`;
+  const response = await fetch(url, init);
   if (!response.ok) {
-    throw new ApiError(await parseErrorMessage(response), response.status);
+    const errorMessage = await parseErrorMessage(response);
+    throw new ApiError(errorMessage, response.status);
   }
   if (response.status === 204) {
     return undefined as T;

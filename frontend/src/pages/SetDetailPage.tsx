@@ -24,6 +24,7 @@ import {
   PartLineModal,
   type PartLineModalSaveResult,
 } from "../components/PartLineModal";
+import { partPhotoDisplayUrl } from "../utils/partPhotoDisplay";
 import { formatSetCopyTitle } from "../utils/setCopyTitle";
 
 interface InstanceForm {
@@ -86,6 +87,12 @@ function withRefreshToken(url: string | null, token: number): string | null {
   return `${url}${url.includes("?") ? "&" : "?"}v=${token}`;
 }
 
+function inventoryLineThumbUrl(
+  line: Parameters<typeof partPhotoDisplayUrl>[0],
+): string | null {
+  return partPhotoDisplayUrl(line);
+}
+
 export function SetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const setCopyId = Number(id);
@@ -100,6 +107,7 @@ export function SetDetailPage() {
     canEditImages,
     canToggleInvestigated,
     canEditMissing,
+    canEditMissingPhotos,
   } = useCapabilities();
   const [detail, setDetail] = useState<SetCopyDetailResponse | null>(null);
   const [form, setForm] = useState<InstanceForm | null>(null);
@@ -632,7 +640,7 @@ export function SetDetailPage() {
             <tbody>
               {visibleSetParts.map((line) => {
                 const thumb = withRefreshToken(
-                  mediaUrl(line.image_url ?? line.part_image_url),
+                  mediaUrl(inventoryLineThumbUrl(line)),
                   imageRefreshToken,
                 );
                 return (
@@ -726,7 +734,7 @@ export function SetDetailPage() {
                   <tbody>
                     {mf.parts.map((line) => {
                       const thumb = withRefreshToken(
-                        mediaUrl(line.image_url ?? line.part_image_url),
+                        mediaUrl(inventoryLineThumbUrl(line)),
                         imageRefreshToken,
                       );
                       return (
@@ -794,6 +802,7 @@ export function SetDetailPage() {
           }
           line={partModal.mode === "edit" ? partModal.line : undefined}
           readOnly={!canEditParts}
+          canEditPartImage={canEditMissingPhotos}
           onClose={() => setPartModal(null)}
           onSaved={onPartModalSaved}
         />
