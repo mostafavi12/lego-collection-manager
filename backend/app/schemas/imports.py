@@ -1,6 +1,11 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+ImportJobKind = Literal["csv", "rebrickable_sync", "database"]
+ImportJobStatus = Literal[
+    "queued", "running", "completed", "failed", "cancelled"
+]
 
 PartImageDownloadMode = Literal["none", "missing", "all"]
 ExistingSetImportMode = Literal["skip", "copy"]
@@ -78,3 +83,24 @@ class DatabaseImportResponse(BaseModel):
     instances_created: int
     parts_upserted: int
     inventory_lines_written: int
+
+
+class ImportJobProgress(BaseModel):
+    current: int
+    total: int
+    label: str
+
+
+class ImportJobStartResponse(BaseModel):
+    job_id: str
+    status: ImportJobStatus
+
+
+class ImportJobStatusResponse(BaseModel):
+    job_id: str
+    kind: ImportJobKind
+    status: ImportJobStatus
+    progress: ImportJobProgress | None = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    failed_sets_csv_path: str | None = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -22,6 +23,8 @@ from app.db.models import (
     SetMinifigInventoryLine,
     SetPartInventoryLine,
 )
+from app.importers.import_job_types import ProgressCallback
+from app.importers.import_progress_callback import check_import_cancelled
 from app.importers.rebrickable_catalog import (
     SOURCE,
     replace_minifig_part_inventory,
@@ -118,12 +121,18 @@ def sync_catalog_for_set_nums(
     download_missing_part_images: bool = False,
     download_all_part_images: bool = False,
     image_downloader: ImageDownloader | None = None,
+    cancel_event: threading.Event | None = None,
+    on_progress: ProgressCallback | None = None,
 ) -> RebrickableSyncResult:
     result = RebrickableSyncResult()
     downloader = image_downloader or HttpxImageDownloader()
-    logger.info("Rebrickable sync started set_count=%s", len(set_nums))
+    total_sets = len(set_nums)
+    logger.info("Rebrickable sync started set_count=%s", total_sets)
     with failed_sets_import_run() as record_failed_set:
-        for set_num in set_nums:
+        for step, set_num in enumerate(set_nums):
+            check_import_cancelled(cancel_event)
+            if on_progress is not None:
+                on_progress(step, total_sets, f"Syncing {set_num}")
             try:
                 with session.begin_nested():
                     parts, lines, _age = sync_one_catalog_set(
@@ -205,6 +214,8 @@ def sync_rebrickable(
     download_missing_part_images: bool = False,
     download_all_part_images: bool = False,
     image_downloader: ImageDownloader | None = None,
+    cancel_event: threading.Event | None = None,
+    on_progress: ProgressCallback | None = None,
 ) -> RebrickableSyncResult:
     """Sync catalog data for set copies (dedup by `set_num`). Opens client when not provided."""
     set_nums = resolve_set_nums(session, owned_set_ids)
@@ -221,6 +232,8 @@ def sync_rebrickable(
             download_missing_part_images=download_missing_part_images,
             download_all_part_images=download_all_part_images,
             image_downloader=image_downloader,
+            cancel_event=cancel_event,
+            on_progress=on_progress,
         )
 
     with RebrickableClient() as rb_client:
@@ -232,6 +245,8 @@ def sync_rebrickable(
             download_missing_part_images=download_missing_part_images,
             download_all_part_images=download_all_part_images,
             image_downloader=image_downloader,
+            cancel_event=cancel_event,
+            on_progress=on_progress,
         )
 
 

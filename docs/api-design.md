@@ -29,6 +29,33 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 
 ## Import operations
 
+### Background import jobs
+
+Long-running imports run in a **background worker thread** so other API routes stay responsive. Only **one** job may be `queued` or `running` at a time per server process.
+
+**`POST /imports/jobs`** — **`202`**
+
+- **Body:** `multipart/form-data` with required `kind`: `csv` | `rebrickable_sync` | `database`.
+- **`csv`:** `file` (same rules as `POST /imports/csv`), optional `existing_set_mode` (`skip` default).
+- **`rebrickable_sync`:** optional `sync_options` form field — JSON object with the same fields as `POST /imports/rebrickable/sync` (omit for defaults).
+- **`database`:** `file` (SQLite `.db`), optional `mode` (`add_only_new` | `add_and_update`).
+- **Response:** `{ "job_id": "<uuid>", "status": "queued" }`.
+- **Errors:** **`409`** if another job is active; **`400`** / **`413`** same validation as synchronous import routes.
+
+**`GET /imports/jobs/{job_id}`**
+
+- **Response `200`:** `{ "job_id", "kind", "status", "progress": { "current", "total", "label" } | null, "result": {…} | null, "error": string | null, "failed_sets_csv_path": string | null }`.
+- `status`: `queued` | `running` | `completed` | `failed` | `cancelled`.
+- `result` shape matches the synchronous endpoint for that `kind` when `status` is `completed`.
+- **`404`** if `job_id` is unknown.
+
+**`DELETE /imports/jobs/{job_id}`**
+
+- Requests **cooperative cancel** (checked between sets/tokens). Returns current job snapshot (same shape as `GET`).
+- **`404`** if unknown.
+
+**Legacy synchronous routes** (`POST /imports/csv`, `/rebrickable/sync`, `/database`) remain for existing clients and tests; the Import UI will move to jobs in a later phase.
+
 ### Failed sets retry file
 
 **`GET /imports/failed-sets.csv`**

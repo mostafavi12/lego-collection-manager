@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -10,6 +11,8 @@ from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.import_progress import commit_import_progress
+from app.importers.import_job_types import ProgressCallback
+from app.importers.import_progress_callback import check_import_cancelled
 from app.db.models import (
     CatalogMinifig,
     CatalogSet,
@@ -76,6 +79,8 @@ def import_from_database(
     source_db_path: str,
     *,
     mode: DatabaseImportMode,
+    cancel_event: threading.Event | None = None,
+    on_progress: ProgressCallback | None = None,
 ) -> DatabaseImportResult:
     validate_source_database(source_db_path)
     source_engine = create_engine(
@@ -84,7 +89,13 @@ def import_from_database(
     )
     source_session = sessionmaker(bind=source_engine, autoflush=False, autocommit=False)()
     try:
-        return _import_from_sessions(target_session, source_session, mode=mode)
+        return _import_from_sessions(
+            target_session,
+            source_session,
+            mode=mode,
+            cancel_event=cancel_event,
+            on_progress=on_progress,
+        )
     finally:
         source_session.close()
         source_engine.dispose()
@@ -105,14 +116,20 @@ def _import_from_sessions(
     source_session: Session,
     *,
     mode: DatabaseImportMode,
+    cancel_event: threading.Event | None = None,
+    on_progress: ProgressCallback | None = None,
 ) -> DatabaseImportResult:
     result = DatabaseImportResult()
     source_catalogs = source_session.scalars(
         select(CatalogSet).order_by(CatalogSet.set_number, CatalogSet.set_variant)
     ).all()
+    total_sets = len(source_catalogs)
 
-    for source_catalog in source_catalogs:
+    for step, source_catalog in enumerate(source_catalogs):
+        check_import_cancelled(cancel_event)
         set_num = f"{source_catalog.set_number}-{source_catalog.set_variant}"
+        if on_progress is not None:
+            on_progress(step, total_sets, f"Importing {set_num}")
         target_catalog = target_session.scalar(
             select(CatalogSet).where(
                 CatalogSet.set_number == source_catalog.set_number,

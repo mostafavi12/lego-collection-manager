@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -17,6 +18,8 @@ from app.importers.rebrickable_sync_service import (
     _format_api_error,
     sync_one_catalog_set,
 )
+from app.importers.import_job_types import ProgressCallback
+from app.importers.import_progress_callback import check_import_cancelled
 from app.importers.set_list_parser import ParseError, parse_set_list_entries
 from app.rebrickable.client import RebrickableClient
 from app.rebrickable.exceptions import RebrickableAPIError
@@ -104,8 +107,11 @@ def import_set_list(
     *,
     client: RebrickableReader | None = None,
     existing_set_mode: str = "skip",
+    cancel_event: threading.Event | None = None,
+    on_progress: ProgressCallback | None = None,
 ) -> CsvImportResult:
     valid_entries, errors = parse_set_list_entries(content)
+    total_tokens = len(valid_entries)
     instances_created = 0
     catalog_stubs_created = 0
     sets_fetched = 0
@@ -235,11 +241,17 @@ def import_set_list(
                 commit_import_progress(session)
 
         if client is not None:
-            for token_index, set_num in valid_entries:
+            for step, (token_index, set_num) in enumerate(valid_entries):
+                check_import_cancelled(cancel_event)
+                if on_progress is not None:
+                    on_progress(step, total_tokens, f"Importing {set_num}")
                 process_token(token_index, set_num, client)
         else:
             with RebrickableClient() as rb_client:
-                for token_index, set_num in valid_entries:
+                for step, (token_index, set_num) in enumerate(valid_entries):
+                    check_import_cancelled(cancel_event)
+                    if on_progress is not None:
+                        on_progress(step, total_tokens, f"Importing {set_num}")
                     process_token(token_index, set_num, rb_client)
 
     session.flush()
