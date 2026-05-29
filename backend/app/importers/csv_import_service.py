@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db.import_progress import commit_import_progress
 from app.db.models import CatalogSet, OwnedSet
 from app.domain.lego_set_number import LegoSetId, parse_user_set_number, to_rebrickable_set_num
 from app.importers.rebrickable_catalog import utc_now
@@ -134,6 +135,7 @@ def import_set_list(
                 _create_owned_instance(session, existing_catalog)
                 instances_created += 1
                 logger.info("CSV import token_existing_copy rb_key=%s", rb_key)
+                commit_import_progress(session)
             else:
                 existing_sets_skipped += 1
                 skipped_existing_sets.append(
@@ -168,6 +170,7 @@ def import_set_list(
             instances_created += 1
             sets_fetched += 1
             logger.info("CSV import token_ok rb_key=%s", rb_key)
+            commit_import_progress(session)
         except RebrickableAPIError as exc:
             message = _format_api_error(exc)
             logger.warning(
@@ -197,6 +200,7 @@ def import_set_list(
                     message=message,
                 )
             )
+            commit_import_progress(session)
         except Exception as exc:
             logger.exception(
                 "CSV import token_failed token_index=%s rb_key=%s",
@@ -224,6 +228,7 @@ def import_set_list(
                     message=str(exc),
                 )
             )
+            commit_import_progress(session)
 
     if client is not None:
         for token_index, set_num in valid_entries:

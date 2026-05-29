@@ -14,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 from app.db import models as _models  # noqa: F401 — register tables
 from app.db.base import Base
 from app.db.deps import get_db
+from app.db.sqlite_pragmas import configure_sqlite_engine
 from app.main import app
 
 
@@ -21,9 +22,10 @@ from app.main import app
 def db_session() -> Session:
     engine = create_engine(
         "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 30},
         poolclass=StaticPool,
     )
+    configure_sqlite_engine(engine)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False, autocommit=False)()
     try:
