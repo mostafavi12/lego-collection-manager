@@ -2,6 +2,7 @@ import os
 import tempfile
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
@@ -29,12 +30,26 @@ from app.schemas.imports import (
     RebrickableSyncRequest,
     RebrickableSyncResponse,
 )
+from app.services.failed_sets_csv import failed_sets_csv_path
 from app.services.local_metadata import update_missing_local_metadata
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
 MAX_CSV_BYTES = int(os.environ.get("CSV_IMPORT_MAX_BYTES", 1_048_576))
 MAX_DATABASE_BYTES = int(os.environ.get("DATABASE_IMPORT_MAX_BYTES", 524_288_000))
+
+
+@router.get("/failed-sets.csv")
+def download_failed_sets_csv() -> FileResponse:
+    """Download comma-separated Rebrickable keys that failed on the last CSV import or sync."""
+    path = failed_sets_csv_path()
+    if not path.is_file() or path.stat().st_size == 0:
+        raise HTTPException(status_code=404, detail="No failed sets from the last import")
+    return FileResponse(
+        path,
+        media_type="text/plain; charset=utf-8",
+        filename="failedSets.csv",
+    )
 
 
 @router.post("/csv", response_model=CsvImportResponse)

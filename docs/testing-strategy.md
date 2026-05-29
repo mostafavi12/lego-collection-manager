@@ -40,6 +40,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 - `POST /imports/csv`: multipart upload, size limit, token errors shape, `instances_created` count, and existing-set mode (`skip` default vs `copy`).
 - `POST /imports/database`: SQLite `.db` upload, `mode` (`add_only_new` / `add_and_update`), invalid file **`400`**, merge preserves age/theme/labels/missing on update (`test_database_import_service.py`, `test_imports_api.py`).
 - `POST /imports/rebrickable/sync`: success summary; per-set failure; missing API key.
+- `GET /imports/failed-sets.csv`: **`200`** when retry file has keys; **`404`** when empty or missing (`test_failed_sets_csv.py`, `test_imports_api.py` if extended).
 - `GET /owned-sets`: pagination, `investigated` filter, multiple rows same `set_num`.
 - `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation, label, age, notes; shared catalog fields (`catalog_name`, `catalog_theme_name`, `catalog_num_parts`, `catalog_year`); `catalog_theme_name` when `theme_id` is NULL (creates/links theme); `age` shared across copies of the same `set_num`; `set_num` re-link (single copy); `display_label` / `copy_index`; `catalog_set_id`, `part_id`, `image_url`, `part_image_url`, `part_image_user_removed`, `missing_image_url` when BLOB present; `part_image_url` is part-BLOB-only when both element and part images exist (`test_owned_sets_api.py`).
 - `DELETE /owned-sets/{id}`: removes the copy and missing rows; catalog row remains when other copies exist.
@@ -91,6 +92,8 @@ Still **no live Rebrickable** in CI.
 **Backend reporting tests:** `test_reports_summary_api.py`, `test_reports_incomplete_api.py`, `test_reports_missing_parts_api.py`.
 
 **Backend image / logging tests:** `test_catalog_state.py`, `test_element_image_colors.py`, `test_importer_logging.py` (default `LOG_LEVEL=WARNING`).
+
+**Backend import performance / retry file:** `test_import_progress_commits.py` (SQLite WAL, per-token/per-set commits visible to a second session); `test_failed_sets_csv.py` (`failedSets.csv` overwrite, dedupe, CSV/sync wiring, download route).
 
 **Frontend reporting / utility tests:** `ReportsPage.test.tsx`, `IncompleteSetsReportPage.test.tsx`, `MissingPartsReportPage.test.tsx`, `missingPartsReportPdf.test.ts`, `setCopyTitle.test.ts`, `resolveImageFetchUrl.test.ts`, `fetchImageDataUrl.test.ts`, `partPhotoDisplay.test.ts`.
 
