@@ -47,6 +47,7 @@ from app.services.image_download import (
     download_catalog_set_image,
     download_element_image,
 )
+from app.services.failed_sets_csv import failed_sets_import_run
 from app.services.failure_log import record_import_failure
 from app.services.theme_catalog import display_theme_for
 
@@ -121,67 +122,69 @@ def sync_catalog_for_set_nums(
     result = RebrickableSyncResult()
     downloader = image_downloader or HttpxImageDownloader()
     logger.info("Rebrickable sync started set_count=%s", len(set_nums))
-    for set_num in set_nums:
-        try:
-            with session.begin_nested():
-                parts, lines, _age = sync_one_catalog_set(
-                    session,
-                    client,
+    with failed_sets_import_run() as record_failed_set:
+        for set_num in set_nums:
+            try:
+                with session.begin_nested():
+                    parts, lines, _age = sync_one_catalog_set(
+                        session,
+                        client,
+                        set_num,
+                        update_theme=False,
+                        update_age=False,
+                        update_year=False,
+                    )
+                result.sets_synced += 1
+                result.parts_upserted += parts
+                result.inventory_lines_written += lines
+                logger.info(
+                    "Rebrickable sync set_ok set_num=%s parts_upserted=%s inventory_lines=%s",
                     set_num,
-                    update_theme=False,
-                    update_age=False,
-                    update_year=False,
+                    parts,
+                    lines,
                 )
-            result.sets_synced += 1
-            result.parts_upserted += parts
-            result.inventory_lines_written += lines
-            logger.info(
-                "Rebrickable sync set_ok set_num=%s parts_upserted=%s inventory_lines=%s",
-                set_num,
-                parts,
-                lines,
-            )
-            catalog = _catalog_for_rebrickable_key(session, set_num)
-            if catalog is not None and download_set_images:
-                _download_catalog_image(session, catalog, downloader, result)
-                _download_minifig_images(session, catalog.id, downloader, result)
-            if catalog is not None and download_missing_part_images:
-                _download_missing_part_images(session, catalog.id, downloader, result)
-            if catalog is not None and download_all_part_images:
-                _download_all_part_images(session, catalog.id, downloader, result)
-        except RebrickableAPIError as exc:
-            message = _format_api_error(exc)
-            logger.warning(
-                "Rebrickable sync set_failed set_num=%s error=%s",
-                set_num,
-                message,
-            )
-            record_import_failure(
-                operation="rebrickable_sync",
-                rb_key=set_num,
-                set_num=set_num,
-                message=message,
-                error_type=type(exc).__name__,
-            )
-            result.sets_failed.append(
-                SetSyncFailure(set_num=set_num, message=message)
-            )
-        except Exception as exc:
-            logger.exception(
-                "Rebrickable sync set_failed set_num=%s",
-                set_num,
-            )
-            record_import_failure(
-                operation="rebrickable_sync",
-                rb_key=set_num,
-                set_num=set_num,
-                message=str(exc),
-                error_type=type(exc).__name__,
-            )
-            result.sets_failed.append(
-                SetSyncFailure(set_num=set_num, message=str(exc))
-            )
-        commit_import_progress(session)
+                catalog = _catalog_for_rebrickable_key(session, set_num)
+                if catalog is not None and download_set_images:
+                    _download_catalog_image(session, catalog, downloader, result)
+                    _download_minifig_images(session, catalog.id, downloader, result)
+                if catalog is not None and download_missing_part_images:
+                    _download_missing_part_images(session, catalog.id, downloader, result)
+                if catalog is not None and download_all_part_images:
+                    _download_all_part_images(session, catalog.id, downloader, result)
+            except RebrickableAPIError as exc:
+                message = _format_api_error(exc)
+                logger.warning(
+                    "Rebrickable sync set_failed set_num=%s error=%s",
+                    set_num,
+                    message,
+                )
+                record_import_failure(
+                    operation="rebrickable_sync",
+                    rb_key=set_num,
+                    set_num=set_num,
+                    message=message,
+                    error_type=type(exc).__name__,
+                )
+                record_failed_set(set_num)
+                result.sets_failed.append(
+                    SetSyncFailure(set_num=set_num, message=message)
+                )
+            except Exception as exc:
+                logger.exception(
+                    "Rebrickable sync set_failed set_num=%s",
+                    set_num,
+                )
+                record_import_failure(
+                    operation="rebrickable_sync",
+                    rb_key=set_num,
+                    set_num=set_num,
+                    message=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                result.sets_failed.append(
+                    SetSyncFailure(set_num=set_num, message=str(exc))
+                )
+            commit_import_progress(session)
     logger.info(
         "Rebrickable sync finished sets_synced=%s sets_failed=%s "
         "parts_upserted=%s inventory_lines_written=%s",

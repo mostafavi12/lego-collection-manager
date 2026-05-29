@@ -20,6 +20,7 @@ from app.importers.rebrickable_sync_service import (
 from app.importers.set_list_parser import ParseError, parse_set_list_entries
 from app.rebrickable.client import RebrickableClient
 from app.rebrickable.exceptions import RebrickableAPIError
+from app.services.failed_sets_csv import failed_sets_import_run
 from app.services.failure_log import record_import_failure
 from app.services.instance_inventory import clone_instance_inventory
 from app.services.owned_sets_service import _apply_shared_age
@@ -118,125 +119,128 @@ def import_set_list(
         len(errors),
     )
 
-    def process_token(token_index: int, raw_token: str, rb_client: RebrickableReader) -> None:
-        nonlocal instances_created, catalog_stubs_created, sets_fetched
-        nonlocal existing_sets_skipped, skipped_existing_sets
+    with failed_sets_import_run() as record_failed_set:
 
-        lsid = parse_user_set_number(raw_token)
-        rb_key = to_rebrickable_set_num(lsid)
-        existing_catalog = session.scalar(
-            select(CatalogSet).where(
-                CatalogSet.set_number == lsid.number,
-                CatalogSet.set_variant == lsid.variant,
-            )
-        )
-        if existing_catalog is not None:
-            if existing_set_mode == "copy":
-                _create_owned_instance(session, existing_catalog)
-                instances_created += 1
-                logger.info("CSV import token_existing_copy rb_key=%s", rb_key)
-                commit_import_progress(session)
-            else:
-                existing_sets_skipped += 1
-                skipped_existing_sets.append(
-                    CsvImportSkippedExistingSet(
-                        token_index=token_index,
-                        set_num=raw_token,
-                    )
-                )
-                logger.info("CSV import token_existing_skipped rb_key=%s", rb_key)
-            return
+        def process_token(token_index: int, raw_token: str, rb_client: RebrickableReader) -> None:
+            nonlocal instances_created, catalog_stubs_created, sets_fetched
+            nonlocal existing_sets_skipped, skipped_existing_sets
 
-        try:
-            recommended_age: int | None = None
-            with session.begin_nested():
-                _parts, _lines, recommended_age = sync_one_catalog_set(
-                    session,
-                    rb_client,
-                    rb_key,
-                    persist_image_urls=False,
-                )
-            catalog_set = session.scalar(
+            lsid = parse_user_set_number(raw_token)
+            rb_key = to_rebrickable_set_num(lsid)
+            existing_catalog = session.scalar(
                 select(CatalogSet).where(
                     CatalogSet.set_number == lsid.number,
                     CatalogSet.set_variant == lsid.variant,
                 )
             )
-            if catalog_set is None:
-                raise RuntimeError(f"catalog missing after sync for {rb_key}")
-            _create_owned_instance(session, catalog_set)
-            if recommended_age is not None:
-                _apply_shared_age(session, catalog_set.id, recommended_age)
-            instances_created += 1
-            sets_fetched += 1
-            logger.info("CSV import token_ok rb_key=%s", rb_key)
-            commit_import_progress(session)
-        except RebrickableAPIError as exc:
-            message = _format_api_error(exc)
-            logger.warning(
-                "CSV import token_failed token_index=%s rb_key=%s error=%s",
-                token_index,
-                rb_key,
-                message,
-            )
-            record_import_failure(
-                operation="csv_import",
-                token_index=token_index,
-                set_num=lsid.number,
-                rb_key=rb_key,
-                message=message,
-                error_type=type(exc).__name__,
-            )
-            with session.begin_nested():
-                catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
-                if created_stub:
-                    catalog_stubs_created += 1
-                _create_owned_instance(session, catalog_set)
-            instances_created += 1
-            sets_failed.append(
-                CsvImportSetFailure(
-                    token_index=token_index,
-                    set_num=lsid.number,
-                    message=message,
-                )
-            )
-            commit_import_progress(session)
-        except Exception as exc:
-            logger.exception(
-                "CSV import token_failed token_index=%s rb_key=%s",
-                token_index,
-                rb_key,
-            )
-            record_import_failure(
-                operation="csv_import",
-                token_index=token_index,
-                set_num=lsid.number,
-                rb_key=rb_key,
-                message=str(exc),
-                error_type=type(exc).__name__,
-            )
-            with session.begin_nested():
-                catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
-                if created_stub:
-                    catalog_stubs_created += 1
-                _create_owned_instance(session, catalog_set)
-            instances_created += 1
-            sets_failed.append(
-                CsvImportSetFailure(
-                    token_index=token_index,
-                    set_num=lsid.number,
-                    message=str(exc),
-                )
-            )
-            commit_import_progress(session)
+            if existing_catalog is not None:
+                if existing_set_mode == "copy":
+                    _create_owned_instance(session, existing_catalog)
+                    instances_created += 1
+                    logger.info("CSV import token_existing_copy rb_key=%s", rb_key)
+                    commit_import_progress(session)
+                else:
+                    existing_sets_skipped += 1
+                    skipped_existing_sets.append(
+                        CsvImportSkippedExistingSet(
+                            token_index=token_index,
+                            set_num=raw_token,
+                        )
+                    )
+                    logger.info("CSV import token_existing_skipped rb_key=%s", rb_key)
+                return
 
-    if client is not None:
-        for token_index, set_num in valid_entries:
-            process_token(token_index, set_num, client)
-    else:
-        with RebrickableClient() as rb_client:
+            try:
+                recommended_age: int | None = None
+                with session.begin_nested():
+                    _parts, _lines, recommended_age = sync_one_catalog_set(
+                        session,
+                        rb_client,
+                        rb_key,
+                        persist_image_urls=False,
+                    )
+                catalog_set = session.scalar(
+                    select(CatalogSet).where(
+                        CatalogSet.set_number == lsid.number,
+                        CatalogSet.set_variant == lsid.variant,
+                    )
+                )
+                if catalog_set is None:
+                    raise RuntimeError(f"catalog missing after sync for {rb_key}")
+                _create_owned_instance(session, catalog_set)
+                if recommended_age is not None:
+                    _apply_shared_age(session, catalog_set.id, recommended_age)
+                instances_created += 1
+                sets_fetched += 1
+                logger.info("CSV import token_ok rb_key=%s", rb_key)
+                commit_import_progress(session)
+            except RebrickableAPIError as exc:
+                message = _format_api_error(exc)
+                logger.warning(
+                    "CSV import token_failed token_index=%s rb_key=%s error=%s",
+                    token_index,
+                    rb_key,
+                    message,
+                )
+                record_import_failure(
+                    operation="csv_import",
+                    token_index=token_index,
+                    set_num=lsid.number,
+                    rb_key=rb_key,
+                    message=message,
+                    error_type=type(exc).__name__,
+                )
+                record_failed_set(rb_key)
+                with session.begin_nested():
+                    catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
+                    if created_stub:
+                        catalog_stubs_created += 1
+                    _create_owned_instance(session, catalog_set)
+                instances_created += 1
+                sets_failed.append(
+                    CsvImportSetFailure(
+                        token_index=token_index,
+                        set_num=lsid.number,
+                        message=message,
+                    )
+                )
+                commit_import_progress(session)
+            except Exception as exc:
+                logger.exception(
+                    "CSV import token_failed token_index=%s rb_key=%s",
+                    token_index,
+                    rb_key,
+                )
+                record_import_failure(
+                    operation="csv_import",
+                    token_index=token_index,
+                    set_num=lsid.number,
+                    rb_key=rb_key,
+                    message=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                with session.begin_nested():
+                    catalog_set, created_stub = _ensure_catalog_stub(session, lsid)
+                    if created_stub:
+                        catalog_stubs_created += 1
+                    _create_owned_instance(session, catalog_set)
+                instances_created += 1
+                sets_failed.append(
+                    CsvImportSetFailure(
+                        token_index=token_index,
+                        set_num=lsid.number,
+                        message=str(exc),
+                    )
+                )
+                commit_import_progress(session)
+
+        if client is not None:
             for token_index, set_num in valid_entries:
-                process_token(token_index, set_num, rb_client)
+                process_token(token_index, set_num, client)
+        else:
+            with RebrickableClient() as rb_client:
+                for token_index, set_num in valid_entries:
+                    process_token(token_index, set_num, rb_client)
 
     session.flush()
     result = CsvImportResult(

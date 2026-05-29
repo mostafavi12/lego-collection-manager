@@ -97,17 +97,20 @@ def configure_runtime() -> Path:
     db_url = sqlite_url_for_path(data_dir / "lego.db")
     log_path = str(data_dir / "server.log")
     failure_log_path = str(data_dir / "import_failures.log")
+    failed_sets_csv_path = str(data_dir / "failedSets.csv")
     alembic_ini = str(get_alembic_ini_path())
 
     if portable_layout:
         os.environ["DATABASE_URL"] = db_url
         os.environ["LOG_FILE_PATH"] = log_path
         os.environ["IMPORT_FAILURE_LOG_PATH"] = failure_log_path
+        os.environ["FAILED_SETS_CSV_PATH"] = failed_sets_csv_path
         os.environ["LCM_ALEMBIC_INI"] = alembic_ini
     else:
         os.environ.setdefault("DATABASE_URL", db_url)
         os.environ.setdefault("LOG_FILE_PATH", log_path)
         os.environ.setdefault("IMPORT_FAILURE_LOG_PATH", failure_log_path)
+        os.environ.setdefault("FAILED_SETS_CSV_PATH", failed_sets_csv_path)
         os.environ.setdefault("LCM_ALEMBIC_INI", alembic_ini)
 
     web_root = get_web_root()

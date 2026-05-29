@@ -29,6 +29,15 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 
 ## Import operations
 
+### Failed sets retry file
+
+**`GET /imports/failed-sets.csv`**
+
+- **Response `200`:** `text/plain; charset=utf-8` body — comma-separated Rebrickable set keys (e.g. `6024-1,9999-1`), no header, same token format as [data-sources.md](./data-sources.md) CSV import.
+- **Response `404`:** File missing or empty (no catalog-level failures recorded for the last CSV import or Rebrickable sync).
+- **Semantics:** Each **`POST /imports/csv`** or **`POST /imports/rebrickable/sync`** **replaces** the file at the start of the operation and writes only sets whose **Rebrickable catalog fetch** failed (`RebrickableAPIError`). Parse/token errors and image download failures are **not** included. Re-import the downloaded file via **`POST /imports/csv`** to retry.
+- **Path:** `FAILED_SETS_CSV_PATH` (default `./data/failedSets.csv`; portable installs use the data directory — see `backend/.env.example`).
+
 ### CSV import — synchronous (additive)
 
 **`POST /imports/csv`**

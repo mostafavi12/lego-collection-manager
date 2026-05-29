@@ -41,6 +41,16 @@ This document defines **file** and **network** inputs: formats, environment vari
 
 New **`owned_sets`** rows created from **CSV import** or **`POST /owned-sets/{id}/duplicate`** have `investigated = false` until the user marks them investigated in the UI or API.
 
+### Failed sets retry file (`failedSets.csv`)
+
+| Aspect | Rule |
+|--------|------|
+| **When written** | Start of each **`POST /imports/csv`** or **`POST /imports/rebrickable/sync`** clears the file; catalog fetch failures during that run are collected at the end. |
+| **Format** | Same as CSV import input: UTF-8, comma-separated Rebrickable keys (`6024-1`), no header. |
+| **Contents** | Only sets that failed with **`RebrickableAPIError`** (e.g. HTTP 404). Not parse errors, not image CDN failures. |
+| **Download** | **`GET /imports/failed-sets.csv`** (see [api-design.md](./api-design.md)). |
+| **Env** | `FAILED_SETS_CSV_PATH` (default `./data/failedSets.csv`). |
+
 ## Database import (second SQLite file)
 
 | Aspect | Rule |
