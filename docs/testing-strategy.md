@@ -38,6 +38,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 ### API endpoints (FastAPI `TestClient`)
 
 - `POST /imports/csv`: multipart upload, size limit, token errors shape, `instances_created` count, and existing-set mode (`skip` default vs `copy`).
+- `POST /imports/database`: SQLite `.db` upload, `mode` (`add_only_new` / `add_and_update`), invalid file **`400`**, merge preserves age/theme/labels/missing on update (`test_database_import_service.py`, `test_imports_api.py`).
 - `POST /imports/rebrickable/sync`: success summary; per-set failure; missing API key.
 - `GET /owned-sets`: pagination, `investigated` filter, multiple rows same `set_num`.
 - `GET /owned-sets/{id}`, `PATCH /owned-sets/{id}`: investigation, label, age, notes; shared catalog fields (`catalog_name`, `catalog_theme_name`, `catalog_num_parts`, `catalog_year`); `catalog_theme_name` when `theme_id` is NULL (creates/links theme); `age` shared across copies of the same `set_num`; `set_num` re-link (single copy); `display_label` / `copy_index`; `catalog_set_id`, `part_id`, `image_url`, `part_image_url`, `part_image_user_removed`, `missing_image_url` when BLOB present; `part_image_url` is part-BLOB-only when both element and part images exist (`test_owned_sets_api.py`).
@@ -47,7 +48,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 - `GET /search`: 400 on empty `q`; set mode returns distinct `owned_set_id` per physical copy.
 - `PATCH .../missing`: validation against instance inventory quantity; clear with zero removes missing row (part BLOB unchanged unless DELETE image).
 - `PUT` / `DELETE` missing image → part BLOB; `GET /media/missing/{id}` and `GET /parts/{id}/image`: 404 when absent; content-type for JPEG/PNG fixtures.
-- `PUT` / `GET` / `DELETE` `/parts/{id}/image` and `/catalog-sets/{id}/image`: BLOB round-trip, size/MIME validation (`test_image_blob_api.py`); `DELETE` sets `part_image_user_removed` on detail lines (`test_get_owned_set_detail_part_image_user_removed_after_delete`).
+- `PUT` / `GET` / `DELETE` `/parts/{id}/image` and `/catalog-sets/{id}/image`: BLOB round-trip, size/MIME validation (`test_image_blob_api.py`); `DELETE` sets `parts.part_image_user_removed` and clears the BLOB (`test_delete_part_image_sets_user_removed_flag`, `test_get_owned_set_detail_part_image_user_removed_after_delete`).
 
 ### Post-MVP (Phases 9–13) and sync UX (**14**)
 
@@ -83,7 +84,7 @@ Still **no live Rebrickable** in CI.
 | **Search** | Debounce (if any), submit triggers correct API, displays multiple copies per `set_num` when applicable. |
 | **Missing UI** | Changing missing quantity calls PATCH; missing-photo upload API exists (UI deferred); preview uses resolved `part_image_url` / `missing_image_url` (element or part BLOB). |
 | **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`; display URLs are same-origin only (`resolveImageFetchUrl.test.ts`); part list/modal prefer part BLOB then line `image_url` unless `part_image_user_removed`. |
-| **Import** | File picker posts to CSV endpoint; success message reflects copy count (e.g. `instances_created` in JSON); **Sync entire collection** triggers sync endpoint (spinner / outcome messaging as implemented). |
+| **Import** | CSV file picker → `POST /imports/csv`; **Import database** → `POST /imports/database` with mode (`ImportPage.test.tsx`); **Sync entire collection** → `POST /imports/rebrickable/sync`; local metadata update. |
 | **Settings** | Default View mode; mode persists in localStorage; View hides import/add mutations; Investigate enables investigated + missing + part-photo edit in Part view; part row opens Part view. |
 | **Reports** | Summary stats; incomplete sets with collapsed missing lines; missing-parts table with `owned_set_ids` filter and `set_name` in web Sets links; **Export PDF** (set numbers only in Sets column; `missingPartsReportPdf.test.ts`). |
 
@@ -91,7 +92,9 @@ Still **no live Rebrickable** in CI.
 
 **Backend image / logging tests:** `test_catalog_state.py`, `test_element_image_colors.py`, `test_importer_logging.py` (default `LOG_LEVEL=WARNING`).
 
-**Frontend reporting / utility tests:** `ReportsPage.test.tsx`, `IncompleteSetsReportPage.test.tsx`, `MissingPartsReportPage.test.tsx`, `missingPartsReportPdf.test.ts`, `setCopyTitle.test.ts`, `resolveImageFetchUrl.test.ts`, `fetchImageDataUrl.test.ts`.
+**Frontend reporting / utility tests:** `ReportsPage.test.tsx`, `IncompleteSetsReportPage.test.tsx`, `MissingPartsReportPage.test.tsx`, `missingPartsReportPdf.test.ts`, `setCopyTitle.test.ts`, `resolveImageFetchUrl.test.ts`, `fetchImageDataUrl.test.ts`, `partPhotoDisplay.test.ts`.
+
+**Backend database merge import:** `test_database_import_service.py` (add-only-new, add-and-update, preserve age/theme/labels/missing).
 
 **Mocking:** MSW (Mock Service Worker) or fetch mocks to return canned JSON aligned with [api-design.md](./api-design.md).
 

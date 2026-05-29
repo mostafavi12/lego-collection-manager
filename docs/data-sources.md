@@ -41,6 +41,20 @@ This document defines **file** and **network** inputs: formats, environment vari
 
 New **`owned_sets`** rows created from **CSV import** or **`POST /owned-sets/{id}/duplicate`** have `investigated = false` until the user marks them investigated in the UI or API.
 
+## Database import (second SQLite file)
+
+| Aspect | Rule |
+|--------|------|
+| **Format** | SQLite file (`.db`) produced by another install of this app (same schema; must contain `catalog_sets`). |
+| **Transport** | `multipart/form-data` upload on **`POST /imports/database`** with field `file` and `mode`. |
+| **Max size** | 500 MB default (`DATABASE_IMPORT_MAX_BYTES`). |
+| **Matching** | Catalog sets by **`(set_number, set_variant)`**; parts by `part_num`; inventory lines by catalog line keys. |
+| **`add_only_new`** | Copy sets (and dependent catalog rows, inventory, images) that are not already in the target DB. |
+| **`add_and_update`** | Same for new sets; for existing sets, refresh catalog/inventory/images. **Do not overwrite** target per-copy **age** (when any copy has age), **theme** (when target catalog already has theme), **labels**, or **missing** state. |
+| **Network** | None; offline merge only. |
+
+See [api-design.md](./api-design.md) for the response shape and [product-requirements.md §2b](./product-requirements.md#2b-import-from-another-database-file).
+
 ## Rebrickable API
 
 ### Official documentation

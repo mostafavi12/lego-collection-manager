@@ -59,6 +59,24 @@ def test_migration_creates_inventory_line_element_ids_table(
     }.issubset(columns)
 
 
+def test_migration_creates_part_image_user_removed_column(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "part_flag.db"
+    database_url = f"sqlite:///{db_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+
+    config = Config("alembic.ini")
+    command.upgrade(config, "head")
+
+    engine = create_engine(database_url)
+    try:
+        part_columns = {c["name"] for c in inspect(engine).get_columns("parts")}
+    finally:
+        engine.dispose()
+    assert "part_image_user_removed" in part_columns
+
+
 def test_ensure_database_at_head_fails_when_empty(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

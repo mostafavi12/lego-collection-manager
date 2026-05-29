@@ -62,6 +62,18 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 - Re-running sync for the same **physical copies** **updates** shared catalog rows and inventory for the underlying `set_num`; does not duplicate primary catalog entities.
 - Failures from the API (network, 4xx/5xx) surface as actionable errors without corrupting existing rows (transaction boundaries described in [api-design.md](./api-design.md)).
 
+### 2b. Import from another database file
+
+**User outcome:** The user can merge catalog and collection data from a second LEGO Collection Manager SQLite `.db` file (for example another machine or an older backup) without using Rebrickable.
+
+**Acceptance criteria:**
+
+- **Import** page (Edit mode) accepts a `.db` upload and a mode: **add only new sets** or **add new sets and update existing** (see [api-design.md](./api-design.md)).
+- Sets are matched by catalog **`(set_number, set_variant)`**; invalid or non-app databases return **`400`**.
+- **Add only new:** imports sets (and related catalog/inventory/images) not already present; skips existing set numbers.
+- **Add and update:** refreshes catalog metadata, images, and inventory for existing sets while **preserving** per-copy **age** (when already set), **theme** (when catalog already has a theme), **copy labels**, and **missing** quantities/items.
+- No live network calls; tests use in-memory or temp-file SQLite fixtures.
+
 ### 3. SQLite storage
 
 **User outcome:** All collection and catalog data persist in a single local SQLite database file; user-uploaded part and set images persist in the same database (Phase 10 BLOB columns).
@@ -214,6 +226,11 @@ Users may edit the alias list for a part (Phase **11B** UI: chip list in **PartL
 
 Search treats all members of the group as interchangeable for part-number lookup.
 
+### 11.6a Database merge import (offline `.db`)
+
+- **Import** page section **Import from another database**; backend `POST /imports/database` and `database_import_service` (see [api-design.md](./api-design.md)).
+- Modes and preservation rules match §2b above.
+
 ### 11.6 CSV import (Phase 12)
 
 Unchanged additive semantics (one token → one new physical copy). Additionally, for each token the app calls Rebrickable and upserts **full** catalog inventory (no images). Failures are per-token; valid tokens still succeed.
@@ -258,7 +275,7 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 1. **Sets list** — layout per [§4](#4-sets-list); **Make a copy** with confirmation dialog per row.
 2. **Set detail** — per-copy fields + shared catalog fields + inventory + missing panel; **delete this copy**; no duplicate button.
 3. **Search** — single entry point or dual mode (set vs part) per API design.
-4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Sync entire collection** with image options (Phase **14**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
+4. **Import** — CSV/text file upload (additive, Phase **12** enriches from Rebrickable); **Import from another database** (offline `.db` merge); **Sync entire collection** with image options (Phase **14**); **Add set** wizard (Phase **13** core); **PartLineModal** on set detail (Phases **11A–11B**).
 5. **Reports** — collection summary (Phase **15**); incomplete sets with missing lines per copy (Phase **16**); missing-parts aggregation with optional set-copy filter, web **Sets** links showing catalog name, and **PDF export** with set numbers only in the Sets column (Phase **17**).
 6. **Settings** — app mode (View / Investigate / Edit) per [§11.10](#1110-settings-and-app-modes-phase-18).
 

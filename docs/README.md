@@ -12,7 +12,7 @@ This folder holds the **authoritative product and technical contracts** for the 
 | [testing-strategy.md](./testing-strategy.md) | pytest / Vitest expectations, fixtures, no live APIs |
 | [frontend-testing.md](./frontend-testing.md) | Vitest commands, layout, mocking, dev workflow |
 | [smoke-test.md](./smoke-test.md) | Local dev smoke test (`./scripts/smoke.sh`) |
-| [ci.md](./ci.md) | GitHub Actions: push/PR checks (backend tests, frontend build) |
+| [ci.md](./ci.md) | GitHub Actions: push/PR checks (backend pytest, frontend Vitest + build) |
 | [windows-packaging.md](./windows-packaging.md) | Portable Windows ZIP build, install, and upgrade |
 | [windows-portable-checklist.md](./windows-portable-checklist.md) | What the ZIP must contain; repo + user requirements |
 | [windows-smoke-test.md](./windows-smoke-test.md) | Manual checklist for validating a Windows ZIP build |

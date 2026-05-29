@@ -159,6 +159,7 @@ Phases **1–8** delivered the original MVP (including the Rebrickable sync endp
 - **Per-copy inventory** (part quantities and missing counts), while **set-level metadata** and **part-level images/aliases** follow the sharing rules in [product-requirements.md §11](./product-requirements.md#11-post-mvp-collection-semantics-phases-914).
 - **Images in SQLite** (JPEG/PNG BLOBs), not on disk under `MEDIA_ROOT` / thumbnails.
 - **Sync UX:** **Phase 14** ships **Import → Sync entire collection** (`POST /imports/rebrickable/sync` for full DB sync with image-option defaults), current-set sync from detail (`owned_set_ids` with the current set copy id), and optional set/minifigure/part image downloads. Progress/cancel, conflict policy, and richer subset selection remain backlog (see Phase **14** below).
+- **Database merge import (shipped):** **Import → Import from another database** uploads a second app `.db` with `add_only_new` or `add_and_update` (`POST /imports/database`, `database_import_service`). Migration `f8c2d41a6b90` adds `parts.part_image_user_removed` for part-photo UI behavior.
 
 Implement **one phase at a time**; update [database-schema.md](./database-schema.md), [api-design.md](./api-design.md), and tests before marking a phase complete.
 
