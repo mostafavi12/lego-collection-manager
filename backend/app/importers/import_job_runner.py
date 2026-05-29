@@ -21,6 +21,7 @@ from app.importers.import_progress_callback import check_import_cancelled
 from app.importers.rebrickable_sync_service import sync_rebrickable
 from app.rebrickable.exceptions import RebrickableConfigError
 from app.services.failed_sets_csv import failed_sets_csv_path
+from app.services.image_download import image_downloader_for_sync
 
 logger = logging.getLogger(__name__)
 
@@ -175,15 +176,24 @@ def _run_job(job_id: str, kind: ImportJobKind, params: Any) -> None:
             )
         elif kind == "rebrickable_sync":
             assert isinstance(params, SyncJobParams)
-            result = sync_rebrickable(
-                session,
-                owned_set_ids=params.owned_set_ids,
-                download_set_images=params.download_set_images,
-                download_missing_part_images=params.download_missing_part_images,
-                download_all_part_images=params.download_all_part_images,
-                cancel_event=cancel_event,
-                on_progress=on_progress,
+            images_enabled = (
+                params.download_set_images
+                or params.download_missing_part_images
+                or params.download_all_part_images
             )
+            with image_downloader_for_sync(
+                None, images_enabled=images_enabled
+            ) as image_downloader:
+                result = sync_rebrickable(
+                    session,
+                    owned_set_ids=params.owned_set_ids,
+                    download_set_images=params.download_set_images,
+                    download_missing_part_images=params.download_missing_part_images,
+                    download_all_part_images=params.download_all_part_images,
+                    image_downloader=image_downloader,
+                    cancel_event=cancel_event,
+                    on_progress=on_progress,
+                )
         elif kind == "database":
             assert isinstance(params, DatabaseJobParams)
             result = import_from_database(

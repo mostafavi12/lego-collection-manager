@@ -56,6 +56,8 @@ Long-running imports run in a **background worker thread** so other API routes s
 
 **Legacy synchronous routes** (`POST /imports/csv`, `/rebrickable/sync`, `/database`) remain for existing clients and tests; the Import UI will move to jobs in a later phase.
 
+**Rebrickable sync jobs** run in two phases when image download options are enabled: catalog API fetch per set (`progress.label` like `Syncing catalog 6024-1`), then CDN image downloads (`Downloading images for 6024-1`). Image HTTP uses a **shared client** per job with `IMAGE_DOWNLOAD_MIN_INTERVAL_SECONDS` (default `0.3`) between requests — see `backend/.env.example`.
+
 ### Failed sets retry file
 
 **`GET /imports/failed-sets.csv`**

@@ -94,7 +94,7 @@ Still **no live Rebrickable** in CI.
 
 **Backend image / logging tests:** `test_catalog_state.py`, `test_element_image_colors.py`, `test_importer_logging.py` (default `LOG_LEVEL=WARNING`).
 
-**Backend import performance / retry file / jobs:** `test_import_progress_commits.py` (SQLite WAL, per-token/per-set commits visible to a second session); `test_failed_sets_csv.py` (`failedSets.csv` overwrite, dedupe, CSV/sync wiring, download route); `test_import_jobs_api.py` (background jobs, cancel, single active job).
+**Backend import performance / retry file / jobs:** `test_import_progress_commits.py` (SQLite WAL, per-token/per-set commits visible to a second session); `test_failed_sets_csv.py` (`failedSets.csv` overwrite, dedupe, CSV/sync wiring, download route); `test_import_jobs_api.py` (background jobs, cancel, single active job); `test_image_download_throttle.py` (CDN interval + shared client); `test_rebrickable_sync_service.py` (`test_sync_two_phase_progress_labels`).
 
 **Frontend reporting / utility tests:** `ReportsPage.test.tsx`, `IncompleteSetsReportPage.test.tsx`, `MissingPartsReportPage.test.tsx`, `missingPartsReportPdf.test.ts`, `setCopyTitle.test.ts`, `resolveImageFetchUrl.test.ts`, `fetchImageDataUrl.test.ts`, `partPhotoDisplay.test.ts`.
 

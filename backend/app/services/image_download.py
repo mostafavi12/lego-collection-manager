@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -9,7 +13,18 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import CatalogMinifig, CatalogSet, ElementImage, MinifigPartInventoryLine, Part, SetPartInventoryLine
+from app.config.image_download_settings import (
+    ImageDownloadSettings,
+    load_image_download_settings,
+)
+from app.db.models import (
+    CatalogMinifig,
+    CatalogSet,
+    ElementImage,
+    MinifigPartInventoryLine,
+    Part,
+    SetPartInventoryLine,
+)
 from app.services.image_blob import (
     ImageBlobError,
     catalog_minifig_has_image,
@@ -21,6 +36,8 @@ from app.services.image_blob import (
     set_element_image,
     set_part_image,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ImageDownloadError(Exception):
@@ -38,21 +55,87 @@ class ImageDownloader(Protocol):
 
 
 class HttpxImageDownloader:
-    def __init__(self, *, timeout_seconds: float = 20.0) -> None:
+    """HTTP(S) image fetcher with optional rate limiting and connection reuse."""
+
+    def __init__(
+        self,
+        *,
+        timeout_seconds: float = 20.0,
+        min_interval_seconds: float = 0.3,
+        http_client: httpx.Client | None = None,
+    ) -> None:
         self.timeout_seconds = timeout_seconds
+        self._min_interval_seconds = max(0.0, min_interval_seconds)
+        self._owns_client = http_client is None
+        if http_client is None:
+            self._http = httpx.Client(
+                timeout=timeout_seconds,
+                follow_redirects=True,
+            )
+        else:
+            self._http = http_client
+        self._last_request_at: float | None = None
+
+    @classmethod
+    def from_settings(
+        cls,
+        settings: ImageDownloadSettings | None = None,
+    ) -> HttpxImageDownloader:
+        loaded = settings or load_image_download_settings()
+        return cls(
+            timeout_seconds=loaded.timeout_seconds,
+            min_interval_seconds=loaded.min_interval_seconds,
+        )
+
+    def close(self) -> None:
+        if self._owns_client:
+            self._http.close()
+
+    def __enter__(self) -> HttpxImageDownloader:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
+    def _throttle(self) -> None:
+        if self._min_interval_seconds <= 0 or self._last_request_at is None:
+            return
+        elapsed = time.monotonic() - self._last_request_at
+        if elapsed < self._min_interval_seconds:
+            time.sleep(self._min_interval_seconds - elapsed)
 
     def download(self, url: str) -> DownloadedImage:
         if not url.startswith(("http://", "https://")):
             raise ImageDownloadError("Image URL must be HTTP(S)")
+        self._throttle()
         try:
-            response = httpx.get(url, timeout=self.timeout_seconds, follow_redirects=True)
+            response = self._http.get(url, timeout=self.timeout_seconds)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise ImageDownloadError(str(exc)) from exc
+        finally:
+            self._last_request_at = time.monotonic()
         return DownloadedImage(
             content=response.content,
             content_type=response.headers.get("content-type", ""),
         )
+
+
+@contextmanager
+def image_downloader_for_sync(
+    downloader: ImageDownloader | None,
+    *,
+    images_enabled: bool,
+) -> Iterator[ImageDownloader | None]:
+    """Provide a shared downloader for sync image phases; close when owned."""
+    if not images_enabled:
+        yield None
+        return
+    if downloader is not None:
+        yield downloader
+        return
+    with HttpxImageDownloader.from_settings() as owned:
+        yield owned
 
 
 def download_catalog_set_image(
