@@ -89,6 +89,84 @@ describe("ImportPage", () => {
     expect(body.get("existing_set_mode")).toBe("skip");
   });
 
+  it("posts database file to import endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sets_added: 1,
+        sets_updated: 0,
+        sets_skipped: 0,
+        skipped_set_nums: [],
+        instances_created: 1,
+        parts_upserted: 2,
+        inventory_lines_written: 3,
+      }),
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderImport();
+
+    const file = new File(["sqlite"], "other.db", {
+      type: "application/octet-stream",
+    });
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    const databaseInput = fileInputs[1] as HTMLInputElement;
+    await user.upload(databaseInput, file);
+    await user.click(screen.getByRole("button", { name: /import database/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/imports/database"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    const body = (fetchMock.mock.calls[0][1] as RequestInit).body as FormData;
+    expect(body.get("mode")).toBe("add_only_new");
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Added 1 set");
+    expect(status).toHaveTextContent("2 parts");
+  });
+
+  it("passes add_and_update mode when selected", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sets_added: 0,
+        sets_updated: 2,
+        sets_skipped: 0,
+        skipped_set_nums: [],
+        instances_created: 0,
+        parts_upserted: 5,
+        inventory_lines_written: 10,
+      }),
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderImport();
+
+    await user.click(
+      screen.getByLabelText(/add new sets and update existing/i),
+    );
+
+    const file = new File(["sqlite"], "other.db", {
+      type: "application/octet-stream",
+    });
+    const databaseInput = document.querySelectorAll(
+      'input[type="file"]',
+    )[1] as HTMLInputElement;
+    await user.upload(databaseInput, file);
+    await user.click(screen.getByRole("button", { name: /import database/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+    const body = (fetchMock.mock.calls[0][1] as RequestInit).body as FormData;
+    expect(body.get("mode")).toBe("add_and_update");
+  });
+
   it("passes selected image options to sync endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -160,6 +238,9 @@ describe("ImportPage", () => {
     expect(screen.getByText(/edit mode/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /import csv/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /import database/i }),
     ).not.toBeInTheDocument();
   });
 });

@@ -2,6 +2,8 @@ import type {
   AddSetPartLineBody,
   AddSetPreviewResponse,
   CsvImportResponse,
+  DatabaseImportMode,
+  DatabaseImportResponse,
   DuplicatePreviewResponse,
   ImageDeleteResponse,
   ImageUploadResponse,
@@ -290,6 +292,16 @@ export function syncRebrickable(
 
 export function updateLocalMetadata(): Promise<LocalMetadataUpdateResponse> {
   return request("/imports/local-metadata", { method: "POST" });
+}
+
+export function importDatabase(
+  file: File,
+  mode: DatabaseImportMode,
+): Promise<DatabaseImportResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("mode", mode);
+  return request("/imports/database", { method: "POST", body: form });
 }
 
 export function addSetPartLine(

@@ -51,6 +51,30 @@ REST **JSON** API served by **FastAPI** for the **React + Vite** frontend. All p
 }
 ```
 
+### Database import — synchronous
+
+**`POST /imports/database`**
+
+- **Body:** `multipart/form-data` with field `file` (SQLite `.db` from another LEGO Collection Manager install) and `mode` (`add_only_new` default, or `add_and_update`).
+- **Max size:** 500 MB default (`DATABASE_IMPORT_MAX_BYTES` server-side).
+- **Validation:** Source file must be SQLite with an `catalog_sets` table; otherwise **`400`**.
+- **`add_only_new`:** Import catalog sets (and parts, inventory, images) whose `(set_number, set_variant)` are not already in the target database. Existing sets are skipped.
+- **`add_and_update`:** Same for new sets; for existing sets, refresh catalog metadata, images, and inventory. **Preserves** per-copy **age** (when any copy already has age), **theme** (when catalog already has theme), **copy labels**, and **missing quantities/items**.
+
+**Response `200`:**
+
+```json
+{
+  "sets_added": 2,
+  "sets_updated": 1,
+  "sets_skipped": 3,
+  "skipped_set_nums": ["6024-1", "8888-1"],
+  "instances_created": 2,
+  "parts_upserted": 120,
+  "inventory_lines_written": 340
+}
+```
+
 ### Rebrickable sync — synchronous
 
 **`POST /imports/rebrickable/sync`**

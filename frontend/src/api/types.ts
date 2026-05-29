@@ -307,6 +307,18 @@ export interface LocalMetadataUpdateResponse {
   theme_values_available: number;
 }
 
+export type DatabaseImportMode = "add_only_new" | "add_and_update";
+
+export interface DatabaseImportResponse {
+  sets_added: number;
+  sets_updated: number;
+  sets_skipped: number;
+  skipped_set_nums: string[];
+  instances_created: number;
+  parts_upserted: number;
+  inventory_lines_written: number;
+}
+
 export interface MissingUpsertResponse {
   /** Set copy this missing row belongs to (`owned_sets.id`). */
   owned_set_id: number;

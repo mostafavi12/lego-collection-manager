@@ -1,9 +1,16 @@
 import { FormEvent, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { importCsv, syncRebrickable, updateLocalMetadata } from "../api/client";
+import {
+  importCsv,
+  importDatabase,
+  syncRebrickable,
+  updateLocalMetadata,
+} from "../api/client";
 import type {
   CsvImportResponse,
+  DatabaseImportMode,
+  DatabaseImportResponse,
   LocalMetadataUpdateResponse,
   RebrickableSyncResponse,
 } from "../api/types";
@@ -15,11 +22,18 @@ type PartImageDownloadMode = "none" | "missing" | "all";
 export function ImportPage() {
   const { canImport } = useCapabilities();
   const fileRef = useRef<HTMLInputElement>(null);
+  const databaseFileRef = useRef<HTMLInputElement>(null);
   const [csvResult, setCsvResult] = useState<CsvImportResponse | null>(null);
+  const [databaseResult, setDatabaseResult] =
+    useState<DatabaseImportResponse | null>(null);
+  const [databaseImportMode, setDatabaseImportMode] =
+    useState<DatabaseImportMode>("add_only_new");
   const [syncResult, setSyncResult] = useState<RebrickableSyncResponse | null>(null);
   const [metadataResult, setMetadataResult] =
     useState<LocalMetadataUpdateResponse | null>(null);
-  const [loading, setLoading] = useState<"csv" | "sync" | "metadata" | null>(null);
+  const [loading, setLoading] = useState<
+    "csv" | "database" | "sync" | "metadata" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadSetImages, setDownloadSetImages] = useState(true);
   const [partImageDownloadMode, setPartImageDownloadMode] =
@@ -60,6 +74,29 @@ export function ImportPage() {
       setSyncResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function onDatabaseSubmit(event: FormEvent) {
+    event.preventDefault();
+    const file = databaseFileRef.current?.files?.[0];
+    if (!file) {
+      setError("Choose a database file first");
+      return;
+    }
+    setLoading("database");
+    setError(null);
+    setDatabaseResult(null);
+    try {
+      const result = await importDatabase(file, databaseImportMode);
+      setDatabaseResult(result);
+      if (databaseFileRef.current) {
+        databaseFileRef.current.value = "";
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Database import failed");
     } finally {
       setLoading(null);
     }
@@ -179,6 +216,87 @@ export function ImportPage() {
                   <li key={err.token_index}>
                     Token {err.token_index}: {err.message}
                   </li>
+                ))}
+              </ul>
+            )}
+            <Link to="/">View collection</Link>
+          </div>
+        )}
+      </article>
+
+      <article className="import-card import-card--secondary">
+        <h2>Import from another database</h2>
+        <p>
+          Upload a SQLite <code>.db</code> file from another LEGO Collection
+          Manager install. Sets are matched by catalog set number and variant.
+        </p>
+        <fieldset className="sync-panel__radio-group">
+          <legend>Import mode</legend>
+          <label className="checkbox">
+            <input
+              type="radio"
+              name="database-import-mode"
+              value="add_only_new"
+              checked={databaseImportMode === "add_only_new"}
+              disabled={loading === "database"}
+              onChange={() => setDatabaseImportMode("add_only_new")}
+            />
+            Add only new sets (skip sets already in this database)
+          </label>
+          <label className="checkbox">
+            <input
+              type="radio"
+              name="database-import-mode"
+              value="add_and_update"
+              checked={databaseImportMode === "add_and_update"}
+              disabled={loading === "database"}
+              onChange={() => setDatabaseImportMode("add_and_update")}
+            />
+            Add new sets and update existing (refresh catalog, images, and
+            inventory; preserve age, theme, copy labels, and missing quantities)
+          </label>
+        </fieldset>
+        <form onSubmit={(e) => void onDatabaseSubmit(e)}>
+          <input
+            ref={databaseFileRef}
+            type="file"
+            accept=".db,application/octet-stream"
+          />
+          <button
+            type="submit"
+            className="btn btn--primary"
+            disabled={loading === "database"}
+          >
+            {loading === "database" ? "Importing…" : "Import database"}
+          </button>
+        </form>
+        {databaseResult && (
+          <div className="import-result" role="status">
+            <p>
+              Added <strong>{databaseResult.sets_added}</strong> set
+              {databaseResult.sets_added === 1 ? "" : "s"}
+              {databaseResult.sets_updated > 0 && (
+                <>
+                  ; updated <strong>{databaseResult.sets_updated}</strong>
+                </>
+              )}
+              {databaseResult.sets_skipped > 0 && (
+                <>
+                  ; skipped <strong>{databaseResult.sets_skipped}</strong>{" "}
+                  existing set
+                  {databaseResult.sets_skipped === 1 ? "" : "s"}
+                </>
+              )}
+              . Created <strong>{databaseResult.instances_created}</strong>{" "}
+              instance
+              {databaseResult.instances_created === 1 ? "" : "s"};{" "}
+              {databaseResult.parts_upserted} parts;{" "}
+              {databaseResult.inventory_lines_written} inventory lines.
+            </p>
+            {databaseResult.skipped_set_nums.length > 0 && (
+              <ul className="import-errors">
+                {databaseResult.skipped_set_nums.map((setNum) => (
+                  <li key={setNum}>{setNum}</li>
                 ))}
               </ul>
             )}
