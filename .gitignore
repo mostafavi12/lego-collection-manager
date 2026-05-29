@@ -227,4 +227,6 @@ frontend/dist/
 # Backend local
 backend/.env
 backend/data/*.db
+backend/data/*.db-wal
+backend/data/*.db-shm
 backend/.venv/
