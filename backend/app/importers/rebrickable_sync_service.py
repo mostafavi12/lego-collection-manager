@@ -43,12 +43,12 @@ from app.services.instance_inventory import (
     refresh_instance_quantities_for_catalog,
 )
 from app.services.image_download import (
-    HttpxImageDownloader,
     ImageDownloadError,
     ImageDownloader,
     download_catalog_minifig_image,
     download_catalog_set_image,
     download_element_image,
+    image_downloader_for_sync,
 )
 from app.services.failed_sets_csv import failed_sets_import_run
 from app.services.failure_log import record_import_failure
@@ -112,6 +112,49 @@ def resolve_set_nums(session: Session, owned_set_ids: list[int] | None) -> list[
     return keys
 
 
+def _sync_images_enabled(
+    *,
+    download_set_images: bool,
+    download_missing_part_images: bool,
+    download_all_part_images: bool,
+) -> bool:
+    return (
+        download_set_images
+        or download_missing_part_images
+        or download_all_part_images
+    )
+
+
+def _run_image_download_phase(
+    session: Session,
+    set_nums: list[str],
+    downloader: ImageDownloader,
+    result: RebrickableSyncResult,
+    *,
+    download_set_images: bool,
+    download_missing_part_images: bool,
+    download_all_part_images: bool,
+    cancel_event: threading.Event | None,
+    on_progress: ProgressCallback | None,
+) -> None:
+    total = len(set_nums)
+    for step, set_num in enumerate(set_nums):
+        check_import_cancelled(cancel_event)
+        if on_progress is not None:
+            on_progress(step, total, f"Downloading images for {set_num}")
+        catalog = _catalog_for_rebrickable_key(session, set_num)
+        if catalog is None:
+            continue
+        if download_set_images:
+            _download_catalog_image(session, catalog, downloader, result)
+            _download_minifig_images(session, catalog.id, downloader, result)
+        if download_missing_part_images:
+            _download_missing_part_images(session, catalog.id, downloader, result)
+        if download_all_part_images:
+            _download_all_part_images(session, catalog.id, downloader, result)
+        commit_import_progress(session)
+
+
 def sync_catalog_for_set_nums(
     session: Session,
     client: RebrickableReader,
@@ -125,14 +168,19 @@ def sync_catalog_for_set_nums(
     on_progress: ProgressCallback | None = None,
 ) -> RebrickableSyncResult:
     result = RebrickableSyncResult()
-    downloader = image_downloader or HttpxImageDownloader()
+    images_enabled = _sync_images_enabled(
+        download_set_images=download_set_images,
+        download_missing_part_images=download_missing_part_images,
+        download_all_part_images=download_all_part_images,
+    )
     total_sets = len(set_nums)
+    synced_set_nums: list[str] = []
     logger.info("Rebrickable sync started set_count=%s", total_sets)
     with failed_sets_import_run() as record_failed_set:
         for step, set_num in enumerate(set_nums):
             check_import_cancelled(cancel_event)
             if on_progress is not None:
-                on_progress(step, total_sets, f"Syncing {set_num}")
+                on_progress(step, total_sets, f"Syncing catalog {set_num}")
             try:
                 with session.begin_nested():
                     parts, lines, _age = sync_one_catalog_set(
@@ -146,20 +194,13 @@ def sync_catalog_for_set_nums(
                 result.sets_synced += 1
                 result.parts_upserted += parts
                 result.inventory_lines_written += lines
+                synced_set_nums.append(set_num)
                 logger.info(
                     "Rebrickable sync set_ok set_num=%s parts_upserted=%s inventory_lines=%s",
                     set_num,
                     parts,
                     lines,
                 )
-                catalog = _catalog_for_rebrickable_key(session, set_num)
-                if catalog is not None and download_set_images:
-                    _download_catalog_image(session, catalog, downloader, result)
-                    _download_minifig_images(session, catalog.id, downloader, result)
-                if catalog is not None and download_missing_part_images:
-                    _download_missing_part_images(session, catalog.id, downloader, result)
-                if catalog is not None and download_all_part_images:
-                    _download_all_part_images(session, catalog.id, downloader, result)
             except RebrickableAPIError as exc:
                 message = _format_api_error(exc)
                 logger.warning(
@@ -194,6 +235,24 @@ def sync_catalog_for_set_nums(
                     SetSyncFailure(set_num=set_num, message=str(exc))
                 )
             commit_import_progress(session)
+
+    if images_enabled and synced_set_nums:
+        with image_downloader_for_sync(
+            image_downloader, images_enabled=True
+        ) as downloader:
+            if downloader is not None:
+                _run_image_download_phase(
+                    session,
+                    synced_set_nums,
+                    downloader,
+                    result,
+                    download_set_images=download_set_images,
+                    download_missing_part_images=download_missing_part_images,
+                    download_all_part_images=download_all_part_images,
+                    cancel_event=cancel_event,
+                    on_progress=on_progress,
+                )
+
     logger.info(
         "Rebrickable sync finished sets_synced=%s sets_failed=%s "
         "parts_upserted=%s inventory_lines_written=%s",

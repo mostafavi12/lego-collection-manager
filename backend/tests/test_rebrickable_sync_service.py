@@ -172,6 +172,29 @@ def elements_csv(tmp_path, monkeypatch):
     clear_element_catalog_cache()
 
 
+def test_sync_two_phase_progress_labels(db_session, fake_client, elements_csv) -> None:
+    catalog = add_catalog_set(db_session)
+    add_owned_set(db_session, catalog)
+    db_session.commit()
+    labels: list[str] = []
+
+    def on_progress(_current: int, _total: int, label: str) -> None:
+        labels.append(label)
+
+    downloader = FakeImageDownloader()
+    sync_catalog_for_set_nums(
+        db_session,
+        fake_client,
+        ["6024-1"],
+        download_set_images=True,
+        image_downloader=downloader,
+        on_progress=on_progress,
+    )
+
+    assert any("Syncing catalog" in label for label in labels)
+    assert any("Downloading images" in label for label in labels)
+
+
 def test_sync_populates_catalog(db_session, fake_client, elements_csv) -> None:
     catalog = add_catalog_set(db_session)
     add_owned_set(db_session, catalog)
