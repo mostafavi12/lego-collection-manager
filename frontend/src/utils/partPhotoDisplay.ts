@@ -5,12 +5,20 @@ export interface PartPhotoDisplayLine {
   part_image_user_removed?: boolean;
 }
 
-export function partPhotoDisplayUrl(line: PartPhotoDisplayLine): string | null {
-  if (line.part_image_url) {
-    return line.part_image_url;
-  }
-  if (line.part_image_user_removed) {
-    return null;
-  }
-  return line.image_url;
+/**
+ * Inventory row thumbnail: color-specific line URL from the API (element BLOB
+ * first, then part BLOB fallback). Never use global part_image_url alone — the
+ * same part_num in different colors shares one parts row.
+ */
+export function inventoryLineImageUrl(
+  line: Pick<PartPhotoDisplayLine, "image_url">,
+): string | null {
+  return line.image_url ?? null;
+}
+
+/** Global part-photo editor only (PUT/DELETE /parts/{id}/image). */
+export function partPhotoEditorUrl(
+  line: Pick<PartPhotoDisplayLine, "part_image_url">,
+): string | null {
+  return line.part_image_url ?? null;
 }

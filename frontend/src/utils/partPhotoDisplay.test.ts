@@ -1,32 +1,45 @@
 import { describe, expect, it } from "vitest";
 
-import { partPhotoDisplayUrl } from "./partPhotoDisplay";
+import {
+  inventoryLineImageUrl,
+  partPhotoEditorUrl,
+} from "./partPhotoDisplay";
 
-describe("partPhotoDisplayUrl", () => {
-  it("prefers part blob over element line url", () => {
+describe("inventoryLineImageUrl", () => {
+  it("uses line image_url (element-first from API)", () => {
     expect(
-      partPhotoDisplayUrl({
-        part_image_url: "/api/parts/1/image",
-        image_url: "/api/elements/302400/image",
+      inventoryLineImageUrl({
+        image_url: "/api/elements/302424/image",
+        part_image_url: "/api/parts/42/image",
       }),
-    ).toBe("/api/parts/1/image");
+    ).toBe("/api/elements/302424/image");
   });
 
-  it("uses line url when no part blob and not user-removed", () => {
+  it("returns null when line has no resolved image", () => {
     expect(
-      partPhotoDisplayUrl({
-        part_image_url: null,
+      inventoryLineImageUrl({
+        image_url: null,
+        part_image_url: "/api/parts/42/image",
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("partPhotoEditorUrl", () => {
+  it("returns part blob URL only", () => {
+    expect(
+      partPhotoEditorUrl({
+        part_image_url: "/api/parts/42/image",
         image_url: "/api/elements/302400/image",
       }),
-    ).toBe("/api/elements/302400/image");
+    ).toBe("/api/parts/42/image");
   });
 
-  it("returns null when user removed part photo", () => {
+  it("returns null when no part blob", () => {
     expect(
-      partPhotoDisplayUrl({
+      partPhotoEditorUrl({
         part_image_url: null,
         image_url: "/api/elements/302400/image",
-        part_image_user_removed: true,
       }),
     ).toBeNull();
   });

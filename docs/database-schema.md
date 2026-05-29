@@ -116,7 +116,7 @@ Represents **one physical copy** the user owns of a catalog set. **Many rows** m
 | `image_blob` | BLOB NULL | User-uploaded part image (JPEG/PNG). |
 | `image_content_type` | TEXT NULL | Stored MIME type when `image_blob` set. |
 | `image_byte_size` | INTEGER NULL | Byte length of `image_blob`. |
-| `part_image_user_removed` | BOOLEAN NOT NULL DEFAULT 0 | `true` when the user cleared the part BLOB via **`DELETE /parts/{id}/image`**; suppresses element/catalog fallback in part-photo UI until the next **`PUT`**. |
+| `part_image_user_removed` | BOOLEAN NOT NULL DEFAULT 0 | `true` when the user cleared the part BLOB via **`DELETE /parts/{id}/image`**; cleared on the next **`PUT`**. Does not affect element BLOBs on inventory lines. |
 | `source` | TEXT NOT NULL | |
 | `source_ref` | TEXT NOT NULL | Typically `part_num`. |
 | `fetched_at` | TIMESTAMP NOT NULL | |

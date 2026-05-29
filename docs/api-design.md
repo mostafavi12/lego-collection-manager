@@ -294,7 +294,7 @@ Multiple `items` may share the same `set_num` with different `id`.
 | `part_image_url` | **Part BLOB only:** `/api/parts/{part_id}/image` when `parts.image_blob` exists, else `null` (never an element path). |
 | `part_image_user_removed` | `true` after **`DELETE /parts/{part_id}/image`** (or equivalent clear) while element/catalog images may still exist; cleared on **`PUT /parts/{part_id}/image`**. |
 
-The UI resolves thumbnails and modal previews with **`part_image_url` first**, then **`image_url`** unless `part_image_user_removed` is `true` (then no fallback to element/catalog images for part-photo display).
+The UI uses **`image_url`** for inventory list thumbnails, **Part view**, and **Edit part** preview (color-specific element first). **`part_image_url`** is the global part BLOB path only (upload target in Edit). **`part_image_user_removed`** records that the user cleared the global part BLOB; it does not hide element images on inventory lines.
 
 All client-facing image fields are **same-origin API paths only** when a JPEG/PNG BLOB exists locally. Rebrickable CDN URLs stored in the database during sync are **not** exposed to clients — they are used only as download sources during import/sync.
 
