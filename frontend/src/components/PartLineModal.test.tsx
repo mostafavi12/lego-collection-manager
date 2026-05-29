@@ -45,20 +45,49 @@ describe("PartLineModal", () => {
     expect(screen.queryByLabelText(/^part photo$/i)).not.toBeInTheDocument();
   });
 
-  it("shows part photo editor in read-only part view when canEditPartImage", () => {
+  it("shows color-specific line image in read-only part view", () => {
     render(
       <PartLineModal
         mode="edit"
         setCopyId={1}
-        line={{ ...line, part_image_url: "/api/parts/42/image" }}
+        line={{
+          ...line,
+          image_url: "/api/elements/302400/image",
+          part_image_url: "/api/parts/42/image",
+        }}
         readOnly
-        canEditPartImage
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />,
     );
 
-    expect(screen.getByLabelText(/^part photo$/i)).toBeInTheDocument();
+    expect(screen.getByAltText("Part 3024")).toHaveAttribute(
+      "src",
+      "/api/elements/302400/image",
+    );
+  });
+
+  it("shows only the line image in investigate part view (no part-photo editor)", () => {
+    render(
+      <PartLineModal
+        mode="edit"
+        setCopyId={1}
+        line={{
+          ...line,
+          image_url: "/api/elements/302400/image",
+          part_image_url: "/api/parts/42/image",
+        }}
+        readOnly
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByAltText("Part 3024")).toHaveAttribute(
+      "src",
+      "/api/elements/302400/image",
+    );
+    expect(screen.queryByLabelText(/^part photo$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^ok$/i })).toBeInTheDocument();
   });
 
@@ -183,6 +212,7 @@ describe("PartLineModal", () => {
     });
     const lineWithImage = {
       ...line,
+      image_url: "/api/elements/302400/image",
       part_image_url: "/api/parts/42/image",
     };
     const fetchMock = vi
@@ -226,7 +256,7 @@ describe("PartLineModal", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByAltText("Part 3024")).toHaveAttribute(
       "src",
-      "/api/parts/42/image",
+      "/api/elements/302400/image",
     );
 
     const file = new File(["new pixels"], "new-part.png", { type: "image/png" });

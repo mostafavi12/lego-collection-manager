@@ -80,12 +80,12 @@ Still **no live Rebrickable** in CI.
 | Area | Cases |
 |------|--------|
 | **Sets list** | `{display_label} — {set_num}`; metadata line (name, theme, parts, age defaults); filter; pagination; **Make a copy** opens modal → preview → POST on confirm. |
-| **Set detail** | Per-copy fields (label, investigated, age, notes); **set number change** warning modal (Cancel / Continue); **delete** with confirm → `DELETE`; no duplicate button; inventory + missing UI; **Part view** in View/Investigate (Element ID field, optional part-photo editor in Investigate); **Edit part** in Edit mode (Element ID for existing lines); list thumbnails via `partPhotoDisplayUrl` (`partPhotoDisplay.test.ts`, `SetDetailPage.test.tsx`). |
+| **Set detail** | Per-copy fields (label, investigated, age, notes); **set number change** warning modal (Cancel / Continue); **delete** with confirm → `DELETE`; no duplicate button; inventory + missing UI; **Part view** in View/Investigate (Element ID field, color-specific line image); **Edit part** in Edit mode (Element ID for existing lines, element-first preview); list thumbnails via `inventoryLineImageUrl` (`partPhotoDisplay.test.ts`, `SetDetailPage.test.tsx`). |
 | **Search** | Debounce (if any), submit triggers correct API, displays multiple copies per `set_num` when applicable. |
 | **Missing UI** | Changing missing quantity calls PATCH; missing-photo upload API exists (UI deferred); preview uses resolved `part_image_url` / `missing_image_url` (element or part BLOB). |
-| **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`; display URLs are same-origin only (`resolveImageFetchUrl.test.ts`); part list/modal prefer part BLOB then line `image_url` unless `part_image_user_removed`. |
+| **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`; display URLs are same-origin only (`resolveImageFetchUrl.test.ts`); list, Part view, and Edit part preview use line `image_url` (element-first). |
 | **Import** | CSV file picker → `POST /imports/csv`; **Import database** → `POST /imports/database` with mode (`ImportPage.test.tsx`); **Sync entire collection** → `POST /imports/rebrickable/sync`; local metadata update. |
-| **Settings** | Default View mode; mode persists in localStorage; View hides import/add mutations; Investigate enables investigated + missing + part-photo edit in Part view; part row opens Part view. |
+| **Settings** | Default View mode; mode persists in localStorage; View hides import/add mutations; Investigate enables investigated + missing; part row opens Part view. |
 | **Reports** | Summary stats; incomplete sets with collapsed missing lines; missing-parts table with `owned_set_ids` filter and `set_name` in web Sets links; **Export PDF** (set numbers only in Sets column; `missingPartsReportPdf.test.ts`). |
 
 **Backend reporting tests:** `test_reports_summary_api.py`, `test_reports_incomplete_api.py`, `test_reports_missing_parts_api.py`.

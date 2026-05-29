@@ -212,9 +212,9 @@ User-uploaded and sync-downloaded images are stored in SQLite (Phase 10). There 
 - Inventory lines **may** show a local image resolved from **`element_images`** (first matching Element ID on the line) or from the global **`parts`** BLOB as fallback.
 - One BLOB per Element ID and one global BLOB per part (JPEG/PNG in DB, max 5 MB).
 - **Add** and **edit** part modals in **Edit** mode include upload/replace/delete for the global part image on the **`parts`** row.
-- **Part view** in **View** is read-only for part photos (no upload). In **Investigate**, **Part view** allows upload/replace/delete of the global part photo when `canEditMissingPhotos` is enabled (shared **`parts`** BLOB; same API as Edit).
-- Removing a part photo clears **`parts.image_blob`** and sets **`part_image_user_removed`** so list/modal UI does not fall back to element images until the user uploads again.
-- Inventory list thumbnails and part-photo previews prefer the **part BLOB** when present; otherwise use **`image_url`** (element first) unless **`part_image_user_removed`** is set.
+- **Part view** in **View** and **Investigate** is read-only for part photos (no upload). Both modes show the color-specific line **`image_url`** only.
+- Removing a part photo clears **`parts.image_blob`** and sets **`part_image_user_removed`** (global part row only).
+- Inventory list thumbnails, **Part view**, and **Edit part** preview use **`image_url`** (element BLOB first per line, then part BLOB fallback). **`part_image_url`** is exposed for the global part BLOB only; upload/replace/delete in **Edit part** still targets **`PUT /parts/{part_id}/image`**.
 - Rebrickable sync with part-image download populates **`element_images`** for color-specific thumbnails.
 
 ### 11.5 Part aliases (bidirectional)
@@ -263,12 +263,12 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 
 - **Settings** page (`/settings`) with **View**, **Investigate**, and **Edit** modes; choice persists in browser **localStorage**; default is **View**.
 - **View:** browse collection, search, and reports only — no sync, import, add/duplicate, or data edits; clicking a part row opens read-only **Part view**.
-- **Investigate:** toggle **Investigated** and update **missing** quantities; clicking a part row opens **Part view** (catalog fields read-only, **OK** only) with optional **part-photo** upload/delete on the global **`parts`** row; dedicated missing-line photo UI remains deferred.
+- **Investigate:** toggle **Investigated** and update **missing** quantities; clicking a part row opens read-only **Part view** (same image display as View); dedicated missing-line photo UI remains deferred.
 - **Edit:** full app behavior (import, sync, catalog/copy edits, part CRUD, delete, images). Switching to Edit will require a **password** in a future release (stub hook in place).
 - Header shows current mode label; **Add set** and **Import** nav entries are disabled outside Edit with a tooltip pointing to Settings.
 - Mode gating is **UI-only** for MVP (API remains open for local single-user use).
 
-**Capability flags** (frontend `getCapabilities()`): `canSync`, `canImport`, `canAddOrDuplicate`, `canEditCopyFields`, `canEditCatalog`, `canEditQuantities`, `canEditParts`, `canDeleteCopy`, `canEditImages`, `canToggleInvestigated`, `canEditMissing`, `canEditMissingPhotos` (enables **part-photo** editor in **Part view** during Investigate; dedicated per-missing-line photo UI still deferred).
+**Capability flags** (frontend `getCapabilities()`): `canSync`, `canImport`, `canAddOrDuplicate`, `canEditCopyFields`, `canEditCatalog`, `canEditQuantities`, `canEditParts`, `canDeleteCopy`, `canEditImages`, `canToggleInvestigated`, `canEditMissing`, `canEditMissingPhotos` (reserved for deferred per-missing-line photo UI).
 
 ## UX surfaces (MVP)
 

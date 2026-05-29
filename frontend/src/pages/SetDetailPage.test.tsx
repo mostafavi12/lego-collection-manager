@@ -70,7 +70,7 @@ describe("SetDetailPage", () => {
                 color_name: "Yellow",
                 quantity: 1,
                 element_ids: ["973000"],
-                image_url: null,
+                image_url: "/api/parts/99/image",
                 part_image_url: "/api/parts/99/image",
                 missing_quantity: 0,
                 missing_item_id: null,
@@ -155,7 +155,7 @@ describe("SetDetailPage", () => {
     );
   });
 
-  it("does not show element image in list when part photo was user-removed", async () => {
+  it("shows no icon when line has no resolved image_url", async () => {
     const detail = {
       ...setCopyDetailFixture,
       inventory: {
@@ -163,7 +163,7 @@ describe("SetDetailPage", () => {
         set_parts: [
           {
             ...setCopyDetailFixture.inventory.set_parts[0]!,
-            image_url: "/api/elements/302400/image",
+            image_url: null,
             part_image_url: null,
             part_image_user_removed: true,
           },
@@ -184,7 +184,7 @@ describe("SetDetailPage", () => {
     expect(document.querySelector(".part-cell__img")).toBeNull();
   });
 
-  it("shows part blob in list when both element and part images exist", async () => {
+  it("shows element image in list when both element and part blob exist", async () => {
     const detail = {
       ...setCopyDetailFixture,
       inventory: {
@@ -211,7 +211,39 @@ describe("SetDetailPage", () => {
     await screen.findByText(/Plate 1 x 1/);
     expect(document.querySelector(".part-cell__img")).toHaveAttribute(
       "src",
-      "/api/parts/42/image",
+      "/api/elements/302424/image",
+    );
+  });
+
+  it("still shows element image after part photo user-removed flag", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            image_url: "/api/elements/302424/image",
+            part_image_url: null,
+            part_image_user_removed: true,
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    renderDetail();
+
+    await screen.findByText(/Plate 1 x 1/);
+    expect(document.querySelector(".part-cell__img")).toHaveAttribute(
+      "src",
+      "/api/elements/302424/image",
     );
   });
 
@@ -263,6 +295,7 @@ describe("SetDetailPage", () => {
         set_parts: [
           {
             ...setCopyDetailFixture.inventory.set_parts[0]!,
+            image_url: "/api/parts/42/image",
             part_image_url: "/api/parts/42/image",
           },
         ],
@@ -423,6 +456,41 @@ describe("SetDetailPage", () => {
     expect(within(dialog).getByDisplayValue("302400, 6252045")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: /^update$/i })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
+  });
+
+  it("shows element image in edit part modal when both element and part blob exist", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            image_url: "/api/elements/302400/image",
+            part_image_url: "/api/parts/42/image",
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText(/Plate 1 x 1/);
+    await user.click(screen.getByText(/Plate 1 x 1/));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByAltText("Part 3024")).toHaveAttribute(
+      "src",
+      "/api/elements/302400/image",
+    );
   });
 
   it("patches set part on update from modal", async () => {
@@ -752,11 +820,24 @@ describe("SetDetailPage", () => {
   });
 
   it("opens read-only part view when clicking a part row in investigate mode", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        set_parts: [
+          {
+            ...setCopyDetailFixture.inventory.set_parts[0]!,
+            image_url: "/api/elements/302400/image",
+            part_image_url: "/api/parts/42/image",
+          },
+        ],
+      },
+    };
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => setCopyDetailFixture,
+        json: async () => detail,
       } as Response),
     );
 
@@ -772,12 +853,13 @@ describe("SetDetailPage", () => {
     ).toBeInTheDocument();
     expect(within(dialog).getByLabelText(/^element id$/i)).toBeInTheDocument();
     expect(within(dialog).getByDisplayValue("302400, 6252045")).toBeDisabled();
+    expect(within(dialog).getAllByAltText("Part 3024")[0]).toHaveAttribute(
+      "src",
+      "/api/elements/302400/image",
+    );
     expect(
-      within(dialog).queryByLabelText(/^part number$/i),
+      within(dialog).queryByLabelText(/^part photo$/i),
     ).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("button", { name: /^ok$/i }),
-    ).toBeInTheDocument();
     expect(
       within(dialog).queryByRole("button", { name: /^update$/i }),
     ).not.toBeInTheDocument();

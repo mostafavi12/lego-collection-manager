@@ -24,7 +24,7 @@ import {
   PartLineModal,
   type PartLineModalSaveResult,
 } from "../components/PartLineModal";
-import { partPhotoDisplayUrl } from "../utils/partPhotoDisplay";
+import { inventoryLineImageUrl } from "../utils/partPhotoDisplay";
 import { formatSetCopyTitle } from "../utils/setCopyTitle";
 
 interface InstanceForm {
@@ -88,9 +88,9 @@ function withRefreshToken(url: string | null, token: number): string | null {
 }
 
 function inventoryLineThumbUrl(
-  line: Parameters<typeof partPhotoDisplayUrl>[0],
+  line: Parameters<typeof inventoryLineImageUrl>[0],
 ): string | null {
-  return partPhotoDisplayUrl(line);
+  return inventoryLineImageUrl(line);
 }
 
 export function SetDetailPage() {
@@ -107,7 +107,6 @@ export function SetDetailPage() {
     canEditImages,
     canToggleInvestigated,
     canEditMissing,
-    canEditMissingPhotos,
   } = useCapabilities();
   const [detail, setDetail] = useState<SetCopyDetailResponse | null>(null);
   const [form, setForm] = useState<InstanceForm | null>(null);
@@ -802,7 +801,6 @@ export function SetDetailPage() {
           }
           line={partModal.mode === "edit" ? partModal.line : undefined}
           readOnly={!canEditParts}
-          canEditPartImage={canEditMissingPhotos}
           onClose={() => setPartModal(null)}
           onSaved={onPartModalSaved}
         />

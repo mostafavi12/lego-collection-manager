@@ -17,8 +17,7 @@ import {
 } from "./AliasChipEditor";
 import { AsyncMessage } from "./AsyncMessage";
 import { Modal } from "./Modal";
-import { PartImageEditor } from "./PartImageEditor";
-import { partPhotoDisplayUrl } from "../utils/partPhotoDisplay";
+import { inventoryLineImageUrl } from "../utils/partPhotoDisplay";
 
 type InventoryPartLineDetail = SetPartLineDetail | MinifigPartLineDetail;
 type InventoryKind = "set_part" | "minifig_part";
@@ -36,7 +35,6 @@ interface PartLineModalProps {
   inventoryKind?: InventoryKind;
   line?: InventoryPartLineDetail;
   readOnly?: boolean;
-  canEditPartImage?: boolean;
   onClose: () => void;
   onSaved: (result?: PartLineModalSaveResult) => void;
 }
@@ -47,7 +45,6 @@ export function PartLineModal({
   inventoryKind = "set_part",
   line,
   readOnly = false,
-  canEditPartImage = false,
   onClose,
   onSaved,
 }: PartLineModalProps) {
@@ -274,15 +271,15 @@ export function PartLineModal({
   }
 
   const title = readOnly && isEdit ? "Part view" : isEdit ? "Edit part" : "Add part";
-  const partPhotoDisplay =
-    line == null ? null : partPhotoDisplayUrl(line);
+  const lineDisplayImage =
+    line == null ? null : inventoryLineImageUrl(line);
   const displayImageUrl =
     pendingPreview ??
-    (removeCurrentImage ? null : mediaUrl(partPhotoDisplay));
+    (removeCurrentImage ? null : mediaUrl(lineDisplayImage));
   const canonicalPartNum = isEdit ? (line?.part_num ?? "") : partNum.trim();
 
   if (readOnly && isEdit && line) {
-    const viewImageUrl = mediaUrl(partPhotoDisplayUrl(line));
+    const viewImageUrl = mediaUrl(lineDisplayImage);
     return (
       <Modal title={title} onClose={onClose}>
         <div className="instance-form__grid">
@@ -317,29 +314,18 @@ export function PartLineModal({
         </div>
 
         <div className="part-line-modal__image">
-          <p className="form-hint">
-            {canEditPartImage ? "Part photo (shared across all sets)" : "Part image"}
-          </p>
-          {canEditPartImage ? (
-            <PartImageEditor
-              partId={line.part_id}
-              partNum={line.part_num}
-              imageUrl={mediaUrl(partPhotoDisplayUrl(line))}
-              onUpdated={() => onSaved({ imageChanged: true })}
-            />
-          ) : (
-            <div className="image-blob-editor">
-              {viewImageUrl ? (
-                <img
-                  src={viewImageUrl}
-                  alt={`Part ${line.part_num}`}
-                  className="image-blob-editor__preview"
-                />
-              ) : (
-                <div className="image-blob-editor__placeholder" aria-hidden />
-              )}
-            </div>
-          )}
+          <p className="form-hint">Part image</p>
+          <div className="image-blob-editor">
+            {viewImageUrl ? (
+              <img
+                src={viewImageUrl}
+                alt={`Part ${line.part_num}`}
+                className="image-blob-editor__preview"
+              />
+            ) : (
+              <div className="image-blob-editor__placeholder" aria-hidden />
+            )}
+          </div>
         </div>
 
         <div className="modal__actions">
@@ -473,7 +459,7 @@ export function PartLineModal({
           )}
 
           <div className="part-line-modal__image">
-            <p className="form-hint">Part image (shared across all sets)</p>
+            <p className="form-hint">Part image</p>
             {isEdit && line ? (
               <div className="image-blob-editor">
                 {displayImageUrl ? (
