@@ -1,10 +1,15 @@
 import os
+import tempfile
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
 from app.importers.csv_import_service import import_set_list
+from app.importers.database_import_service import (
+    import_from_database,
+    validate_source_database,
+)
 from app.importers.rebrickable_sync_service import (
     ensure_api_key_configured,
     sync_rebrickable,
@@ -15,6 +20,8 @@ from app.schemas.imports import (
     CsvImportSetFailure,
     CsvImportSkippedExistingSet,
     CsvTokenError,
+    DatabaseImportMode,
+    DatabaseImportResponse,
     ExistingSetImportMode,
     ImageDownloadFailure,
     LocalMetadataUpdateResponse,
@@ -27,6 +34,7 @@ from app.services.local_metadata import update_missing_local_metadata
 router = APIRouter(prefix="/imports", tags=["imports"])
 
 MAX_CSV_BYTES = int(os.environ.get("CSV_IMPORT_MAX_BYTES", 1_048_576))
+MAX_DATABASE_BYTES = int(os.environ.get("DATABASE_IMPORT_MAX_BYTES", 524_288_000))
 
 
 @router.post("/csv", response_model=CsvImportResponse)
@@ -124,6 +132,37 @@ def import_rebrickable_sync(
             )
             for f in result.image_downloads_failed
         ],
+    )
+
+
+@router.post("/database", response_model=DatabaseImportResponse)
+async def import_database(
+    file: UploadFile = File(...),
+    mode: DatabaseImportMode = Form("add_only_new"),
+    db: Session = Depends(get_db),
+) -> DatabaseImportResponse:
+    raw = await file.read()
+    if len(raw) > MAX_DATABASE_BYTES:
+        raise HTTPException(status_code=413, detail="Database file too large")
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=True) as tmp:
+        tmp.write(raw)
+        tmp.flush()
+        try:
+            validate_source_database(tmp.name)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        result = import_from_database(db, tmp.name, mode=mode)
+
+    return DatabaseImportResponse(
+        sets_added=result.sets_added,
+        sets_updated=result.sets_updated,
+        sets_skipped=result.sets_skipped,
+        skipped_set_nums=result.skipped_set_nums,
+        instances_created=result.instances_created,
+        parts_upserted=result.parts_upserted,
+        inventory_lines_written=result.inventory_lines_written,
     )
 
 

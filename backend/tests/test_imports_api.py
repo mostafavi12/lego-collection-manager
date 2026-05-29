@@ -185,3 +185,53 @@ def test_post_local_metadata_updates_missing_values(api_client) -> None:
         "age_values_available": 4,
         "theme_values_available": 5,
     }
+
+
+def test_post_database_import_rejects_invalid_file(api_client) -> None:
+    response = api_client.post(
+        "/api/imports/database",
+        data={"mode": "add_only_new"},
+        files={"file": ("bad.db", b"not-a-database", "application/octet-stream")},
+    )
+    assert response.status_code == 400
+
+
+def test_post_database_import_add_only_new(api_client, db_session, tmp_path) -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.db.base import Base
+    from tests.factories import add_catalog_set, add_owned_set
+
+    source_engine = create_engine(
+        f"sqlite:///{tmp_path / 'source.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(source_engine)
+    source_session = sessionmaker(bind=source_engine)()
+    catalog = add_catalog_set(source_session, set_number=8888)
+    add_owned_set(source_session, catalog)
+    source_session.commit()
+    source_session.close()
+    source_engine.dispose()
+
+    db_path = tmp_path / "source.db"
+    response = api_client.post(
+        "/api/imports/database",
+        data={"mode": "add_only_new"},
+        files={
+            "file": (
+                "source.db",
+                db_path.read_bytes(),
+                "application/octet-stream",
+            )
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sets_added"] == 1
+    assert body["instances_created"] == 1
+    assert body["sets_skipped"] == 0
+

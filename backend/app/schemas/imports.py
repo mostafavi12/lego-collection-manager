@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 PartImageDownloadMode = Literal["none", "missing", "all"]
 ExistingSetImportMode = Literal["skip", "copy"]
+DatabaseImportMode = Literal["add_only_new", "add_and_update"]
 
 
 class CsvTokenError(BaseModel):
@@ -67,3 +68,13 @@ class LocalMetadataUpdateResponse(BaseModel):
     catalog_themes_updated: int
     age_values_available: int
     theme_values_available: int
+
+
+class DatabaseImportResponse(BaseModel):
+    sets_added: int
+    sets_updated: int
+    sets_skipped: int
+    skipped_set_nums: list[str] = Field(default_factory=list)
+    instances_created: int
+    parts_upserted: int
+    inventory_lines_written: int
