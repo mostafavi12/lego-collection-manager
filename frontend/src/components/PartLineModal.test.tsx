@@ -62,6 +62,22 @@ describe("PartLineModal", () => {
     expect(screen.getByRole("button", { name: /^ok$/i })).toBeInTheDocument();
   });
 
+  it("shows Element ID instead of part number when editing existing line", () => {
+    render(
+      <PartLineModal
+        mode="edit"
+        setCopyId={1}
+        line={line}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText(/^element id$/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("302400, 6252045")).toBeDisabled();
+    expect(screen.queryByLabelText(/^part number$/i)).not.toBeInTheDocument();
+  });
+
   it("shows alias chips in edit mode", () => {
     render(
       <PartLineModal

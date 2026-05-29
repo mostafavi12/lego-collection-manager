@@ -32,6 +32,25 @@ def test_part_image_round_trip(api_client, db_session) -> None:
     row = db_session.get(Part, part.id)
     assert row is not None
     assert row.image_byte_size == len(TINY_PNG)
+    assert row.part_image_user_removed is False
+
+
+def test_delete_part_image_sets_user_removed_flag(api_client, db_session) -> None:
+    part = add_part(db_session, part_num="3024")
+    db_session.commit()
+
+    api_client.put(
+        f"/api/parts/{part.id}/image",
+        files={"file": ("p.png", TINY_PNG, "image/png")},
+    )
+    delete = api_client.delete(f"/api/parts/{part.id}/image")
+    assert delete.status_code == 200
+    assert delete.json()["image_url"] is None
+
+    row = db_session.get(Part, part.id)
+    assert row is not None
+    assert row.image_blob is None
+    assert row.part_image_user_removed is True
 
 
 def test_part_image_visible_across_two_sets(api_client, db_session) -> None:
