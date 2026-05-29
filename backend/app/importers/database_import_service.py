@@ -9,6 +9,7 @@ from typing import Literal
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.db.import_progress import commit_import_progress
 from app.db.models import (
     CatalogMinifig,
     CatalogSet,
@@ -126,6 +127,7 @@ def _import_from_sessions(
             result.instances_created += stats.instances_created
             result.parts_upserted += stats.parts_upserted
             result.inventory_lines_written += stats.inventory_lines_written
+            commit_import_progress(target_session)
         elif mode == "add_only_new":
             result.sets_skipped += 1
             result.skipped_set_nums.append(set_num)
@@ -139,6 +141,7 @@ def _import_from_sessions(
             result.sets_updated += 1
             result.parts_upserted += stats.parts_upserted
             result.inventory_lines_written += stats.inventory_lines_written
+            commit_import_progress(target_session)
 
     return result
 

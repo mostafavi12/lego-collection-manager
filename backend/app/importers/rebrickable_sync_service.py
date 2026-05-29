@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.db.import_progress import commit_import_progress
 from app.db.models import (
     CatalogMinifig,
     CatalogSet,
@@ -180,6 +181,7 @@ def sync_catalog_for_set_nums(
             result.sets_failed.append(
                 SetSyncFailure(set_num=set_num, message=str(exc))
             )
+        commit_import_progress(session)
     logger.info(
         "Rebrickable sync finished sets_synced=%s sets_failed=%s "
         "parts_upserted=%s inventory_lines_written=%s",
