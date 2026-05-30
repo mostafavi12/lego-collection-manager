@@ -118,21 +118,23 @@ Long-running imports run in a **background worker thread** so other API routes s
 }
 ```
 
-### Rebrickable sync — synchronous
+### Rebrickable sync — UI (jobs) and legacy synchronous route
 
-**`POST /imports/rebrickable/sync`**
+**Primary UI path:** **Import** and **set detail** use **`POST /imports/jobs`** with `kind: rebrickable_sync` and optional `sync_options` JSON (same fields as the legacy body below). The client polls **`GET /imports/jobs/{job_id}`** (~1.5s interval), shows progress/cancel, and may download **`GET /imports/failed-sets.csv`** after catalog failures. See [Background import jobs](#background-import-jobs).
 
-The app uses a **synchronous** request that completes the sync for the selected scope before returning **`200`**. This avoids background job infrastructure at the cost of longer request duration for large collections.
+**Legacy synchronous route (API clients / tests):** **`POST /imports/rebrickable/sync`**
+
+Returns **`200`** when the sync completes for the selected scope in the request thread. Prefer jobs for long-running work so the server stays responsive.
 
 | Phase | What is shipped |
 |-------|-----------------|
-| **Phase 14 shipped** | **Import** page: **Sync entire collection** calls this endpoint for the full DB (UI sends image-option defaults; API clients may omit the body for default options). Optional JSON body `{ "owned_set_ids": […] }` scopes sync to those **set copies**; set detail uses this for current-set sync. Import and set detail expose optional set/minifigure image and part image BLOB downloads. |
-| **Phase 14 backlog** | Progress/cancel, conflict policy with manual edits, and richer subset selection from list views. |
+| **Phase 14 shipped** | Jobs-based sync on Import and set detail; progress/cancel; failed-sets retry file; set images **off** by default on Import sync. |
+| **Phase 14 backlog** | Conflict policy with manual edits, richer subset selection from list views. |
 
 | Tradeoff | Mitigation |
 |----------|------------|
-| Long HTTP request | Sequential per-set processing; Import and set detail show a spinner while the request runs (browser “cancel” only stops the tab request; server may continue until process policies change). |
-| Timeouts | Document recommended max **distinct `set_num`** per operation; programmatic clients may pass explicit `owned_set_ids`. |
+| Long legacy HTTP request | Use **`POST /imports/jobs`** from the UI; legacy route remains for scripts and tests. |
+| Timeouts | Document recommended max **distinct `set_num`** per operation; pass explicit `owned_set_ids` in `sync_options` when scoping. |
 
 **`POST /imports/rebrickable/sync` body:**
 
@@ -792,7 +794,7 @@ The **wizard** calls **`add-preview`** → step 2, then **`add-rebrickable-draft
 
 Part alias editing: [Part aliases (Phase 11B)](#part-aliases-phase-11b) (not part of the wizard contract).
 
-See also [Rebrickable sync — synchronous](#rebrickable-sync--synchronous) for Import **Sync entire collection**, set detail scoped sync, optional `owned_set_ids`, and image download options.
+See also [Rebrickable sync — UI (jobs) and legacy synchronous route](#rebrickable-sync--ui-jobs-and-legacy-synchronous-route) for Import **Sync entire collection**, set detail scoped sync, optional `owned_set_ids`, and image download options.
 
 ## Reports
 

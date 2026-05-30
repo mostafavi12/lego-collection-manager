@@ -17,7 +17,7 @@ const TERMINAL_STATUSES: ReadonlySet<ImportJobStatus> = new Set([
   "cancelled",
 ]);
 
-const DEFAULT_POLL_MS = 400;
+const DEFAULT_POLL_MS = 1500;
 
 export function failedSetsCsvDownloadUrl(): string {
   return `${API_BASE}/imports/failed-sets.csv`;
@@ -122,13 +122,23 @@ export async function pollImportJobUntilTerminal(
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  if (ms <= 0) {
-    if (signal?.aborted) {
-      return Promise.reject(
-        new DOMException("The operation was aborted.", "AbortError"),
+  const delayMs = ms <= 0 ? 0 : ms;
+  if (delayMs === 0) {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+        return;
+      }
+      const timer = setTimeout(resolve, 0);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer);
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        },
+        { once: true },
       );
-    }
-    return Promise.resolve();
+    });
   }
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {

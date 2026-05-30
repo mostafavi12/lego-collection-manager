@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Verify FastAPI exposes health and CSV import (step 4 of scripts/smoke.sh)."""
+"""Verify FastAPI exposes health, CSV import, and import jobs (step 4 of scripts/smoke.sh)."""
 
 from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
+from unittest.mock import patch
 
 BACKEND = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND))
@@ -70,7 +72,78 @@ def main() -> int:
         f"(instances_created={body['instances_created']}, "
         f"catalog_stubs_created={body['catalog_stubs_created']})"
     )
-    return 0
+
+    if "/api/imports/jobs" not in paths:
+        print("SKIP POST /api/imports/jobs (route not registered on this branch)")
+        return 0
+
+    return _probe_import_jobs(client, fixture, content)
+
+
+def _probe_import_jobs(client: TestClient, fixture: Path, content: str) -> int:
+    from app.importers.csv_import_service import import_set_list as real_csv_import
+    from tests.test_imports_api import _csv_fake_client
+
+    os.environ.setdefault("REBRICKABLE_API_KEY", "smoke-test-key")
+
+    def _csv_stub(session, text, **kwargs):
+        return real_csv_import(session, text, client=_csv_fake_client(), **kwargs)
+
+    with patch(
+        "app.importers.import_job_runner.import_set_list",
+        side_effect=_csv_stub,
+    ):
+        start = client.post(
+            "/api/imports/jobs",
+            data={"kind": "csv"},
+            files={"file": ("smoke.txt", content.encode("utf-8"), "text/plain")},
+        )
+    if start.status_code != 202:
+        print(
+            f"ERROR: POST /api/imports/jobs failed: status={start.status_code} body={start.text}",
+            file=sys.stderr,
+        )
+        return 1
+
+    job_id = start.json()["job_id"]
+    deadline = time.monotonic() + 30.0
+    while time.monotonic() < deadline:
+        status = client.get(f"/api/imports/jobs/{job_id}")
+        if status.status_code != 200:
+            print(
+                f"ERROR: GET /api/imports/jobs/{job_id} failed: "
+                f"status={status.status_code} body={status.text}",
+                file=sys.stderr,
+            )
+            return 1
+        body = status.json()
+        if body["status"] in ("completed", "failed", "cancelled"):
+            if body["status"] != "completed":
+                print(
+                    f"ERROR: import job ended with status={body['status']!r}: {body}",
+                    file=sys.stderr,
+                )
+                return 1
+            result = body.get("result") or {}
+            if result.get("instances_created", 0) < 1:
+                print(f"ERROR: job result missing instances: {body}", file=sys.stderr)
+                return 1
+            print(
+                f"POST /api/imports/jobs -> poll completed "
+                f"(instances_created={result.get('instances_created')})"
+            )
+            active = client.get("/api/imports/jobs/active")
+            if active.status_code != 404:
+                print(
+                    f"ERROR: expected no active job after completion, got {active.status_code}",
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
+        time.sleep(0.2)
+
+    print("ERROR: import job did not complete within 30s", file=sys.stderr)
+    return 1
 
 
 if __name__ == "__main__":

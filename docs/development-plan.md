@@ -289,7 +289,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 - **Import** page exposes **Sync entire collection** (empty body syncs everything in the DB).
 - **Set detail** exposes collapsed-by-default **Sync from Rebrickable** for the current set copy (`{ "owned_set_ids": [currentCopyId] }`).
-- Both sync surfaces expose **download set images** and **part image download mode** controls. Set image download defaults on and includes catalog minifigure thumbnails. Part image download defaults to **none** with options for **missing** and **all**, and both modes include minifig BOM parts.
+- Both sync surfaces expose **download set images** and **part image download mode** controls. Set image download defaults **off** (opt-in). Part image download defaults to **none** with options for **missing** and **all**, and both modes include minifig BOM parts.
 
 ### Deferred backlog
 

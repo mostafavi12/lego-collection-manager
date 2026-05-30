@@ -263,6 +263,7 @@ export function importCsv(file: File): Promise<CsvImportResponse> {
   return request("/imports/csv", { method: "POST", body: form });
 }
 
+/** Legacy synchronous sync; the Import UI uses `importJobs.startRebrickableSyncJob` instead. */
 export function syncRebrickable(
   setCopyIds?: number[],
   options?: {

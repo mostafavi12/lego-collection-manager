@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -344,6 +344,75 @@ describe("ImportPage", () => {
     expect(metadataStatus).toHaveTextContent("Updated");
     expect(metadataStatus).toHaveTextContent("2");
     expect(metadataStatus).toHaveTextContent("theme");
+  });
+
+  it("cancel import job sends DELETE", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("/imports/jobs/active")) {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({ detail: "No active import job" }),
+        } as Response;
+      }
+      if (url.includes("/imports/jobs") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 202,
+          json: async () => ({ job_id: "job-1", status: "queued" }),
+        } as Response;
+      }
+      if (url.includes("/imports/jobs/job-1") && init?.method === "DELETE") {
+        return {
+          ok: true,
+          json: async () => ({
+            job_id: "job-1",
+            kind: "csv",
+            status: "cancelled",
+            progress: null,
+            result: null,
+            error: null,
+            failed_sets_csv_path: null,
+          }),
+        } as Response;
+      }
+      if (url.includes("/imports/jobs/job-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            job_id: "job-1",
+            kind: "csv",
+            status: "running",
+            progress: { current: 1, total: 3, label: "Working" },
+            result: null,
+            error: null,
+            failed_sets_csv_path: null,
+          }),
+        } as Response;
+      }
+      return { ok: false, status: 404 } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderImport();
+
+    const file = new File(["6024-1"], "sets.csv", { type: "text/plain" });
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      file,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /import csv/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /cancel import/i }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/imports/jobs/job-1"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
   });
 
   it("hides import forms in view mode", () => {

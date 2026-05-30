@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ApiError,
   buildSyncJobOptions,
   pollImportJobUntilTerminal,
+  startCsvImportJob,
 } from "./importJobs";
 
 describe("buildSyncJobOptions", () => {
@@ -27,6 +29,32 @@ describe("buildSyncJobOptions", () => {
       download_set_images: true,
       part_image_download_mode: "all",
     });
+  });
+});
+
+describe("startCsvImportJob", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("surfaces 409 when another job is active", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        statusText: "Conflict",
+        json: async () => ({ detail: "Another import job is already running" }),
+      } as Response),
+    );
+
+    const file = new File(["6024-1"], "sets.csv", { type: "text/plain" });
+    await expect(startCsvImportJob(file)).rejects.toMatchObject({
+      name: "ApiError",
+      status: 409,
+      message: "Another import job is already running",
+    });
+    await expect(startCsvImportJob(file)).rejects.toBeInstanceOf(ApiError);
   });
 });
 

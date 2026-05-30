@@ -249,11 +249,11 @@ Unchanged additive semantics (one token → one new physical copy). Additionally
 
 ### 11.9 Sync UX (**Phase 14**)
 
-- **Shipped:** **Import** page includes **Sync entire collection**, calling **`POST /imports/rebrickable/sync`** for the full collection. The UI sends image-option defaults in the request body; API clients may still omit the body for a full sync with default options. **Set detail** includes a collapsed-by-default **Sync from Rebrickable** panel that calls the same endpoint with **`{ "owned_set_ids": [currentCopyId] }`** plus image options.
+- **Shipped:** **Import** and **set detail** run CSV import, database import, and Rebrickable sync via **`POST /api/imports/jobs`** (start → poll → cancel). Progress and cancel stay available while navigating the app (`ImportJobProvider`, optional banner link to Import). **`GET /api/imports/failed-sets.csv`** when catalog fetch failures were recorded. Legacy **`POST /imports/rebrickable/sync`** (and csv/database sync routes) remain for API clients and tests.
 - **Preservation policy:** sync updates set/part names, set/part images, number of parts, catalog inventory, and per-copy part quantities. It does not update theme, year, age, investigated, missing quantities/items, labels, or notes.
-- **Image options:** both sync surfaces default to downloading set and minifigure images and default to **not** downloading part images. Users may instead download part images only for currently missing parts or for all synced inventory parts, including minifig BOM parts.
+- **Image options:** both sync surfaces default to **not** downloading set images (opt-in). Part image download defaults to **none**; users may download part images only for missing parts or for all synced inventory parts, including minifig BOM parts.
 - **Local metadata update:** the Import page can fill missing age values and unknown themes from local CSV files without calling Rebrickable. It uses `data/age.csv` for age, and `data/sets.csv` plus `data/themes.csv` for theme, storing the parent theme when `parent_id` exists.
-- **Backlog:** progress and cancellation beyond a simple spinner, documented conflict policy vs manual/instance edits, and richer subset selection from list views — see [development-plan.md](./development-plan.md).
+- **Backlog:** documented conflict policy vs manual/instance edits, and richer subset selection from list views — see [development-plan.md](./development-plan.md).
 
 ### 11.10 Settings and app modes (Phase 18)
 

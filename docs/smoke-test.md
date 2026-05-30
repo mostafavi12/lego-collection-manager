@@ -21,7 +21,7 @@ Requirements: `python3`, `npm`, network for `pip` / `npm` on a clean machine.
 | 1 | Create `backend/.venv` if missing; `pip install -r backend/requirements-dev.txt` |
 | 2 | `pytest` in `backend/` |
 | 3 | Fresh `backend/data/smoke.db`; `alembic upgrade head` with `DATABASE_URL` pointing at it |
-| 4 | Probe `GET /health` and `POST /api/imports/csv` via FastAPI `TestClient` ([`scripts/smoke_app_probe.py`](../scripts/smoke_app_probe.py)). If the CSV route is not registered (older branch), step 4 **skips** the import probe only. |
+| 4 | Probe `GET /health`, `POST /api/imports/csv`, and (when registered) `POST /api/imports/jobs` with poll until complete via [`scripts/smoke_app_probe.py`](../scripts/smoke_app_probe.py). Older branches skip missing routes only. |
 | 5 | `npm ci` in `frontend/` when `node_modules` is missing (or always when `FORCE_SMOKE_NPM=1`) |
 | 6 | `npm test` in `frontend/` (Vitest unit tests) |
 | 7 | `npm run build` in `frontend/` |
