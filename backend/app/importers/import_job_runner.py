@@ -131,6 +131,12 @@ def _start_job(kind: ImportJobKind, params: Any) -> str:
     return job_id
 
 
+def get_active_job() -> ImportJobRecord | None:
+    """Return the queued or running job for this process, if any."""
+    with _store_lock:
+        return _active_job()
+
+
 def get_job(job_id: str) -> ImportJobRecord:
     with _store_lock:
         job = _jobs.get(job_id)

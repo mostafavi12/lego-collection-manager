@@ -984,6 +984,47 @@
   object-fit: contain;
 }
 
+.import-job-progress {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background: var(--surface-muted, #f4f4f5);
+}
+
+.import-job-progress__label {
+  margin: 0 0 0.5rem;
+}
+
+.import-job-progress__bar {
+  height: 0.5rem;
+  border-radius: 4px;
+  background: #e4e4e7;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.import-job-progress__bar-fill {
+  height: 100%;
+  background: var(--accent, #2563eb);
+  transition: width 0.2s ease;
+}
+
+.import-job-progress__cancel {
+  margin-top: 0.25rem;
+}
+
+.import-failed-sets-link {
+  margin-top: 0.75rem;
+}
+
+.layout__import-banner {
+  margin: 0;
+  padding: 0.5rem 1.25rem;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+  font-size: 0.9rem;
+}
+
 .import-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);

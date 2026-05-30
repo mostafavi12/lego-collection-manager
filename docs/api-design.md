@@ -42,6 +42,11 @@ Long-running imports run in a **background worker thread** so other API routes s
 - **Response:** `{ "job_id": "<uuid>", "status": "queued" }`.
 - **Errors:** **`409`** if another job is active; **`400`** / **`413`** same validation as synchronous import routes.
 
+**`GET /imports/jobs/active`**
+
+- **Response `200`:** Same shape as `GET /imports/jobs/{job_id}` for the single queued or running job in this server process.
+- **Response `404`:** No job is queued or running. The Import UI uses this (and `sessionStorage`) to restore progress after navigation.
+
 **`GET /imports/jobs/{job_id}`**
 
 - **Response `200`:** `{ "job_id", "kind", "status", "progress": { "current", "total", "label" } | null, "result": {…} | null, "error": string | null, "failed_sets_csv_path": string | null }`.
@@ -54,7 +59,7 @@ Long-running imports run in a **background worker thread** so other API routes s
 - Requests **cooperative cancel** (checked between sets/tokens). Returns current job snapshot (same shape as `GET`).
 - **`404`** if unknown.
 
-**Legacy synchronous routes** (`POST /imports/csv`, `/rebrickable/sync`, `/database`) remain for existing clients and tests; the Import UI will move to jobs in a later phase.
+**Legacy synchronous routes** (`POST /imports/csv`, `/rebrickable/sync`, `/database`) remain for existing clients and tests. The **Import** page and **set-detail sync** use the jobs API (start → poll → cancel) with progress UI and a link to `GET /imports/failed-sets.csv` when retry keys exist.
 
 **Rebrickable sync jobs** run in two phases when image download options are enabled: catalog API fetch per set (`progress.label` like `Syncing catalog 6024-1`), then CDN image downloads (`Downloading images for 6024-1`). Image HTTP uses a **shared client** per job with `IMAGE_DOWNLOAD_MIN_INTERVAL_SECONDS` (default `0.3`) between requests — see `backend/.env.example`.
 

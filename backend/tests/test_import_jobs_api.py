@@ -86,6 +86,32 @@ def test_start_csv_job_and_poll_to_completion(job_api_client, monkeypatch) -> No
     assert body["progress"]["total"] == 3
 
 
+def test_get_active_import_job(job_api_client, monkeypatch) -> None:
+    api_client = job_api_client
+    assert api_client.get("/api/imports/jobs/active").status_code == 404
+
+    monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")
+    content = (FIXTURES / "valid_comma.txt").read_text(encoding="utf-8")
+
+    def _csv_stub(session, text, **kwargs):
+        return real_csv_import(session, text, client=_csv_fake_client(), **kwargs)
+
+    with patch("app.importers.import_job_runner.import_set_list", side_effect=_csv_stub):
+        start = api_client.post(
+            "/api/imports/jobs",
+            data={"kind": "csv"},
+            files={"file": ("sets.txt", content.encode("utf-8"), "text/plain")},
+        )
+    assert start.status_code == 202
+    job_id = start.json()["job_id"]
+    active = api_client.get("/api/imports/jobs/active")
+    assert active.status_code == 200
+    assert active.json()["job_id"] == job_id
+    assert active.json()["status"] in ("queued", "running", "completed")
+    _wait_for_terminal_status(api_client, job_id)
+    assert api_client.get("/api/imports/jobs/active").status_code == 404
+
+
 def test_second_job_returns_409(job_api_client, monkeypatch) -> None:
     api_client = job_api_client
     monkeypatch.setenv("REBRICKABLE_API_KEY", "test-key")

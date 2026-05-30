@@ -74,7 +74,7 @@ async function parseErrorMessage(response: Response): Promise<string> {
   return response.statusText || `HTTP ${response.status}`;
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {

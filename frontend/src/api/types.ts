@@ -319,6 +319,40 @@ export interface DatabaseImportResponse {
   inventory_lines_written: number;
 }
 
+export type ImportJobKind = "csv" | "rebrickable_sync" | "database";
+
+export type ImportJobStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface ImportJobProgress {
+  current: number;
+  total: number;
+  label: string;
+}
+
+export interface ImportJobStartResponse {
+  job_id: string;
+  status: ImportJobStatus;
+}
+
+export interface ImportJobStatusResponse {
+  job_id: string;
+  kind: ImportJobKind;
+  status: ImportJobStatus;
+  progress: ImportJobProgress | null;
+  result:
+    | CsvImportResponse
+    | RebrickableSyncResponse
+    | DatabaseImportResponse
+    | null;
+  error: string | null;
+  failed_sets_csv_path: string | null;
+}
+
 export interface MissingUpsertResponse {
   /** Set copy this missing row belongs to (`owned_sets.id`). */
   owned_set_id: number;
