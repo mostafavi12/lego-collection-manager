@@ -1,11 +1,11 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { startRebrickableSyncJob } from "../api/importJobs";
 import {
   deleteSetCopy,
   getSetCopy,
   mediaUrl,
-  syncRebrickable,
   updateSetCopy,
 } from "../api/client";
 import type {
@@ -15,7 +15,12 @@ import type {
   SetPartLineDetail,
 } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
+import {
+  FailedSetsDownloadLink,
+  ImportJobProgress,
+} from "../components/ImportJobProgress";
 import { Modal } from "../components/Modal";
+import { useImportJobRunner } from "../hooks/useImportJobRunner";
 import { useCapabilities } from "../appMode/AppModeContext";
 import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
 import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
@@ -116,9 +121,25 @@ export function SetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<RebrickableSyncResponse | null>(null);
-  const [syncDownloadSetImages, setSyncDownloadSetImages] = useState(true);
+  const [syncDownloadSetImages, setSyncDownloadSetImages] = useState(false);
+  const { job: syncJob, isRunning: syncJobRunning, cancelling: syncCancelling, runJob: runSyncJob, cancel: cancelSyncJob } =
+    useImportJobRunner();
   const [syncPartImageDownloadMode, setSyncPartImageDownloadMode] =
     useState<PartImageDownloadMode>("none");
+
+  useEffect(() => {
+    if (
+      !syncJob ||
+      syncJob.status !== "completed" ||
+      syncJob.kind !== "rebrickable_sync" ||
+      !syncJob.result
+    ) {
+      return;
+    }
+    if (!syncResult) {
+      setSyncResult(syncJob.result as RebrickableSyncResponse);
+    }
+  }, [syncJob, syncResult]);
   const [showMissingOnly, setShowMissingOnly] = useState(false);
   const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const [partSort, setPartSort] = useState<PartInventorySort>("color");
@@ -258,25 +279,32 @@ export function SetDetailPage() {
     }
   }
 
-  async function onSyncThisSet() {
+  function onSyncThisSet() {
     if (!detail || !canSync) {
       return;
     }
     setSyncing(true);
     setError(null);
     setSyncResult(null);
-    try {
-      const result = await syncRebrickable([detail.id], {
-        download_set_images: syncDownloadSetImages,
-        part_image_download_mode: syncPartImageDownloadMode,
+    void runSyncJob(
+      () =>
+        startRebrickableSyncJob({
+          owned_set_ids: [detail.id],
+          download_set_images: syncDownloadSetImages,
+          part_image_download_mode: syncPartImageDownloadMode,
+        }),
+      "Sync failed",
+    )
+      .then(async (final) => {
+        setSyncResult(final.result as RebrickableSyncResponse);
+        await load();
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Sync failed");
+      })
+      .finally(() => {
+        setSyncing(false);
       });
-      setSyncResult(result);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
-    } finally {
-      setSyncing(false);
-    }
   }
 
   if (loading && !detail) {
@@ -346,13 +374,19 @@ export function SetDetailPage() {
         </summary>
         <p className="form-hint">
           Refresh shared catalog and inventory data for this set copy’s catalog set.
+          Sync runs in the background so you can keep browsing.
         </p>
+        <ImportJobProgress
+          job={syncJob}
+          onCancel={syncJobRunning ? () => void cancelSyncJob() : undefined}
+          cancelling={syncCancelling}
+        />
         <div className="sync-panel__controls">
           <label className="checkbox">
             <input
               type="checkbox"
               checked={syncDownloadSetImages}
-              disabled={syncing || saving}
+              disabled={syncing || syncJobRunning || saving}
               onChange={(e) => setSyncDownloadSetImages(e.target.checked)}
             />
             Download set images into the local database
@@ -365,7 +399,7 @@ export function SetDetailPage() {
                 name="set-detail-part-image-download-mode"
                 value="none"
                 checked={syncPartImageDownloadMode === "none"}
-                disabled={syncing || saving}
+                disabled={syncing || syncJobRunning || saving}
                 onChange={() => setSyncPartImageDownloadMode("none")}
               />
               Do not download images for parts
@@ -376,7 +410,7 @@ export function SetDetailPage() {
                 name="set-detail-part-image-download-mode"
                 value="missing"
                 checked={syncPartImageDownloadMode === "missing"}
-                disabled={syncing || saving}
+                disabled={syncing || syncJobRunning || saving}
                 onChange={() => setSyncPartImageDownloadMode("missing")}
               />
               Download part images only for missing parts
@@ -387,7 +421,7 @@ export function SetDetailPage() {
                 name="set-detail-part-image-download-mode"
                 value="all"
                 checked={syncPartImageDownloadMode === "all"}
-                disabled={syncing || saving}
+                disabled={syncing || syncJobRunning || saving}
                 onChange={() => setSyncPartImageDownloadMode("all")}
               />
               Download all part images
@@ -396,10 +430,10 @@ export function SetDetailPage() {
           <button
             type="button"
             className="btn btn--secondary"
-            disabled={syncing || saving}
+            disabled={syncing || syncJobRunning || saving}
             onClick={() => void onSyncThisSet()}
           >
-            {syncing ? "Syncing…" : "Sync this set"}
+            {syncing || syncJobRunning ? "Syncing…" : "Sync this set"}
           </button>
         </div>
         {syncResult && (
@@ -447,6 +481,9 @@ export function SetDetailPage() {
                 ))}
               </ul>
             )}
+            <FailedSetsDownloadLink
+              failedSetsCsvPath={syncJob?.failed_sets_csv_path}
+            />
           </div>
         )}
       </details>

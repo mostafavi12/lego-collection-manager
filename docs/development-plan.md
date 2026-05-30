@@ -294,7 +294,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 ### Deferred backlog
 
 - UX to pick an arbitrary **subset** of set copies from list views.
-- **Frontend** progress/cancel polling for `POST /imports/jobs` (backend jobs API shipped — see [api-design.md](./api-design.md)).
+- ~~**Frontend** progress/cancel polling for `POST /imports/jobs`~~ — **shipped**: Import page and set-detail sync use background jobs with progress, cancel, and `failedSets.csv` download link; collection sync defaults **set images off** ([api-design.md](./api-design.md)).
 - **Conflict / refresh policies** when Rebrickable data differs from manual edits (document and enforce UX).
 - Additional image polish, such as retry controls for failed CDN → BLOB downloads.
 

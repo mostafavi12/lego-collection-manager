@@ -1,12 +1,12 @@
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
-  importCsv,
-  importDatabase,
-  syncRebrickable,
-  updateLocalMetadata,
-} from "../api/client";
+  startCsvImportJob,
+  startDatabaseImportJob,
+  startRebrickableSyncJob,
+} from "../api/importJobs";
+import { updateLocalMetadata } from "../api/client";
 import type {
   CsvImportResponse,
   DatabaseImportMode,
@@ -15,7 +15,12 @@ import type {
   RebrickableSyncResponse,
 } from "../api/types";
 import { AsyncMessage } from "../components/AsyncMessage";
+import {
+  FailedSetsDownloadLink,
+  ImportJobProgress,
+} from "../components/ImportJobProgress";
 import { useCapabilities } from "../appMode/AppModeContext";
+import { useImportJobRunner } from "../hooks/useImportJobRunner";
 
 type PartImageDownloadMode = "none" | "missing" | "all";
 
@@ -35,11 +40,26 @@ export function ImportPage() {
     "csv" | "database" | "sync" | "metadata" | null
   >(null);
   const [error, setError] = useState<string | null>(null);
-  const [downloadSetImages, setDownloadSetImages] = useState(true);
+  const [downloadSetImages, setDownloadSetImages] = useState(false);
   const [partImageDownloadMode, setPartImageDownloadMode] =
     useState<PartImageDownloadMode>("none");
 
-  async function onCsvSubmit(event: FormEvent) {
+  const { job, isRunning, cancelling, runJob, cancel } = useImportJobRunner();
+
+  useEffect(() => {
+    if (!job || job.status !== "completed" || !job.result) {
+      return;
+    }
+    if (job.kind === "csv" && !csvResult) {
+      setCsvResult(job.result as CsvImportResponse);
+    } else if (job.kind === "database" && !databaseResult) {
+      setDatabaseResult(job.result as DatabaseImportResponse);
+    } else if (job.kind === "rebrickable_sync" && !syncResult) {
+      setSyncResult(job.result as RebrickableSyncResponse);
+    }
+  }, [job, csvResult, databaseResult, syncResult]);
+
+  function onCsvSubmit(event: FormEvent) {
     event.preventDefault();
     const file = fileRef.current?.files?.[0];
     if (!file) {
@@ -49,37 +69,45 @@ export function ImportPage() {
     setLoading("csv");
     setError(null);
     setCsvResult(null);
-    try {
-      const result = await importCsv(file);
-      setCsvResult(result);
-      if (fileRef.current) {
-        fileRef.current.value = "";
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
-    } finally {
-      setLoading(null);
-    }
+    void runJob(() => startCsvImportJob(file, "skip"), "CSV import failed")
+      .then((final) => {
+        setCsvResult(final.result as CsvImportResponse);
+        if (fileRef.current) {
+          fileRef.current.value = "";
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Import failed");
+      })
+      .finally(() => {
+        setLoading(null);
+      });
   }
 
-  async function onSync() {
+  function onSync() {
     setLoading("sync");
     setError(null);
     setSyncResult(null);
-    try {
-      const result = await syncRebrickable(undefined, {
-        download_set_images: downloadSetImages,
-        part_image_download_mode: partImageDownloadMode,
+    void runJob(
+      () =>
+        startRebrickableSyncJob({
+          download_set_images: downloadSetImages,
+          part_image_download_mode: partImageDownloadMode,
+        }),
+      "Sync failed",
+    )
+      .then((final) => {
+        setSyncResult(final.result as RebrickableSyncResponse);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Sync failed");
+      })
+      .finally(() => {
+        setLoading(null);
       });
-      setSyncResult(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
-    } finally {
-      setLoading(null);
-    }
   }
 
-  async function onDatabaseSubmit(event: FormEvent) {
+  function onDatabaseSubmit(event: FormEvent) {
     event.preventDefault();
     const file = databaseFileRef.current?.files?.[0];
     if (!file) {
@@ -89,17 +117,22 @@ export function ImportPage() {
     setLoading("database");
     setError(null);
     setDatabaseResult(null);
-    try {
-      const result = await importDatabase(file, databaseImportMode);
-      setDatabaseResult(result);
-      if (databaseFileRef.current) {
-        databaseFileRef.current.value = "";
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Database import failed");
-    } finally {
-      setLoading(null);
-    }
+    void runJob(
+      () => startDatabaseImportJob(file, databaseImportMode),
+      "Database import failed",
+    )
+      .then((final) => {
+        setDatabaseResult(final.result as DatabaseImportResponse);
+        if (databaseFileRef.current) {
+          databaseFileRef.current.value = "";
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Database import failed");
+      })
+      .finally(() => {
+        setLoading(null);
+      });
   }
 
   async function onLocalMetadataUpdate() {
@@ -114,6 +147,9 @@ export function ImportPage() {
       setLoading(null);
     }
   }
+
+  const importBusy = isRunning || loading !== null;
+  const failedSetsCsvPath = job?.failed_sets_csv_path;
 
   return (
     <section className="page">
@@ -131,7 +167,16 @@ export function ImportPage() {
 
       <AsyncMessage
         error={error}
-        loading={(loading === "sync" && !syncResult) || loading === "metadata"}
+        loading={
+          (loading === "metadata") ||
+          (loading === "sync" && !syncResult && !isRunning)
+        }
+      />
+
+      <ImportJobProgress
+        job={job}
+        onCancel={isRunning ? () => void cancel() : undefined}
+        cancelling={cancelling}
       />
 
       {!canImport ? (
@@ -162,7 +207,7 @@ export function ImportPage() {
           <button
             type="submit"
             className="btn btn--primary"
-            disabled={loading === "csv"}
+            disabled={importBusy}
           >
             {loading === "csv" ? "Importing…" : "Import CSV"}
           </button>
@@ -219,6 +264,7 @@ export function ImportPage() {
                 ))}
               </ul>
             )}
+            <FailedSetsDownloadLink failedSetsCsvPath={failedSetsCsvPath} />
             <Link to="/">View collection</Link>
           </div>
         )}
@@ -238,7 +284,7 @@ export function ImportPage() {
               name="database-import-mode"
               value="add_only_new"
               checked={databaseImportMode === "add_only_new"}
-              disabled={loading === "database"}
+              disabled={importBusy}
               onChange={() => setDatabaseImportMode("add_only_new")}
             />
             Add only new sets (skip sets already in this database)
@@ -249,7 +295,7 @@ export function ImportPage() {
               name="database-import-mode"
               value="add_and_update"
               checked={databaseImportMode === "add_and_update"}
-              disabled={loading === "database"}
+              disabled={importBusy}
               onChange={() => setDatabaseImportMode("add_and_update")}
             />
             Add new sets and update existing (refresh catalog, images, and
@@ -265,7 +311,7 @@ export function ImportPage() {
           <button
             type="submit"
             className="btn btn--primary"
-            disabled={loading === "database"}
+            disabled={importBusy}
           >
             {loading === "database" ? "Importing…" : "Import database"}
           </button>
@@ -310,13 +356,14 @@ export function ImportPage() {
         <p>
           Re-fetch catalog data for sets you already own. Useful after manual
           edits or if a CSV token failed. Requires{" "}
-          <code>REBRICKABLE_API_KEY</code> on the server.
+          <code>REBRICKABLE_API_KEY</code> on the server. Runs in the background
+          so you can browse the collection while sync progresses.
         </p>
         <label className="checkbox">
           <input
             type="checkbox"
             checked={downloadSetImages}
-            disabled={loading === "sync"}
+            disabled={importBusy}
             onChange={(e) => setDownloadSetImages(e.target.checked)}
           />
           Download set images into the local database
@@ -329,7 +376,7 @@ export function ImportPage() {
               name="part-image-download-mode"
               value="none"
               checked={partImageDownloadMode === "none"}
-              disabled={loading === "sync"}
+              disabled={importBusy}
               onChange={() => setPartImageDownloadMode("none")}
             />
             Do not download images for parts
@@ -340,7 +387,7 @@ export function ImportPage() {
               name="part-image-download-mode"
               value="missing"
               checked={partImageDownloadMode === "missing"}
-              disabled={loading === "sync"}
+              disabled={importBusy}
               onChange={() => setPartImageDownloadMode("missing")}
             />
             Download part images only for missing parts
@@ -351,7 +398,7 @@ export function ImportPage() {
               name="part-image-download-mode"
               value="all"
               checked={partImageDownloadMode === "all"}
-              disabled={loading === "sync"}
+              disabled={importBusy}
               onChange={() => setPartImageDownloadMode("all")}
             />
             Download part images for all sets
@@ -360,7 +407,7 @@ export function ImportPage() {
         <button
           type="button"
           className="btn btn--secondary"
-          disabled={loading === "sync"}
+          disabled={importBusy}
           onClick={() => void onSync()}
         >
           {loading === "sync" ? "Syncing…" : "Sync entire collection"}
@@ -412,6 +459,7 @@ export function ImportPage() {
                 ))}
               </ul>
             )}
+            <FailedSetsDownloadLink failedSetsCsvPath={failedSetsCsvPath} />
           </div>
         )}
       </article>
@@ -428,7 +476,7 @@ export function ImportPage() {
         <button
           type="button"
           className="btn btn--secondary"
-          disabled={loading === "metadata"}
+          disabled={importBusy}
           onClick={() => void onLocalMetadataUpdate()}
         >
           {loading === "metadata" ? "Updating…" : "Update missing ages and themes"}

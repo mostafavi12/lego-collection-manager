@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AppModeProvider } from "./appMode/AppModeContext";
+import { ImportJobProvider } from "./importJob/ImportJobContext";
 import { Layout } from "./components/Layout";
 import { AddSetPage } from "./pages/AddSetPage";
 import { ImportPage } from "./pages/ImportPage";
@@ -16,6 +17,7 @@ import "./App.css";
 export default function App() {
   return (
     <AppModeProvider>
+      <ImportJobProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
@@ -32,6 +34,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </ImportJobProvider>
     </AppModeProvider>
   );
 }

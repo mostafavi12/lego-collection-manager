@@ -18,6 +18,7 @@ from app.importers.import_job_runner import (
     SyncJobParams,
     cancel_job,
     failed_sets_download_path,
+    get_active_job,
     get_job,
     start_csv_job,
     start_database_job,
@@ -148,6 +149,18 @@ async def start_import_job(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return ImportJobStartResponse(job_id=job_id, status="queued")
+
+
+@router.get("/jobs/active", response_model=ImportJobStatusResponse)
+def get_active_import_job() -> ImportJobStatusResponse:
+    """Return the queued or running import job for this server process, if any."""
+    job = get_active_job()
+    if job is None:
+        raise HTTPException(status_code=404, detail="No active import job")
+    return job_to_status_response(
+        job,
+        failed_sets_csv_path=failed_sets_download_path(),
+    )
 
 
 @router.get("/jobs/{job_id}", response_model=ImportJobStatusResponse)

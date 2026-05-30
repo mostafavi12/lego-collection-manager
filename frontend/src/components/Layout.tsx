@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { useAppMode, useCapabilities } from "../appMode/AppModeContext";
+import { useImportJobRunner } from "../importJob/ImportJobContext";
 
 const EDIT_MODE_HINT = "Switch to Edit mode in Settings";
 
@@ -54,6 +55,7 @@ export function Layout() {
   const { pathname } = useLocation();
   const { modeLabel } = useAppMode();
   const { canAddOrDuplicate, canImport } = useCapabilities();
+  const { isRunning: importJobRunning } = useImportJobRunner();
 
   return (
     <div className="layout">
@@ -102,6 +104,12 @@ export function Layout() {
           })}
         </nav>
       </header>
+      {importJobRunning && (
+        <p className="layout__import-banner" role="status">
+          Background import in progress.{" "}
+          <Link to="/import">View progress and cancel</Link>
+        </p>
+      )}
       <main className="layout__main">
         <Outlet />
       </main>

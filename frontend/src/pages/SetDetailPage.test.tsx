@@ -20,6 +20,11 @@ describe("SetDetailPage", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* jsdom may restrict storage in some environments */
+    }
   });
 
   it("renders catalog header and inventory", async () => {
@@ -361,30 +366,69 @@ describe("SetDetailPage", () => {
     );
   });
 
-  it("sync panel sends default set images and selected part image mode", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => setCopyDetailFixture,
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          sets_synced: 1,
-          sets_failed: [],
-          parts_upserted: 2,
-          inventory_lines_written: 3,
-          set_images_downloaded: 1,
-          minifig_images_downloaded: 1,
-          part_images_downloaded: 2,
-          image_downloads_failed: [],
-        }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => setCopyDetailFixture,
-      } as Response);
+  it("sync panel starts background job with selected image options", async () => {
+    let jobPolls = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("/imports/jobs/active")) {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({ detail: "No active import job" }),
+        } as Response;
+      }
+      if (url.includes("/owned-sets/1") && !init?.method) {
+        return {
+          ok: true,
+          json: async () => setCopyDetailFixture,
+        } as Response;
+      }
+      if (url.includes("/imports/jobs") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 202,
+          json: async () => ({ job_id: "job-1", status: "queued" }),
+        } as Response;
+      }
+      if (url.includes("/imports/jobs/job-1")) {
+        jobPolls += 1;
+        if (jobPolls === 1) {
+          return {
+            ok: true,
+            json: async () => ({
+              job_id: "job-1",
+              kind: "rebrickable_sync",
+              status: "running",
+              progress: { current: 1, total: 1, label: "Syncing" },
+              result: null,
+              error: null,
+              failed_sets_csv_path: null,
+            }),
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            job_id: "job-1",
+            kind: "rebrickable_sync",
+            status: "completed",
+            progress: null,
+            result: {
+              sets_synced: 1,
+              sets_failed: [],
+              parts_upserted: 2,
+              inventory_lines_written: 3,
+              set_images_downloaded: 1,
+              minifig_images_downloaded: 1,
+              part_images_downloaded: 2,
+              image_downloads_failed: [],
+            },
+            error: null,
+            failed_sets_csv_path: null,
+          }),
+        } as Response;
+      }
+      return { ok: false, status: 404 } as Response;
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
@@ -392,24 +436,27 @@ describe("SetDetailPage", () => {
 
     await screen.findByText("Copy details");
     await user.click(screen.getByText(/sync from rebrickable/i));
-    expect(screen.getByLabelText(/download set images/i)).toBeChecked();
+    expect(screen.getByLabelText(/download set images/i)).not.toBeChecked();
     expect(screen.getByLabelText(/do not download images for parts/i)).toBeChecked();
 
+    await user.click(screen.getByLabelText(/download set images/i));
     await user.click(screen.getByLabelText(/download all part images/i));
     await user.click(screen.getByRole("button", { name: /sync this set/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/imports/rebrickable/sync"),
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({
-            owned_set_ids: [1],
-            download_set_images: true,
-            part_image_download_mode: "all",
-          }),
-        }),
+        expect.stringContaining("/imports/jobs"),
+        expect.objectContaining({ method: "POST" }),
       );
+    });
+    const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
+    const body = (postCall?.[1] as RequestInit).body as FormData;
+    expect(body.get("kind")).toBe("rebrickable_sync");
+    const syncOptions = JSON.parse(String(body.get("sync_options")));
+    expect(syncOptions).toEqual({
+      owned_set_ids: [1],
+      download_set_images: true,
+      part_image_download_mode: "all",
     });
   });
 
