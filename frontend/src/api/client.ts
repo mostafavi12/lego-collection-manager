@@ -409,6 +409,21 @@ export function deleteCatalogSetImage(
   return request(`/catalog-sets/${catalogSetId}/image`, { method: "DELETE" });
 }
 
+export function uploadCatalogMinifigImage(
+  catalogMinifigId: number,
+  file: File,
+): Promise<ImageUploadResponse> {
+  return uploadImageBlob(`/catalog-minifigs/${catalogMinifigId}/image`, file);
+}
+
+export function deleteCatalogMinifigImage(
+  catalogMinifigId: number,
+): Promise<ImageDeleteResponse> {
+  return request(`/catalog-minifigs/${catalogMinifigId}/image`, {
+    method: "DELETE",
+  });
+}
+
 export function uploadPartImage(
   partId: number,
   file: File,

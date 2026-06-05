@@ -51,6 +51,58 @@ describe("SetDetailPage", () => {
     expect(syncPanel).not.toHaveAttribute("open");
   });
 
+  it("opens a lightbox when clicking a minifigure image", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      inventory: {
+        ...setCopyDetailFixture.inventory,
+        minifigs: [
+          {
+            line_id: 200,
+            catalog_minifig_id: 12,
+            minifig_num: "cop01",
+            name: "Police Officer",
+            image_url: "/api/catalog-minifigs/12/image",
+            quantity: 1,
+            parts: [],
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      } as Response),
+    );
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText(/Police Officer/);
+    await user.click(
+      screen.getByRole("button", {
+        name: /view larger: minifigure cop01 — police officer/i,
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Minifigure cop01 — Police Officer",
+    });
+    const enlarged = within(dialog).getByRole("img", {
+      name: "Minifigure cop01 — Police Officer",
+    });
+    expect(enlarged).toHaveAttribute("src", "/api/catalog-minifigs/12/image");
+
+    await user.click(enlarged);
+    expect(
+      screen.queryByRole("dialog", {
+        name: "Minifigure cop01 — Police Officer",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders minifigure part row images like set part rows", async () => {
     const detail = {
       ...setCopyDetailFixture,

@@ -50,7 +50,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 - `GET /search`: 400 on empty `q`; set mode returns distinct `owned_set_id` per physical copy.
 - `PATCH .../missing`: validation against instance inventory quantity; clear with zero removes missing row (part BLOB unchanged unless DELETE image).
 - `PUT` / `DELETE` missing image → part BLOB; `GET /media/missing/{id}` and `GET /parts/{id}/image`: 404 when absent; content-type for JPEG/PNG fixtures.
-- `PUT` / `GET` / `DELETE` `/parts/{id}/image` and `/catalog-sets/{id}/image`: BLOB round-trip, size/MIME validation (`test_image_blob_api.py`); `DELETE` sets `parts.part_image_user_removed` and clears the BLOB (`test_delete_part_image_sets_user_removed_flag`, `test_get_owned_set_detail_part_image_user_removed_after_delete`).
+- `PUT` / `GET` / `DELETE` `/parts/{id}/image`, `/catalog-sets/{id}/image`, and `/catalog-minifigs/{id}/image`: BLOB round-trip, size/MIME validation (`test_image_blob_api.py`); `DELETE` on parts sets `parts.part_image_user_removed` and clears the BLOB (`test_delete_part_image_sets_user_removed_flag`, `test_get_owned_set_detail_part_image_user_removed_after_delete`).
 
 ### Post-MVP (Phases 9–13) and sync UX (**14**)
 
@@ -85,7 +85,7 @@ Still **no live Rebrickable** in CI.
 | **Set detail** | Per-copy fields (label, investigated, age, notes); **set number change** warning modal (Cancel / Continue); **delete** with confirm → `DELETE`; no duplicate button; inventory + missing UI; **Part view** in View/Investigate (Element ID field, color-specific line image); **Edit part** in Edit mode (Element ID for existing lines, element-first preview); list thumbnails via `inventoryLineImageUrl` (`partPhotoDisplay.test.ts`, `SetDetailPage.test.tsx`). |
 | **Search** | Debounce (if any), submit triggers correct API, displays multiple copies per `set_num` when applicable. |
 | **Missing UI** | Changing missing quantity calls PATCH; missing-photo upload API exists (UI deferred); preview uses resolved `part_image_url` / `missing_image_url` (element or part BLOB). |
-| **Image UI** | Set detail uploads set/part images via `/catalog-sets/{id}/image` and `/parts/{id}/image`; display URLs are same-origin only (`resolveImageFetchUrl.test.ts`); list, Part view, and Edit part preview use line `image_url` (element-first). |
+| **Image UI** | Set detail uploads set, minifigure, and part images via `/catalog-sets/{id}/image`, `/catalog-minifigs/{id}/image`, and `/parts/{id}/image`; set and minifigure thumbnails **click-to-enlarge** (lightbox; `ImageBlobEditor.test.tsx`, `CatalogMinifigImageEditor.test.tsx`, `SetDetailPage.test.tsx`); display URLs are same-origin only (`resolveImageFetchUrl.test.ts`); list, Part view, and Edit part preview use line `image_url` (element-first). |
 | **Import** | CSV / database / sync → `POST /imports/jobs` with poll (`ImportPage.test.tsx`, `importJobs.test.ts`); cancel (`DELETE` job); `409` on second start (`importJobs.test.ts`); failed-sets link; sync defaults set images off; local metadata synchronous. |
 | **Settings** | Default View mode; mode persists in localStorage; View hides import/add mutations; Investigate enables investigated + missing; part row opens Part view. |
 | **Reports** | Summary stats; incomplete sets with collapsed missing lines; missing-parts table with `owned_set_ids` filter and `set_name` in web Sets links; **Export PDF** (set numbers only in Sets column; `missingPartsReportPdf.test.ts`). |
