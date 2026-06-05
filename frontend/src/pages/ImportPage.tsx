@@ -160,8 +160,7 @@ export function ImportPage() {
           <Link to="/" state={{ openAddSet: true }}>
             add one set manually
           </Link>
-          . CSV import fetches catalog and inventory from Rebrickable (no
-          images).
+          . CSV import fetches catalog, inventory, and images from Rebrickable.
         </p>
       </header>
 
@@ -196,7 +195,8 @@ export function ImportPage() {
           header). Each new set number creates a <strong>new physical copy</strong>{" "}
           in your collection and loads set metadata and parts from Rebrickable when
           the API key is configured. Set numbers that already exist in your
-          collection are skipped. Images are not downloaded. Recommended{" "}
+          collection are skipped. Set, minifigure, and part images are downloaded
+          from Rebrickable when available. Recommended{" "}
           <strong>age</strong> is often missing from Rebrickable — use the local
           metadata update below or set it on the set detail page. To add another
           copy of a set you already own, use <strong>Make a copy</strong> on the
@@ -227,7 +227,37 @@ export function ImportPage() {
                 </>
               )}
               .
+              {csvResult.set_images_downloaded > 0 && (
+                <>
+                  {" "}
+                  Downloaded {csvResult.set_images_downloaded} set image
+                  {csvResult.set_images_downloaded === 1 ? "" : "s"}.
+                </>
+              )}
+              {csvResult.minifig_images_downloaded > 0 && (
+                <>
+                  {" "}
+                  Downloaded {csvResult.minifig_images_downloaded} minifigure image
+                  {csvResult.minifig_images_downloaded === 1 ? "" : "s"}.
+                </>
+              )}
+              {csvResult.part_images_downloaded > 0 && (
+                <>
+                  {" "}
+                  Downloaded {csvResult.part_images_downloaded} part image
+                  {csvResult.part_images_downloaded === 1 ? "" : "s"}.
+                </>
+              )}
             </p>
+            {(csvResult.image_downloads_failed?.length ?? 0) > 0 && (
+              <ul className="import-errors">
+                {csvResult.image_downloads_failed?.map((fail) => (
+                  <li key={`${fail.target}-${fail.url}`}>
+                    {fail.target}: {fail.message}
+                  </li>
+                ))}
+              </ul>
+            )}
             {csvResult.skipped_existing_sets.length > 0 && (
               <div className="import-skipped">
                 <p>

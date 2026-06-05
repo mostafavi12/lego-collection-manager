@@ -1,15 +1,33 @@
 """CSV import with Rebrickable catalog fetch (Phase 12)."""
 
+import pytest
 from sqlalchemy import func, select
 
 from app.db.models import CatalogSet, OwnedSet, Part, SetPartInventoryLine
 from app.importers.csv_import_service import import_set_list
-from app.rebrickable.dto import CatalogSetDTO, ThemeDTO
+from app.rebrickable.dto import CatalogSetDTO, SetMinifigLineDTO, ThemeDTO
+from app.services.element_catalog import clear_element_catalog_cache
 from tests.test_rebrickable_sync_service import (
+    FakeImageDownloader,
     FakeRebrickableClient,
     _sample_part_line,
     _sample_set,
 )
+
+
+@pytest.fixture
+def elements_csv(tmp_path, monkeypatch):
+    path = tmp_path / "elements.csv"
+    path.write_text(
+        "element_id,part_num,color_id,design_id\n"
+        "302400,3024,0,3024\n"
+        "6252045,3024,0,3024\n"
+        "300100,3001,0,3001\n"
+        "973000,973,0,973\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ELEMENTS_CSV_PATH", str(path))
+    clear_element_catalog_cache()
 
 
 def _client_for_6024() -> FakeRebrickableClient:
@@ -43,7 +61,7 @@ def test_csv_import_fetches_catalog_and_inventory(db_session) -> None:
     assert db_session.scalar(select(func.count()).select_from(OwnedSet)) == 1
 
 
-def test_csv_import_does_not_store_image_urls(db_session) -> None:
+def test_csv_import_stores_image_urls(db_session) -> None:
     import_set_list(db_session, "6024-1", client=_client_for_6024())
     db_session.commit()
 
@@ -55,9 +73,72 @@ def test_csv_import_does_not_store_image_urls(db_session) -> None:
     )
     part = db_session.scalar(select(Part).where(Part.part_num == "3024"))
     assert catalog is not None
-    assert catalog.image_url is None
+    assert catalog.image_url == "https://cdn.rebrickable.com/media/sets/6024-1.jpg"
     assert part is not None
     assert part.image_url is None
+
+
+def test_csv_import_downloads_images(db_session, elements_csv) -> None:
+    from app.db.models import CatalogMinifig, ElementImage
+
+    client = FakeRebrickableClient(
+        sets={"6024-1": _sample_set()},
+        themes={67: ThemeDTO(external_id=67, name="Town")},
+        set_parts={
+            "6024-1": [
+                _sample_part_line(
+                    "3024",
+                    image_url="https://cdn.example/3024.png",
+                )
+            ]
+        },
+        set_minifigs={
+            "6024-1": [
+                SetMinifigLineDTO(
+                    minifig_num="cop01",
+                    name="Police Officer",
+                    image_url="https://cdn.example/cop01.png",
+                    quantity=1,
+                )
+            ]
+        },
+    )
+    downloader = FakeImageDownloader()
+    result = import_set_list(
+        db_session,
+        "6024-1",
+        client=client,
+        image_downloader=downloader,
+    )
+    db_session.commit()
+
+    assert result.set_images_downloaded == 1
+    assert result.minifig_images_downloaded == 1
+    assert result.part_images_downloaded == 1
+    assert result.image_downloads_failed == []
+    assert downloader.urls == [
+        "https://cdn.rebrickable.com/media/sets/6024-1.jpg",
+        "https://cdn.example/cop01.png",
+        "https://cdn.example/3024.png",
+    ]
+    catalog = db_session.scalar(
+        select(CatalogSet).where(
+            CatalogSet.set_number == 6024,
+            CatalogSet.set_variant == 1,
+        )
+    )
+    assert catalog is not None
+    assert catalog.image_blob == b"image-bytes"
+    minifig = db_session.scalar(
+        select(CatalogMinifig).where(CatalogMinifig.minifig_num == "cop01")
+    )
+    assert minifig is not None
+    assert minifig.image_blob == b"image-bytes"
+    element_row = db_session.scalar(
+        select(ElementImage).where(ElementImage.element_id == "302400")
+    )
+    assert element_row is not None
+    assert element_row.image_blob == b"image-bytes"
 
 
 def test_csv_import_reports_rebrickable_failure_but_creates_stub(db_session) -> None:

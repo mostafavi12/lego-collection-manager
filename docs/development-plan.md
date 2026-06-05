@@ -236,17 +236,17 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 - Undirected alias group stays consistent after edits.
 - Search finds parts by any alias in the class.
 
-## Phase 12 — CSV import with full Rebrickable fetch (no images)
+## Phase 12 — CSV import with full Rebrickable fetch (with images)
 
-**Goal:** CSV import creates **physical copies (`owned_sets`)** **and** loads full catalog + inventory from Rebrickable per token — **without** downloading images.
+**Goal:** CSV import creates **physical copies (`owned_sets`)** **and** loads full catalog + inventory from Rebrickable per token, **including** set, minifigure, and part image BLOB downloads.
 
 **Deliverables**
 
-- `POST /imports/csv`: after each valid token for a new catalog set, call Rebrickable (set metadata, set parts, minifigs, minifig BOMs) using the Phase 4A client; upsert catalog + template inventory; create per-copy inventory rows from template (Phase 9). Existing catalog sets are skipped by default, or copied locally when the user selects `existing_set_mode=copy`. **Do not** HTTP-fetch `part_img_url` / set image URLs into files or BLOBs.
+- `POST /imports/csv`: after each valid token for a new catalog set, call Rebrickable (set metadata, set parts, minifigs, minifig BOMs) using the Phase 4A client; upsert catalog + template inventory; create per-copy inventory rows from template (Phase 9); download set, minifigure, and all inventory part images into SQLite BLOBs. Existing catalog sets are skipped by default, or copied locally when the user selects `existing_set_mode=copy`.
 - Replace **stub-only** catalog creation: new sets get name, theme, year, `num_parts`, **age only when Rebrickable returns `age_range`**, and full part/minifig lists when the API succeeds; per-token failures reported without aborting other tokens (same partial-success pattern as today). Manual age entry on set detail when the API has no age.
 - Requires `REBRICKABLE_API_KEY`; clear error if missing.
-- Frontend: Import page copy explains that CSV adds copies and fetches set data (no images). **Sync entire collection** remains on Import with image download controls; current-set scoped sync is available from set detail.
-- Tests: mocked multi-endpoint Rebrickable sequence per token; assert inventory row counts; assert no image BLOBs/URLs written when policy is “no images on import.”
+- Frontend: Import page copy explains that CSV adds copies and fetches set data with images. **Sync entire collection** remains on Import with optional image download controls for refreshes; current-set scoped sync is available from set detail.
+- Tests: mocked multi-endpoint Rebrickable sequence per token; assert inventory row counts; assert image URLs persisted and BLOBs downloaded (`test_csv_import_downloads_images`).
 
 **Exit criteria**
 

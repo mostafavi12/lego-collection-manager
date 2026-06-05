@@ -287,6 +287,10 @@ export interface CsvImportResponse {
   skipped_existing_sets: CsvImportSkippedExistingSet[];
   sets_failed: CsvImportSetFailure[];
   errors: { token_index: number; raw: string; message: string }[];
+  set_images_downloaded: number;
+  minifig_images_downloaded: number;
+  part_images_downloaded: number;
+  image_downloads_failed: { target: string; url: string; message: string }[];
 }
 
 export interface RebrickableSyncResponse {

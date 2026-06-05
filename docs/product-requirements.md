@@ -191,7 +191,8 @@ The database does not store LEGO sets outside what the user tracks in this app. 
 When importing or enriching from Rebrickable (CSV import in Phase 12, optional prefill in manual add, and existing sync endpoint):
 
 - **Fetch:** set metadata, full set parts inventory, minifigs, and minifig BOMs. **Age** is applied on first import only when Rebrickable exposes `age_range`; afterwards the user controls age on set detail.
-- **CSV import and manual prefill:** do **not** fetch image bytes from Rebrickable CDN URLs.
+- **CSV import:** after each successful Rebrickable catalog fetch per token, downloads set image BLOBs, minifigure image BLOBs, and **element-scoped** part image BLOBs for all inventory lines (including minifig BOM parts). Requires persisted element IDs from `elements.csv` enrichment for color-specific part thumbnails.
+- **Manual prefill (Add set wizard):** does **not** fetch image bytes from Rebrickable CDN URLs.
 - **Rebrickable sync:** may optionally download set image BLOBs, minifigure image BLOBs, and **element-scoped** part image BLOBs into SQLite when the user selects those options. Part image modes are **none**, **missing parts only**, or **all synced inventory parts**; both part modes include minifig BOM parts. Downloads use the line’s Rebrickable element URL and store bytes in **`element_images`** keyed by primary Element ID (requires persisted element IDs).
 
 User-uploaded and sync-downloaded images are stored in SQLite (Phase 10). There are no local cache folders.
@@ -235,7 +236,7 @@ Search treats all members of the group as interchangeable for part-number lookup
 
 ### 11.6 CSV import (Phase 12)
 
-Unchanged additive semantics (one token → one new physical copy). Additionally, for each token the app calls Rebrickable and upserts **full** catalog inventory (no images). Failures are per-token; valid tokens still succeed.
+Unchanged additive semantics (one token → one new physical copy). Additionally, for each token the app calls Rebrickable and upserts **full** catalog inventory, then downloads set, minifigure, and part images when URLs are available. Failures are per-token; valid tokens still succeed.
 
 ### 11.7 Manual add set (Phase 13)
 
