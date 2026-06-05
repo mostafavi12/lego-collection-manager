@@ -22,6 +22,7 @@ import {
 import { Modal } from "../components/Modal";
 import { useImportJobRunner } from "../hooks/useImportJobRunner";
 import { useCapabilities } from "../appMode/AppModeContext";
+import { CatalogMinifigImageEditor } from "../components/CatalogMinifigImageEditor";
 import { CatalogSetImageEditor } from "../components/CatalogSetImageEditor";
 import { InstanceQuantityEditor } from "../components/InstanceQuantityEditor";
 import { MissingLineEditor } from "../components/MissingLineEditor";
@@ -745,13 +746,14 @@ export function SetDetailPage() {
           {inventory.minifigs.map((mf) => (
             <article key={mf.line_id} className="minifig-block">
               <div className="minifig-block__header">
-                {mf.image_url ? (
-                  <img
-                    src={mediaUrl(mf.image_url) ?? undefined}
-                    alt=""
-                    className="minifig-block__img"
-                  />
-                ) : null}
+                <CatalogMinifigImageEditor
+                  catalogMinifigId={mf.catalog_minifig_id}
+                  imageUrl={mf.image_url}
+                  minifigNum={mf.minifig_num}
+                  name={mf.name}
+                  disabled={!canEditImages}
+                  onUpdated={() => void load()}
+                />
                 <h3>
                   {mf.minifig_num}
                   {mf.name ? ` — ${mf.name}` : ""} ×{mf.quantity}

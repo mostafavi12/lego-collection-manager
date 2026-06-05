@@ -117,6 +117,7 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 - User can **add** a set-part via a modal (**+** control) in **Edit** mode; modal supports optional **part image** upload (Phase 11A).
 - User can **open the part modal** by clicking a set-part row: in **Edit** mode the modal is **Edit part** (update/delete); in **View** and **Investigate** modes the modal is read-only **Part view** (title “Part view”, catalog fields disabled, single **OK** button). **Part view** and **Edit part** (existing lines) show **Element ID** (comma-separated from `element_ids`) as the first identifier field, not part number.
 - Set-parts table shows **Element IDs** per line; user edits aliases in the **Edit part** modal only (Phase 11B).
+- User can **click the set box image** or a **minifigure image** on set detail to view it enlarged (lightbox); click the image again or press **Escape** to close. In **Edit** mode (`canEditImages`), user can upload/replace/delete set and minifigure photos via the catalog image endpoints.
 
 ### 6. Search by set number and part number
 
@@ -200,6 +201,7 @@ User-uploaded and sync-downloaded images are stored in SQLite (Phase 10). There 
 | Data | Scope when user edits |
 |------|------------------------|
 | Set name, theme, year, number of parts, age, **set image** | **All copies** sharing the same `catalog_set_id` / `set_num`. |
+| **Minifigure image** | **Shared** per `catalog_minifigs` row (catalog-wide for that minifig identity). |
 | Copy label, investigated, notes | **This copy only**. |
 | `set_num` re-link | **This copy only** (with warning; existing MVP rule). |
 | **Part quantity** on inventory | **This copy only** (Phase 9). |
