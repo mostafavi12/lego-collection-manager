@@ -29,6 +29,12 @@ class CsvImportSkippedExistingSet(BaseModel):
     set_num: str
 
 
+class ImageDownloadFailure(BaseModel):
+    target: str
+    url: str
+    message: str
+
+
 class CsvImportResponse(BaseModel):
     instances_created: int
     catalog_stubs_created: int
@@ -37,6 +43,10 @@ class CsvImportResponse(BaseModel):
     skipped_existing_sets: list[CsvImportSkippedExistingSet] = Field(default_factory=list)
     sets_failed: list[CsvImportSetFailure] = Field(default_factory=list)
     errors: list[CsvTokenError]
+    set_images_downloaded: int = 0
+    minifig_images_downloaded: int = 0
+    part_images_downloaded: int = 0
+    image_downloads_failed: list[ImageDownloadFailure] = Field(default_factory=list)
 
 
 class RebrickableSyncRequest(BaseModel):
@@ -48,12 +58,6 @@ class RebrickableSyncRequest(BaseModel):
 
 class RebrickableSetSyncFailure(BaseModel):
     set_num: str
-    message: str
-
-
-class ImageDownloadFailure(BaseModel):
-    target: str
-    url: str
     message: str
 
 

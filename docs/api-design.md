@@ -61,7 +61,7 @@ Long-running imports run in a **background worker thread** so other API routes s
 
 **Legacy synchronous routes** (`POST /imports/csv`, `/rebrickable/sync`, `/database`) remain for existing clients and tests. The **Import** page and **set-detail sync** use the jobs API (start → poll → cancel) with progress UI and a link to `GET /imports/failed-sets.csv` when retry keys exist.
 
-**Rebrickable sync jobs** run in two phases when image download options are enabled: catalog API fetch per set (`progress.label` like `Syncing catalog 6024-1`), then CDN image downloads (`Downloading images for 6024-1`). Image HTTP uses a **shared client** per job with `IMAGE_DOWNLOAD_MIN_INTERVAL_SECONDS` (default `0.3`) between requests — see `backend/.env.example`.
+**CSV import jobs** fetch catalog data per token (`progress.label` like `Importing 6024-1`), then download set, minifigure, and part images for that token (`Downloading images for 6024-1`). **Rebrickable sync jobs** run in two phases when image download options are enabled: catalog API fetch per set (`Syncing catalog 6024-1`), then CDN image downloads (`Downloading images for 6024-1`). Image HTTP uses a **shared client** per job with `IMAGE_DOWNLOAD_MIN_INTERVAL_SECONDS` (default `0.3`) between requests — see `backend/.env.example`.
 
 ### Failed sets retry file
 
@@ -740,13 +740,17 @@ Response **`200`:**
   "sets_failed": [
     { "token_index": 2, "set_num": "0000-1", "message": "HTTP 404 from Rebrickable" }
   ],
-  "errors": []
+  "errors": [],
+  "set_images_downloaded": 2,
+  "minifig_images_downloaded": 3,
+  "part_images_downloaded": 48,
+  "image_downloads_failed": []
 }
 ```
 
 - Requires `REBRICKABLE_API_KEY`; **`400`** if missing.
-- Per token: new catalog sets upsert catalog + template inventory + create **`owned_sets` row** + copy per-copy inventory (Phase 9). Existing catalog sets are skipped by default (listed in `skipped_existing_sets`) or copied locally when `existing_set_mode=copy`.
-- **No** image HTTP downloads during import.
+- Per token: new catalog sets upsert catalog + template inventory + create **`owned_sets` row** + copy per-copy inventory (Phase 9), then download set, minifigure, and all inventory part images from Rebrickable CDN URLs into SQLite BLOBs. Existing catalog sets are skipped by default (listed in `skipped_existing_sets`) or copied locally when `existing_set_mode=copy`.
+- Response includes `set_images_downloaded`, `minifig_images_downloaded`, `part_images_downloaded`, and `image_downloads_failed` (same shape as sync image counters).
 
 ### Manual add set (Phase 13)
 

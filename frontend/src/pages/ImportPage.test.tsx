@@ -99,6 +99,10 @@ describe("ImportPage", () => {
         skipped_existing_sets: [],
         sets_failed: [],
         errors: [],
+        set_images_downloaded: 0,
+        minifig_images_downloaded: 0,
+        part_images_downloaded: 0,
+        image_downloads_failed: [],
       },
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -143,6 +147,10 @@ describe("ImportPage", () => {
         skipped_existing_sets: [{ token_index: 0, set_num: "6024-1" }],
         sets_failed: [],
         errors: [],
+        set_images_downloaded: 0,
+        minifig_images_downloaded: 0,
+        part_images_downloaded: 0,
+        image_downloads_failed: [],
       },
     });
     vi.stubGlobal("fetch", fetchMock);

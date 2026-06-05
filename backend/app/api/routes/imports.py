@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.api.import_job_responses import job_to_status_response
+from app.api.import_job_responses import _csv_result_payload, job_to_status_response
 from app.db.deps import get_db
 from app.importers.import_job_exceptions import (
     ImportJobConflictError,
@@ -36,9 +36,6 @@ from app.importers.rebrickable_sync_service import (
 from app.rebrickable.exceptions import RebrickableConfigError
 from app.schemas.imports import (
     CsvImportResponse,
-    CsvImportSetFailure,
-    CsvImportSkippedExistingSet,
-    CsvTokenError,
     DatabaseImportMode,
     DatabaseImportResponse,
     ExistingSetImportMode,
@@ -220,35 +217,7 @@ async def import_csv(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     result = import_set_list(db, content, existing_set_mode=existing_set_mode)
-    return CsvImportResponse(
-        instances_created=result.instances_created,
-        catalog_stubs_created=result.catalog_stubs_created,
-        sets_fetched=result.sets_fetched,
-        existing_sets_skipped=result.existing_sets_skipped,
-        skipped_existing_sets=[
-            CsvImportSkippedExistingSet(
-                token_index=skipped.token_index,
-                set_num=skipped.set_num,
-            )
-            for skipped in result.skipped_existing_sets
-        ],
-        sets_failed=[
-            CsvImportSetFailure(
-                token_index=f.token_index,
-                set_num=f.set_num,
-                message=f.message,
-            )
-            for f in result.sets_failed
-        ],
-        errors=[
-            CsvTokenError(
-                token_index=e.token_index,
-                raw=e.raw,
-                message=e.message,
-            )
-            for e in result.errors
-        ],
-    )
+    return CsvImportResponse(**_csv_result_payload(result))
 
 
 @router.post("/rebrickable/sync", response_model=RebrickableSyncResponse)

@@ -61,6 +61,17 @@ def _csv_result_payload(result: CsvImportResult) -> dict:
             )
             for e in result.errors
         ],
+        set_images_downloaded=result.set_images_downloaded,
+        minifig_images_downloaded=result.minifig_images_downloaded,
+        part_images_downloaded=result.part_images_downloaded,
+        image_downloads_failed=[
+            ImageDownloadFailure(
+                target=f.target,
+                url=f.url,
+                message=f.message,
+            )
+            for f in result.image_downloads_failed
+        ],
     ).model_dump()
 
 
