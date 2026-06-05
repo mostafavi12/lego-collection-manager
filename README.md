@@ -103,6 +103,48 @@ Example LEGO set numbers for CSV import experiments live in [`data/sample_sets.c
 
 Non-technical users can run a **portable ZIP** on Windows (no Python/Node install). Build instructions, upgrade path, and troubleshooting are in [`docs/windows-packaging.md`](docs/windows-packaging.md). Validate a build with [`docs/windows-smoke-test.md`](docs/windows-smoke-test.md).
 
+### Release a new Windows portable ZIP
+
+**Recommended — GitHub Actions** (builds on `windows-latest`; no local Windows machine required):
+
+```bash
+# From the repository root — run the same checks CI uses before tagging
+./scripts/smoke.sh
+
+# Tag and push (version in the tag becomes the ZIP name, e.g. v0.1.0 → …-0.1.0-win64.zip)
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The workflow [`.github/workflows/release-windows.yml`](.github/workflows/release-windows.yml) runs automatically on `v*` tags. Download the ZIP from **GitHub Releases** (attached to the release).
+
+To build without a tag, use **Actions → Release Windows portable ZIP → Run workflow** and enter a version string (for example `0.1.0`). Download the artifact **`lego-collection-manager-windows-portable`** from the workflow run.
+
+**Manual build on a Windows PC** (same output as CI; useful for local debugging):
+
+```powershell
+# Step A — frontend (from repo root)
+cd frontend
+npm ci
+npm run build
+cd ..
+
+# Step B — PyInstaller server bundle
+cd backend
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements-packaging.txt
+pyinstaller pyinstaller.spec
+cd ..
+
+# Step C — assemble ZIP
+powershell -ExecutionPolicy Bypass -File scripts/windows/assemble-portable.ps1 -Version 0.1.0
+```
+
+On Linux or macOS, Step A can use `./scripts/build-frontend.sh` instead; Steps B and C still require Windows.
+
+Output: `dist\windows-portable\LEGO-Collection-Manager-0.1.0-win64.zip`.
+
 ## Documentation
 
 Product and technical specs are in [`docs/`](docs/). Use [`docs/README.md`](docs/README.md) as an index of each specification file.
