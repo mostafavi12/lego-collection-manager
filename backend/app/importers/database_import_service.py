@@ -18,7 +18,6 @@ from app.db.models import (
     CatalogSet,
     Color,
     ElementImage,
-    InventoryLineElementId,
     MinifigPartInventoryLine,
     MissingItem,
     OwnedSet,
@@ -32,6 +31,10 @@ from app.db.models import (
 from app.services.instance_inventory import (
     ensure_instance_inventory_for_catalog,
     refresh_instance_quantities_for_catalog,
+)
+from app.services.part_color_catalog_service import (
+    element_ids_for_part_color,
+    set_element_ids_for_part_color,
 )
 
 DatabaseImportMode = Literal["add_only_new", "add_and_update"]
@@ -494,52 +497,29 @@ def _upsert_minifig_from_source(
     return target_minifig
 
 
-def _copy_element_ids(
+def _copy_part_color_catalog(
     target_session: Session,
     source_session: Session,
-    source_line_id: int,
-    target_line_id: int,
     *,
-    is_set_part: bool,
+    source_part_id: int,
+    source_color_id: int,
+    target_part_id: int,
+    target_color_id: int,
 ) -> None:
-    if is_set_part:
-        source_elements = source_session.scalars(
-            select(InventoryLineElementId).where(
-                InventoryLineElementId.set_part_inventory_line_id == source_line_id
-            )
-        ).all()
-        target_session.execute(
-            delete(InventoryLineElementId).where(
-                InventoryLineElementId.set_part_inventory_line_id == target_line_id
-            )
-        )
-        for row in source_elements:
-            _upsert_element_image(target_session, source_session, row.element_id)
-            target_session.add(
-                InventoryLineElementId(
-                    set_part_inventory_line_id=target_line_id,
-                    element_id=row.element_id,
-                )
-            )
-    else:
-        source_elements = source_session.scalars(
-            select(InventoryLineElementId).where(
-                InventoryLineElementId.minifig_part_inventory_line_id == source_line_id
-            )
-        ).all()
-        target_session.execute(
-            delete(InventoryLineElementId).where(
-                InventoryLineElementId.minifig_part_inventory_line_id == target_line_id
-            )
-        )
-        for row in source_elements:
-            _upsert_element_image(target_session, source_session, row.element_id)
-            target_session.add(
-                InventoryLineElementId(
-                    minifig_part_inventory_line_id=target_line_id,
-                    element_id=row.element_id,
-                )
-            )
+    source_ids = element_ids_for_part_color(
+        source_session, source_part_id, source_color_id
+    )
+    if not source_ids:
+        return
+    for element_id in source_ids:
+        _upsert_element_image(target_session, source_session, element_id)
+    set_element_ids_for_part_color(
+        target_session,
+        target_part_id,
+        target_color_id,
+        tuple(source_ids),
+        merge=True,
+    )
     target_session.flush()
 
 
@@ -632,12 +612,13 @@ def _copy_set_part_inventory(
             target_line.source_ref = source_line.source_ref
             target_line.fetched_at = source_line.fetched_at
         target_session.flush()
-        _copy_element_ids(
+        _copy_part_color_catalog(
             target_session,
             source_session,
-            source_line.id,
-            target_line.id,
-            is_set_part=True,
+            source_part_id=source_line.part_id,
+            source_color_id=source_line.color_id,
+            target_part_id=part.id,
+            target_color_id=color.id,
         )
         line_map[source_line.id] = target_line.id
         stats.inventory_lines_written += 1
@@ -718,12 +699,13 @@ def _copy_minifig_bom(
             target_line.image_url = source_line.image_url
             target_line.fetched_at = source_line.fetched_at
         target_session.flush()
-        _copy_element_ids(
+        _copy_part_color_catalog(
             target_session,
             source_session,
-            source_line.id,
-            target_line.id,
-            is_set_part=False,
+            source_part_id=source_line.part_id,
+            source_color_id=source_line.color_id,
+            target_part_id=part.id,
+            target_color_id=color.id,
         )
         line_map[source_line.id] = target_line.id
         stats.inventory_lines_written += 1

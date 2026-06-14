@@ -72,6 +72,11 @@ def _sync_params_from_options(
         raise HTTPException(status_code=400, detail="sync_options must be a JSON object")
     request = RebrickableSyncRequest.model_validate(payload)
     part_image_mode = request.part_image_download_mode
+    catalog_gap_part_keys = None
+    if request.catalog_gap_part_keys:
+        catalog_gap_part_keys = tuple(
+            (key.part_id, key.color_id) for key in request.catalog_gap_part_keys
+        )
     return SyncJobParams(
         owned_set_ids=request.owned_set_ids,
         download_set_images=request.download_set_images,
@@ -83,6 +88,8 @@ def _sync_params_from_options(
             )
         ),
         download_all_part_images=part_image_mode == "all",
+        download_no_element_id_part_images=part_image_mode == "no_element_id",
+        catalog_gap_part_keys=catalog_gap_part_keys,
     )
 
 
@@ -232,6 +239,11 @@ def import_rebrickable_sync(
 
     owned_set_ids = body.owned_set_ids if body is not None else None
     part_image_mode = body.part_image_download_mode if body is not None else "none"
+    catalog_gap_part_keys = None
+    if body is not None and body.catalog_gap_part_keys:
+        catalog_gap_part_keys = tuple(
+            (key.part_id, key.color_id) for key in body.catalog_gap_part_keys
+        )
     result = sync_rebrickable(
         db,
         owned_set_ids=owned_set_ids,
@@ -244,6 +256,8 @@ def import_rebrickable_sync(
             )
         ),
         download_all_part_images=part_image_mode == "all",
+        download_no_element_id_part_images=part_image_mode == "no_element_id",
+        catalog_gap_part_keys=catalog_gap_part_keys,
     )
     return RebrickableSyncResponse(
         sets_synced=result.sets_synced,

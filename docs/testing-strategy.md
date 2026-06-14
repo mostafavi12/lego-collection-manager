@@ -27,6 +27,7 @@ This strategy satisfies the [project rules](../.cursor/rules/project-rules.mdc):
 
 - **Mock HTTP** with `httpx.MockTransport`, `pytest-httpx`, or `responses`—pick one library at implementation time and standardize.
 - Table-driven tests: small JSON per endpoint → expected ORM field values for `catalog_sets`, `set_part_inventory_lines`, `minifig_part_inventory_lines`, `part_aliases`.
+- **Element IDs:** import/sync writes canonical rows on `part_color_keys` / `part_color_element_ids` (alias class + color), not per inventory line. Tests must assert cross-set sharing and alias-class merge (`test_part_color_catalog_service.py`, `test_part_alias_service.py`, `test_migration_check.py`).
 - Pagination: mock two pages with `next` link behavior to ensure the client exhausts all pages.
 
 ### Database models
@@ -61,7 +62,7 @@ Still **no live Rebrickable** in CI.
 | **9** | implemented | `PATCH .../inventory-lines/{instance_line_id}` isolation across two copies of the same `set_num`; `quantity_missing` validation (`test_instance_inventory_api.py`). |
 | **10** | implemented | BLOB round-trip; 5 MB limit; JPEG/PNG only; **`element_images`** + `GET /api/elements/{id}/image`; color-specific line URLs (`test_image_blob_api.py`, `test_element_image_colors.py`, `test_catalog_state.py`). |
 | **11A** | implemented | `POST set-parts` returns `part_id`; `PATCH`/`DELETE set-parts`; detail `aliases`; image on add (mock `PUT`); `PartLineModal` Vitest (edit + read-only **Part view**). |
-| **11B** | implemented | `PATCH /parts/{id}/aliases` symmetry; search by alias across class. |
+| **11B** | implemented | `PATCH /parts/{id}/aliases` symmetry; search by alias across class; alias merge unifies `part_color_keys` for the same colored part. |
 | **12** | implemented | CSV import triggers mocked Rebrickable chain per token; inventory present without sync call; set/minifig/part image BLOBs downloaded (`test_csv_import_downloads_images`). |
 | **13** | implemented | Backend: `test_manual_add_api.py`, `test_manual_add_rebrickable_draft.py`. Frontend: `AddSetPage.test.tsx` — new-catalog flow, optional **`parts`** in **`POST`**, mocked **`add-rebrickable-draft`** prefill, existing-set **Cancel/Continue** warning before copy form. |
 | **14** | implemented / partial | `POST /imports/rebrickable/sync`; Import-page **Sync entire collection**; set-detail current-set sync with `owned_set_ids`; image option request mapping for set, minifigure, set-part, and minifig BOM part images; mocked image download counters/failures. Progress/cancel, conflict policy, and arbitrary subset picker remain deferred — see [development-plan.md](./development-plan.md). |
@@ -70,6 +71,7 @@ Still **no live Rebrickable** in CI.
 ### Search
 
 - SQL/query layer tests for prefix match on `set_num` and match on `part_num` / `part_aliases.alias` with controlled fixtures.
+- Element ID search reads canonical `part_color_element_ids` (prefix match via `part_color_catalog_service`), not per-line tables.
 
 ### Missing item tracking
 

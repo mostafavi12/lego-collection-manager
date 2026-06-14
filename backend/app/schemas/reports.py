@@ -59,3 +59,28 @@ class MissingPartReportItem(BaseModel):
 class MissingPartsReportResponse(BaseModel):
     items: list[MissingPartReportItem]
     total: int
+
+
+class CatalogGapSetOccurrence(BaseModel):
+    owned_set_id: int
+    set_num: int
+    set_name: str | None
+    display_label: str
+
+
+class IncompleteCatalogReportItem(BaseModel):
+    part_id: int
+    part_num: str
+    part_name: str | None
+    color_id: int
+    color_name: str | None
+    element_ids: list[str]
+    part_image_url: str | None
+    missing_element_id: bool
+    missing_image: bool
+    sets: list[CatalogGapSetOccurrence]
+
+
+class IncompleteCatalogReportResponse(BaseModel):
+    items: list[IncompleteCatalogReportItem]
+    total: int

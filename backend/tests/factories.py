@@ -9,7 +9,6 @@ from app.db.models import (
     CatalogMinifig,
     CatalogSet,
     Color,
-    InventoryLineElementId,
     MissingItem,
     MinifigPartInventoryLine,
     OwnedSet,
@@ -20,6 +19,7 @@ from app.db.models import (
     SetPartInventoryLine,
     Theme,
 )
+from app.services.part_color_catalog_service import set_element_ids_for_part_color
 from app.services.instance_inventory import clone_instance_inventory
 
 # Minimal 1x1 PNG
@@ -141,14 +141,15 @@ def add_element_id_for_set_part_line(
     *,
     line: SetPartInventoryLine,
     element_id: str = "302400",
-) -> InventoryLineElementId:
-    row = InventoryLineElementId(
-        set_part_inventory_line_id=line.id,
-        element_id=element_id,
+) -> None:
+    set_element_ids_for_part_color(
+        session,
+        line.part_id,
+        line.color_id,
+        (element_id,),
+        merge=True,
     )
-    session.add(row)
     session.flush()
-    return row
 
 
 def add_catalog_stub(

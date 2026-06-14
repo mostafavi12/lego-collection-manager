@@ -64,6 +64,8 @@ class SyncJobParams:
     download_set_images: bool = False
     download_missing_part_images: bool = False
     download_all_part_images: bool = False
+    download_no_element_id_part_images: bool = False
+    catalog_gap_part_keys: tuple[tuple[int, int], ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -186,6 +188,7 @@ def _run_job(job_id: str, kind: ImportJobKind, params: Any) -> None:
                 params.download_set_images
                 or params.download_missing_part_images
                 or params.download_all_part_images
+                or params.download_no_element_id_part_images
             )
             with image_downloader_for_sync(
                 None, images_enabled=images_enabled
@@ -196,6 +199,10 @@ def _run_job(job_id: str, kind: ImportJobKind, params: Any) -> None:
                     download_set_images=params.download_set_images,
                     download_missing_part_images=params.download_missing_part_images,
                     download_all_part_images=params.download_all_part_images,
+                    download_no_element_id_part_images=(
+                        params.download_no_element_id_part_images
+                    ),
+                    catalog_gap_part_keys=params.catalog_gap_part_keys,
                     image_downloader=image_downloader,
                     cancel_event=cancel_event,
                     on_progress=on_progress,

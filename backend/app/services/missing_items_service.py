@@ -30,6 +30,7 @@ from app.services.image_blob import (
     set_element_image,
     set_part_image,
 )
+from app.services.part_color_catalog_service import element_ids_for_part_color
 from app.services.instance_inventory import (
     InstanceInventoryError,
     resolve_or_create_instance_line_for_catalog_ref,
@@ -69,27 +70,19 @@ def _catalog_line_for_instance_line(
     instance_line: OwnedSetInventoryLine,
 ) -> SetPartInventoryLine | MinifigPartInventoryLine | None:
     if instance_line.set_part_inventory_line_id is not None:
-        return session.scalar(
-            select(SetPartInventoryLine)
-            .where(SetPartInventoryLine.id == instance_line.set_part_inventory_line_id)
-            .options(selectinload(SetPartInventoryLine.element_ids))
-        )
+        return session.get(SetPartInventoryLine, instance_line.set_part_inventory_line_id)
     if instance_line.minifig_part_inventory_line_id is None:
         return None
-    return session.scalar(
-        select(MinifigPartInventoryLine)
-        .where(
-            MinifigPartInventoryLine.id
-            == instance_line.minifig_part_inventory_line_id
-        )
-        .options(selectinload(MinifigPartInventoryLine.element_ids))
+    return session.get(
+        MinifigPartInventoryLine, instance_line.minifig_part_inventory_line_id
     )
 
 
 def _element_ids_for_catalog_line(
+    session: Session,
     line: SetPartInventoryLine | MinifigPartInventoryLine,
 ) -> list[str]:
-    return sorted(element.element_id for element in line.element_ids)
+    return element_ids_for_part_color(session, line.part_id, line.color_id)
 
 
 def _primary_element_id_for_instance_line(
@@ -99,7 +92,7 @@ def _primary_element_id_for_instance_line(
     catalog_line = _catalog_line_for_instance_line(session, instance_line)
     if catalog_line is None:
         return None
-    element_ids = _element_ids_for_catalog_line(catalog_line)
+    element_ids = _element_ids_for_catalog_line(session, catalog_line)
     return element_ids[0] if element_ids else None
 
 
@@ -110,7 +103,9 @@ def _image_urls_for_instance_line(
 ) -> tuple[str | None, str | None]:
     catalog_line = _catalog_line_for_instance_line(session, instance_line)
     element_ids = (
-        _element_ids_for_catalog_line(catalog_line) if catalog_line is not None else []
+        _element_ids_for_catalog_line(session, catalog_line)
+        if catalog_line is not None
+        else []
     )
     element_url_by_id = load_element_image_urls(session, element_ids)
     resolved = resolve_line_image_url(

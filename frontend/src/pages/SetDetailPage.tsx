@@ -308,6 +308,33 @@ export function SetDetailPage() {
       });
   }
 
+  function onSyncCatalogGaps() {
+    if (!detail || !canSync) {
+      return;
+    }
+    setSyncing(true);
+    setError(null);
+    setSyncResult(null);
+    void runSyncJob(
+      () =>
+        startRebrickableSyncJob({
+          owned_set_ids: [detail.id],
+          part_image_download_mode: "no_element_id",
+        }),
+      "Catalog-gap sync failed",
+    )
+      .then(async (final) => {
+        setSyncResult(final.result as RebrickableSyncResponse);
+        await load();
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Catalog-gap sync failed");
+      })
+      .finally(() => {
+        setSyncing(false);
+      });
+  }
+
   if (loading && !detail) {
     return <AsyncMessage loading />;
   }
@@ -435,6 +462,14 @@ export function SetDetailPage() {
             onClick={() => void onSyncThisSet()}
           >
             {syncing || syncJobRunning ? "Syncing…" : "Sync this set"}
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            disabled={syncing || syncJobRunning || saving}
+            onClick={() => void onSyncCatalogGaps()}
+          >
+            Sync parts missing Element ID
           </button>
         </div>
         {syncResult && (

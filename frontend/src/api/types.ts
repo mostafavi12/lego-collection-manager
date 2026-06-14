@@ -447,3 +447,28 @@ export interface MissingPartsReportResponse {
   items: MissingPartReportItem[];
   total: number;
 }
+
+export interface CatalogGapSetOccurrence {
+  owned_set_id: number;
+  set_num: number;
+  set_name: string | null;
+  display_label: string;
+}
+
+export interface IncompleteCatalogReportItem {
+  part_id: number;
+  part_num: string;
+  part_name: string | null;
+  color_id: number;
+  color_name: string | null;
+  element_ids: string[];
+  part_image_url: string | null;
+  missing_element_id: boolean;
+  missing_image: boolean;
+  sets: CatalogGapSetOccurrence[];
+}
+
+export interface IncompleteCatalogReportResponse {
+  items: IncompleteCatalogReportItem[];
+  total: number;
+}
