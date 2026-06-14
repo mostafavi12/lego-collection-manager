@@ -100,6 +100,17 @@ export function ReportsPage() {
                   Grouped by part across sets
                 </span>
               </li>
+              <li className="report-links__item">
+                <Link
+                  to="/reports/incomplete-catalog"
+                  className="report-links__title"
+                >
+                  Parts missing Element ID or image
+                </Link>
+                <span className="report-links__note">
+                  Re-sync catalog gaps from Rebrickable
+                </span>
+              </li>
             </ul>
           </section>
         </>

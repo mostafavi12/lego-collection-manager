@@ -140,6 +140,9 @@ class Part(Base):
     minifig_part_inventory_lines: Mapped[list[MinifigPartInventoryLine]] = relationship(
         back_populates="part"
     )
+    part_color_keys: Mapped[list[PartColorKey]] = relationship(
+        back_populates="anchor_part"
+    )
 
 
 class PartAlias(Base):
@@ -175,6 +178,57 @@ class Color(Base):
     minifig_part_inventory_lines: Mapped[list[MinifigPartInventoryLine]] = relationship(
         back_populates="color"
     )
+    part_color_keys: Mapped[list[PartColorKey]] = relationship(back_populates="color")
+
+
+class PartColorKey(Base):
+    """Canonical identity for a colored part (alias class + color), shared across sets."""
+
+    __tablename__ = "part_color_keys"
+    __table_args__ = (
+        UniqueConstraint(
+            "anchor_part_id",
+            "color_id",
+            name="uq_part_color_keys_anchor_color",
+        ),
+        Index("ix_part_color_keys_color_id", "color_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    anchor_part_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("parts.id"), nullable=False
+    )
+    color_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("colors.id"), nullable=False
+    )
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    anchor_part: Mapped[Part] = relationship(back_populates="part_color_keys")
+    color: Mapped[Color] = relationship(back_populates="part_color_keys")
+    element_ids: Mapped[list[PartColorElementId]] = relationship(
+        back_populates="part_color_key", cascade="all, delete-orphan"
+    )
+
+
+class PartColorElementId(Base):
+    __tablename__ = "part_color_element_ids"
+    __table_args__ = (
+        UniqueConstraint(
+            "part_color_key_id",
+            "element_id",
+            name="uq_part_color_element_ids_key_element",
+        ),
+        Index("ix_part_color_element_ids_element_id", "element_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    part_color_key_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("part_color_keys.id", ondelete="CASCADE"), nullable=False
+    )
+    element_id: Mapped[str] = mapped_column(Text, nullable=False)
+
+    part_color_key: Mapped[PartColorKey] = relationship(back_populates="element_ids")
 
 
 class SetPartInventoryLine(Base):
@@ -207,9 +261,6 @@ class SetPartInventoryLine(Base):
     color: Mapped[Color] = relationship(back_populates="set_part_inventory_lines")
     instance_inventory_lines: Mapped[list[OwnedSetInventoryLine]] = relationship(
         back_populates="set_part_inventory_line"
-    )
-    element_ids: Mapped[list[InventoryLineElementId]] = relationship(
-        back_populates="set_part_inventory_line", cascade="all, delete-orphan"
     )
 
 
@@ -294,55 +345,6 @@ class MinifigPartInventoryLine(Base):
     color: Mapped[Color] = relationship(back_populates="minifig_part_inventory_lines")
     instance_inventory_lines: Mapped[list[OwnedSetInventoryLine]] = relationship(
         back_populates="minifig_part_inventory_line"
-    )
-    element_ids: Mapped[list[InventoryLineElementId]] = relationship(
-        back_populates="minifig_part_inventory_line", cascade="all, delete-orphan"
-    )
-
-
-class InventoryLineElementId(Base):
-    __tablename__ = "inventory_line_element_ids"
-    __table_args__ = (
-        CheckConstraint(
-            "(set_part_inventory_line_id IS NOT NULL AND minifig_part_inventory_line_id IS NULL) "
-            "OR (set_part_inventory_line_id IS NULL AND minifig_part_inventory_line_id IS NOT NULL)",
-            name="ck_inventory_line_element_ids_one_line_ref",
-        ),
-        Index(
-            "uq_inventory_line_element_ids_set_line_element",
-            "set_part_inventory_line_id",
-            "element_id",
-            unique=True,
-            sqlite_where=text("set_part_inventory_line_id IS NOT NULL"),
-        ),
-        Index(
-            "uq_inventory_line_element_ids_minifig_line_element",
-            "minifig_part_inventory_line_id",
-            "element_id",
-            unique=True,
-            sqlite_where=text("minifig_part_inventory_line_id IS NOT NULL"),
-        ),
-        Index("ix_inventory_line_element_ids_element_id", "element_id"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    set_part_inventory_line_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("set_part_inventory_lines.id", ondelete="CASCADE"),
-        nullable=True,
-    )
-    minifig_part_inventory_line_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("minifig_part_inventory_lines.id", ondelete="CASCADE"),
-        nullable=True,
-    )
-    element_id: Mapped[str] = mapped_column(Text, nullable=False)
-
-    set_part_inventory_line: Mapped[SetPartInventoryLine | None] = relationship(
-        back_populates="element_ids"
-    )
-    minifig_part_inventory_line: Mapped[MinifigPartInventoryLine | None] = relationship(
-        back_populates="element_ids"
     )
 
 

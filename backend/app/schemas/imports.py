@@ -7,7 +7,7 @@ ImportJobStatus = Literal[
     "queued", "running", "completed", "failed", "cancelled"
 ]
 
-PartImageDownloadMode = Literal["none", "missing", "all"]
+PartImageDownloadMode = Literal["none", "missing", "all", "no_element_id"]
 ExistingSetImportMode = Literal["skip", "copy"]
 DatabaseImportMode = Literal["add_only_new", "add_and_update"]
 
@@ -49,11 +49,17 @@ class CsvImportResponse(BaseModel):
     image_downloads_failed: list[ImageDownloadFailure] = Field(default_factory=list)
 
 
+class CatalogGapPartKey(BaseModel):
+    part_id: int
+    color_id: int
+
+
 class RebrickableSyncRequest(BaseModel):
     owned_set_ids: list[int] | None = None
     download_set_images: bool = False
     download_missing_part_images: bool = False
     part_image_download_mode: PartImageDownloadMode = "none"
+    catalog_gap_part_keys: list[CatalogGapPartKey] | None = None
 
 
 class RebrickableSetSyncFailure(BaseModel):

@@ -50,6 +50,12 @@ from app.services.image_download import (
     download_element_image,
     image_downloader_for_sync,
 )
+from app.services.catalog_gaps_service import (
+    CatalogLineRef,
+    resolve_set_nums_for_catalog_gap_sync,
+    snapshot_lines_without_element_id,
+)
+from app.services.part_color_catalog_service import element_ids_for_part_color
 from app.services.failed_sets_csv import failed_sets_import_run
 from app.services.failure_log import record_import_failure
 from app.services.theme_catalog import display_theme_for
@@ -117,11 +123,13 @@ def _sync_images_enabled(
     download_set_images: bool,
     download_missing_part_images: bool,
     download_all_part_images: bool,
+    download_no_element_id_part_images: bool = False,
 ) -> bool:
     return (
         download_set_images
         or download_missing_part_images
         or download_all_part_images
+        or download_no_element_id_part_images
     )
 
 
@@ -134,6 +142,8 @@ def _run_image_download_phase(
     download_set_images: bool,
     download_missing_part_images: bool,
     download_all_part_images: bool,
+    download_no_element_id_part_images: bool = False,
+    no_element_id_snapshots: dict[str, set[CatalogLineRef]] | None = None,
     cancel_event: threading.Event | None,
     on_progress: ProgressCallback | None,
 ) -> None:
@@ -152,6 +162,15 @@ def _run_image_download_phase(
             _download_missing_part_images(session, catalog.id, downloader, result)
         if download_all_part_images:
             _download_all_part_images(session, catalog.id, downloader, result)
+        if download_no_element_id_part_images:
+            snapshot = (
+                no_element_id_snapshots.get(set_num, set())
+                if no_element_id_snapshots is not None
+                else set()
+            )
+            _download_no_element_id_part_images(
+                session, catalog.id, downloader, result, snapshot
+            )
         commit_import_progress(session)
 
 
@@ -163,6 +182,7 @@ def sync_catalog_for_set_nums(
     download_set_images: bool = False,
     download_missing_part_images: bool = False,
     download_all_part_images: bool = False,
+    download_no_element_id_part_images: bool = False,
     image_downloader: ImageDownloader | None = None,
     cancel_event: threading.Event | None = None,
     on_progress: ProgressCallback | None = None,
@@ -172,15 +192,23 @@ def sync_catalog_for_set_nums(
         download_set_images=download_set_images,
         download_missing_part_images=download_missing_part_images,
         download_all_part_images=download_all_part_images,
+        download_no_element_id_part_images=download_no_element_id_part_images,
     )
     total_sets = len(set_nums)
     synced_set_nums: list[str] = []
+    no_element_id_snapshots: dict[str, set[CatalogLineRef]] = {}
     logger.info("Rebrickable sync started set_count=%s", total_sets)
     with failed_sets_import_run() as record_failed_set:
         for step, set_num in enumerate(set_nums):
             check_import_cancelled(cancel_event)
             if on_progress is not None:
                 on_progress(step, total_sets, f"Syncing catalog {set_num}")
+            catalog = _catalog_for_rebrickable_key(session, set_num)
+            pre_sync_snapshot: set[CatalogLineRef] | None = None
+            if download_no_element_id_part_images and catalog is not None:
+                pre_sync_snapshot = snapshot_lines_without_element_id(
+                    session, catalog.id
+                )
             try:
                 with session.begin_nested():
                     parts, lines, _age = sync_one_catalog_set(
@@ -195,6 +223,8 @@ def sync_catalog_for_set_nums(
                 result.parts_upserted += parts
                 result.inventory_lines_written += lines
                 synced_set_nums.append(set_num)
+                if pre_sync_snapshot is not None:
+                    no_element_id_snapshots[set_num] = pre_sync_snapshot
                 logger.info(
                     "Rebrickable sync set_ok set_num=%s parts_upserted=%s inventory_lines=%s",
                     set_num,
@@ -249,6 +279,10 @@ def sync_catalog_for_set_nums(
                     download_set_images=download_set_images,
                     download_missing_part_images=download_missing_part_images,
                     download_all_part_images=download_all_part_images,
+                    download_no_element_id_part_images=(
+                        download_no_element_id_part_images
+                    ),
+                    no_element_id_snapshots=no_element_id_snapshots,
                     cancel_event=cancel_event,
                     on_progress=on_progress,
                 )
@@ -272,14 +306,25 @@ def sync_rebrickable(
     download_set_images: bool = False,
     download_missing_part_images: bool = False,
     download_all_part_images: bool = False,
+    download_no_element_id_part_images: bool = False,
+    catalog_gap_part_keys: tuple[tuple[int, int], ...] | None = None,
     image_downloader: ImageDownloader | None = None,
     cancel_event: threading.Event | None = None,
     on_progress: ProgressCallback | None = None,
 ) -> RebrickableSyncResult:
     """Sync catalog data for set copies (dedup by `set_num`). Opens client when not provided."""
-    set_nums = resolve_set_nums(session, owned_set_ids)
+    if download_no_element_id_part_images:
+        set_nums = resolve_set_nums_for_catalog_gap_sync(
+            session,
+            owned_set_ids=owned_set_ids,
+            catalog_gap_part_keys=list(catalog_gap_part_keys)
+            if catalog_gap_part_keys is not None
+            else None,
+        )
+    else:
+        set_nums = resolve_set_nums(session, owned_set_ids)
     if not set_nums:
-        logger.info("Rebrickable sync skipped: no set copies to sync")
+        logger.info("Rebrickable sync skipped: no eligible sets to sync")
         return RebrickableSyncResult()
 
     if client is not None:
@@ -290,6 +335,7 @@ def sync_rebrickable(
             download_set_images=download_set_images,
             download_missing_part_images=download_missing_part_images,
             download_all_part_images=download_all_part_images,
+            download_no_element_id_part_images=download_no_element_id_part_images,
             image_downloader=image_downloader,
             cancel_event=cancel_event,
             on_progress=on_progress,
@@ -303,6 +349,7 @@ def sync_rebrickable(
             download_set_images=download_set_images,
             download_missing_part_images=download_missing_part_images,
             download_all_part_images=download_all_part_images,
+            download_no_element_id_part_images=download_no_element_id_part_images,
             image_downloader=image_downloader,
             cancel_event=cancel_event,
             on_progress=on_progress,
@@ -578,7 +625,6 @@ def _catalog_set_part_lines(
     return session.scalars(
         select(SetPartInventoryLine)
         .where(SetPartInventoryLine.catalog_set_id == catalog_set_id)
-        .options(selectinload(SetPartInventoryLine.element_ids))
     ).all()
 
 
@@ -594,7 +640,6 @@ def _catalog_minifig_part_lines(
             == MinifigPartInventoryLine.catalog_minifig_id,
         )
         .where(SetMinifigInventoryLine.catalog_set_id == catalog_set_id)
-        .options(selectinload(MinifigPartInventoryLine.element_ids))
     ).all()
 
 
@@ -636,7 +681,7 @@ def _download_line_element_image(
     downloader: ImageDownloader,
     result: RebrickableSyncResult,
 ) -> None:
-    element_ids = sorted(element.element_id for element in line.element_ids)
+    element_ids = element_ids_for_part_color(session, line.part_id, line.color_id)
     if not line.image_url or not element_ids:
         return
     primary_element_id = element_ids[0]
@@ -684,6 +729,29 @@ def _download_missing_part_images(
         if line.id not in missing_minifig_line_ids:
             continue
         _download_line_element_image(session, line, downloader, result)
+
+
+def _download_no_element_id_part_images(
+    session: Session,
+    catalog_set_id: int,
+    downloader: ImageDownloader,
+    result: RebrickableSyncResult,
+    snapshot: set[CatalogLineRef],
+) -> None:
+    if not snapshot:
+        return
+    set_by_id = {
+        line.id: line
+        for line in _catalog_set_part_lines(session, catalog_set_id)
+    }
+    minifig_by_id = {
+        line.id: line
+        for line in _catalog_minifig_part_lines(session, catalog_set_id)
+    }
+    for kind, line_id in snapshot:
+        line = set_by_id.get(line_id) if kind == "set" else minifig_by_id.get(line_id)
+        if line is not None:
+            _download_line_element_image(session, line, downloader, result)
 
 
 def _download_all_part_images(

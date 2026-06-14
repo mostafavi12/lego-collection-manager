@@ -8,7 +8,7 @@ from app.db.models import (
     CatalogMinifig,
     CatalogSet,
     ElementImage,
-    InventoryLineElementId,
+    PartColorElementId,
     MinifigPartInventoryLine,
     OwnedSetInventoryLine,
     Part,
@@ -221,9 +221,7 @@ def test_sync_populates_catalog(db_session, fake_client, elements_csv) -> None:
     assert db_session.scalar(select(func.count()).select_from(SetMinifigInventoryLine)) == 1
     assert db_session.scalar(select(func.count()).select_from(CatalogMinifig)) == 1
     assert db_session.scalars(
-        select(InventoryLineElementId.element_id).order_by(
-            InventoryLineElementId.element_id
-        )
+        select(PartColorElementId.element_id).order_by(PartColorElementId.element_id)
     ).all() == ["302400", "6252045", "973000"]
     clear_element_catalog_cache()
 

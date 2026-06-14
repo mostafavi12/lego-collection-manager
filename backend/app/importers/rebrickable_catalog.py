@@ -11,7 +11,6 @@ from app.db.models import (
     CatalogMinifig,
     CatalogSet,
     Color,
-    InventoryLineElementId,
     MinifigPartInventoryLine,
     OwnedSetInventoryLine,
     Part,
@@ -34,7 +33,7 @@ from app.rebrickable.dto import (
     ThemeDTO,
 )
 from app.domain.lego_set_number import from_rebrickable_set_num
-from app.services.element_catalog import element_ids_for
+from app.services.part_color_catalog_service import enrich_element_ids_for_part_color
 
 SOURCE = "rebrickable"
 
@@ -45,44 +44,6 @@ def _stored_image_url(url: str | None, *, persist_image_urls: bool) -> str | Non
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _replace_set_part_element_ids(
-    session: Session,
-    line_id: int,
-    element_ids: tuple[str, ...],
-) -> None:
-    session.execute(
-        delete(InventoryLineElementId).where(
-            InventoryLineElementId.set_part_inventory_line_id == line_id
-        )
-    )
-    for element_id in element_ids:
-        session.add(
-            InventoryLineElementId(
-                set_part_inventory_line_id=line_id,
-                element_id=element_id,
-            )
-        )
-
-
-def _replace_minifig_part_element_ids(
-    session: Session,
-    line_id: int,
-    element_ids: tuple[str, ...],
-) -> None:
-    session.execute(
-        delete(InventoryLineElementId).where(
-            InventoryLineElementId.minifig_part_inventory_line_id == line_id
-        )
-    )
-    for element_id in element_ids:
-        session.add(
-            InventoryLineElementId(
-                minifig_part_inventory_line_id=line_id,
-                element_id=element_id,
-            )
-        )
 
 
 def upsert_theme(session: Session, dto: ThemeDTO, *, fetched_at: datetime) -> Theme:
@@ -315,10 +276,13 @@ def replace_set_part_inventory(
             existing.source_ref = source_ref
             existing.fetched_at = fetched_at
         session.flush()
-        _replace_set_part_element_ids(
+        enrich_element_ids_for_part_color(
             session,
-            existing.id,
-            element_ids_for(part.part_num, color.external_id),
+            part.id,
+            color.id,
+            part_num=part.part_num,
+            color_external_id=color.external_id,
+            aliases=line.part.aliases,
         )
         lines_written += 1
 
@@ -430,10 +394,13 @@ def replace_minifig_part_inventory(
                 existing.image_url = line.image_url
             existing.fetched_at = fetched_at
         session.flush()
-        _replace_minifig_part_element_ids(
+        enrich_element_ids_for_part_color(
             session,
-            existing.id,
-            element_ids_for(part.part_num, color.external_id),
+            part.id,
+            color.id,
+            part_num=part.part_num,
+            color_external_id=color.external_id,
+            aliases=line.part.aliases,
         )
         lines_written += 1
 

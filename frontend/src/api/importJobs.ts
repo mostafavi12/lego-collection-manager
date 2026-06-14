@@ -7,7 +7,12 @@ import type {
 } from "./types";
 
 type ExistingSetImportMode = "skip" | "copy";
-type PartImageDownloadMode = "none" | "missing" | "all";
+type PartImageDownloadMode = "none" | "missing" | "all" | "no_element_id";
+
+type CatalogGapPartKey = {
+  part_id: number;
+  color_id: number;
+};
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -52,6 +57,7 @@ export function buildSyncJobOptions(options: {
   owned_set_ids?: number[];
   download_set_images?: boolean;
   part_image_download_mode?: PartImageDownloadMode;
+  catalog_gap_part_keys?: CatalogGapPartKey[];
 }): string {
   return JSON.stringify({
     ...(options.owned_set_ids?.length
@@ -59,6 +65,9 @@ export function buildSyncJobOptions(options: {
       : {}),
     download_set_images: options.download_set_images ?? false,
     part_image_download_mode: options.part_image_download_mode ?? "none",
+    ...(options.catalog_gap_part_keys?.length
+      ? { catalog_gap_part_keys: options.catalog_gap_part_keys }
+      : {}),
   });
 }
 
@@ -88,6 +97,7 @@ export function startRebrickableSyncJob(options?: {
   owned_set_ids?: number[];
   download_set_images?: boolean;
   part_image_download_mode?: PartImageDownloadMode;
+  catalog_gap_part_keys?: CatalogGapPartKey[];
 }): Promise<ImportJobStartResponse> {
   const form = new FormData();
   form.append("kind", "rebrickable_sync");

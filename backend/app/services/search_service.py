@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.models import (
     CatalogSet,
     Color,
-    InventoryLineElementId,
     MinifigPartInventoryLine,
     OwnedSet,
     Part,
@@ -29,6 +28,11 @@ from app.schemas.search import (
     SearchSetResult,
 )
 from app.services.catalog_state import resolve_part_image_url
+from app.services.part_alias_service import part_equivalence_class_ids
+from app.services.part_color_catalog_service import (
+    element_ids_for_part_color,
+    find_part_color_keys_by_element_prefix,
+)
 
 
 def search(
@@ -312,6 +316,7 @@ def _occurrences_for_part_color(
 ) -> list[SearchElementSetOccurrence]:
     owned = _owned_catalog_ids_subquery()
     totals: dict[int, int] = defaultdict(int)
+    class_ids = part_equivalence_class_ids(session, part_id)
 
     for cid, qty in session.execute(
         select(
@@ -320,7 +325,7 @@ def _occurrences_for_part_color(
         )
         .join(Color, SetPartInventoryLine.color_id == Color.id)
         .where(
-            SetPartInventoryLine.part_id == part_id,
+            SetPartInventoryLine.part_id.in_(class_ids),
             Color.external_id == color_external_id,
             SetPartInventoryLine.catalog_set_id.in_(owned),
         )
@@ -344,7 +349,7 @@ def _occurrences_for_part_color(
             == MinifigPartInventoryLine.catalog_minifig_id,
         )
         .where(
-            MinifigPartInventoryLine.part_id == part_id,
+            MinifigPartInventoryLine.part_id.in_(class_ids),
             Color.external_id == color_external_id,
             SetMinifigInventoryLine.catalog_set_id.in_(owned),
         )
@@ -375,32 +380,12 @@ def _persisted_element_ids_for_part_color(
     part_id: int,
     color_external_id: int,
 ) -> list[str]:
-    set_ids = session.scalars(
-        select(InventoryLineElementId.element_id)
-        .join(
-            SetPartInventoryLine,
-            InventoryLineElementId.set_part_inventory_line_id == SetPartInventoryLine.id,
-        )
-        .join(Color, SetPartInventoryLine.color_id == Color.id)
-        .where(
-            SetPartInventoryLine.part_id == part_id,
-            Color.external_id == color_external_id,
-        )
-    ).all()
-    minifig_ids = session.scalars(
-        select(InventoryLineElementId.element_id)
-        .join(
-            MinifigPartInventoryLine,
-            InventoryLineElementId.minifig_part_inventory_line_id
-            == MinifigPartInventoryLine.id,
-        )
-        .join(Color, MinifigPartInventoryLine.color_id == Color.id)
-        .where(
-            MinifigPartInventoryLine.part_id == part_id,
-            Color.external_id == color_external_id,
-        )
-    ).all()
-    return sorted(set(set_ids) | set(minifig_ids))
+    color_db_id = session.scalar(
+        select(Color.id).where(Color.external_id == color_external_id)
+    )
+    if color_db_id is None:
+        return []
+    return element_ids_for_part_color(session, part_id, color_db_id)
 
 
 def _search_elements(
@@ -410,51 +395,25 @@ def _search_elements(
     limit: int,
     offset: int,
 ) -> list[SearchElementResult]:
-    owned = _owned_catalog_ids_subquery()
-    keys: dict[tuple[int, int], tuple[Part, Color]] = {}
+    anchor_color_keys = find_part_color_keys_by_element_prefix(session, q)
+    if not anchor_color_keys:
+        return []
 
-    set_rows = session.execute(
-        select(Part, Color)
-        .select_from(InventoryLineElementId)
-        .join(
-            SetPartInventoryLine,
-            InventoryLineElementId.set_part_inventory_line_id == SetPartInventoryLine.id,
-        )
-        .join(Part, SetPartInventoryLine.part_id == Part.id)
-        .join(Color, SetPartInventoryLine.color_id == Color.id)
-        .where(
-            InventoryLineElementId.element_id.startswith(q),
-            SetPartInventoryLine.catalog_set_id.in_(owned),
-        )
-    ).all()
-    for part, color in set_rows:
-        keys[(part.id, color.external_id)] = (part, color)
-
-    minifig_rows = session.execute(
-        select(Part, Color)
-        .select_from(InventoryLineElementId)
-        .join(
-            MinifigPartInventoryLine,
-            InventoryLineElementId.minifig_part_inventory_line_id
-            == MinifigPartInventoryLine.id,
-        )
-        .join(Part, MinifigPartInventoryLine.part_id == Part.id)
-        .join(Color, MinifigPartInventoryLine.color_id == Color.id)
-        .join(
-            SetMinifigInventoryLine,
-            SetMinifigInventoryLine.catalog_minifig_id
-            == MinifigPartInventoryLine.catalog_minifig_id,
-        )
-        .where(
-            InventoryLineElementId.element_id.startswith(q),
-            SetMinifigInventoryLine.catalog_set_id.in_(owned),
-        )
-    ).all()
-    for part, color in minifig_rows:
-        keys[(part.id, color.external_id)] = (part, color)
-
+    part_ids = {part_id for part_id, _ in anchor_color_keys}
+    color_db_ids = {color_db_id for _, color_db_id in anchor_color_keys}
+    parts_by_id = {
+        row.id: row for row in session.scalars(select(Part).where(Part.id.in_(part_ids))).all()
+    }
+    colors_by_id = {
+        row.id: row
+        for row in session.scalars(select(Color).where(Color.id.in_(color_db_ids))).all()
+    }
     ordered = sorted(
-        keys.values(),
+        [
+            (parts_by_id[part_id], colors_by_id[color_db_id])
+            for part_id, color_db_id in anchor_color_keys
+            if part_id in parts_by_id and color_db_id in colors_by_id
+        ],
         key=lambda item: (item[0].part_num.casefold(), item[1].name.casefold()),
     )[offset : offset + limit]
 

@@ -36,7 +36,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - **Health check:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) returns `{"status":"ok"}`.
 - **API docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (OpenAPI).
 
-**Backend APIs** (CSV import, Rebrickable sync, set copies (`/owned-sets`), search, missing parts, reports (`/reports/*`), local images including **`GET /api/elements/{element_id}/image`**) and the **React MVP UI** (sets list, set detail, search, import, reports, Settings) are implemented.
+**Backend APIs** (CSV import, Rebrickable sync, set copies (`/owned-sets`), search, missing parts, reports (`/reports/*`), local images including **`GET /api/elements/{element_id}/image`**) and the **React MVP UI** (sets list, set detail, search, import, reports, Settings) are implemented. LEGO **Element IDs** are stored once per colored part (part alias class + color) in **`part_color_keys`** / **`part_color_element_ids`**, so the same part + color shows the same Element IDs in every set.
 
 **App modes:** View (default), Investigate, and Edit are selected on **`/settings`** and persisted in browser `localStorage` (`lcm.appMode`). View/Investigate gate mutations in the UI; Edit enables full editing.
 

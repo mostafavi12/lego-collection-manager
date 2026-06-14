@@ -21,7 +21,7 @@ Migrations: **Alembic** tracks revisions; application startup fails fast if the 
 3. **No duplicate catalog primaries:** Upserts keyed by natural keys (`set_number` + `set_variant`, `part_num`, `color_id` from API, etc.).
 4. **Inventory fidelity:** Stickered vs plain and distinct Rebrickable part numbers are preserved on line tables—**no collapsing** of lines in MVP. Rebrickable **spare** and **alternate** rows are read from the API but **not stored** (see [data-sources.md](./data-sources.md)).
 5. **Missing parts** belong to a **set copy** (`owned_sets` row) and reference a **specific per-copy inventory line** (set-level part row or minifig BOM row) for traceability in the UI.
-6. **Images:** At most one JPEG/PNG BLOB per **`element_images.element_id`** (color-specific display), per **`parts`** row (global part fallback), per **`catalog_sets`** row (shared set box image), and per **`catalog_minifigs`** row. API responses expose **same-origin** paths only when a BLOB exists; Rebrickable CDN URLs on inventory lines are download sources during sync, not client-facing URLs. **Display resolution** for inventory lines: first persisted Element ID with a local element BLOB → `/api/elements/{element_id}/image`; else part BLOB → `/api/parts/{part_id}/image`; else `null`. Missing-line uploads prefer the line’s primary Element ID when element IDs exist, otherwise the part BLOB.
+6. **Images:** At most one JPEG/PNG BLOB per **`element_images.element_id`** (color-specific display), per **`parts`** row (global part fallback), per **`catalog_sets`** row (shared set box image), and per **`catalog_minifigs`** row. **Element IDs** are stored once per colored part on **`part_color_keys`** / **`part_color_element_ids`**, not per inventory line. API responses expose **same-origin** paths only when a BLOB exists; Rebrickable CDN URLs on inventory lines are download sources during sync, not client-facing URLs. **Display resolution** for inventory lines: resolve Element IDs from the colored-part catalog, then first ID with a local element BLOB → `/api/elements/{element_id}/image`; else part BLOB → `/api/parts/{part_id}/image`; else `null`. Missing-line uploads prefer the line’s primary Element ID when element IDs exist, otherwise the part BLOB.
 
 ## Entity-relationship overview
 
@@ -32,14 +32,15 @@ erDiagram
   CatalogSet ||--o{ SetPartInventoryLine : hasPartLines
   Part ||--o{ SetPartInventoryLine : references
   Color ||--o{ SetPartInventoryLine : tints
-  SetPartInventoryLine ||--o{ InventoryLineElementId : hasElementIds
+  Part ||--o{ PartColorKey : anchorPart
+  Color ||--o{ PartColorKey : tints
+  PartColorKey ||--o{ PartColorElementId : hasElementIds
+  PartColorElementId }o--|| ElementImage : mayHaveBlob
   CatalogSet ||--o{ SetMinifigInventoryLine : includesMinifigs
   CatalogMinifig ||--o{ SetMinifigInventoryLine : instanceOf
   CatalogMinifig ||--o{ MinifigPartInventoryLine : hasBomLines
   Part ||--o{ MinifigPartInventoryLine : references
   Color ||--o{ MinifigPartInventoryLine : tints
-  MinifigPartInventoryLine ||--o{ InventoryLineElementId : hasElementIds
-  InventoryLineElementId }o--|| ElementImage : mayHaveBlob
   Part ||--o{ PartAlias : alsoKnownAs
   OwnedSet ||--o{ OwnedSetInventoryLine : instanceQty
   OwnedSet ||--o{ MissingItem : tracksGaps
@@ -207,22 +208,31 @@ BOM: parts belonging to a minifig design.
 | `fetched_at` | TIMESTAMP NOT NULL | |
 | **UNIQUE** | | `(catalog_minifig_id, part_id, color_id)` |
 
-### `inventory_line_element_ids`
+### `part_color_keys` and `part_color_element_ids`
 
-Persisted LEGO Element IDs for concrete inventory lines. Element IDs are derived
-from `data/elements.csv` at Rebrickable import/sync or migration backfill time,
-then served from SQLite for detail and search.
+Canonical **colored part** identity: one row per **part alias equivalence class + color**, shared by every set and minifig BOM line that references that combination. This is the single source of truth for persisted LEGO Element IDs.
+
+**`part_color_keys`**
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | INTEGER PK | |
-| `set_part_inventory_line_id` | INTEGER FK NULL | Exactly one inventory line FK is set. |
-| `minifig_part_inventory_line_id` | INTEGER FK NULL | |
-| `element_id` | TEXT NOT NULL | LEGO Element ID, specific to part/color/print. |
+| `anchor_part_id` | INTEGER FK → `parts.id` NOT NULL | Stable representative (`min` part id in the alias class). |
+| `color_id` | INTEGER FK → `colors.id` NOT NULL | |
+| `source` | TEXT NOT NULL | e.g. `rebrickable`, `user`, `migration`. |
+| `updated_at` | TIMESTAMP NOT NULL | UTC. |
+| **UNIQUE** | | `(anchor_part_id, color_id)` |
 
-**Unique:** `(set_part_inventory_line_id, element_id)` when set-line FK is set,
-and `(minifig_part_inventory_line_id, element_id)` when minifig-line FK is set.
-Multiple Element IDs can exist for one inventory line.
+**`part_color_element_ids`**
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | |
+| `part_color_key_id` | INTEGER FK → `part_color_keys.id` ON DELETE CASCADE | |
+| `element_id` | TEXT NOT NULL | LEGO Element ID for this colored part. |
+| **UNIQUE** | | `(part_color_key_id, element_id)` |
+
+Set detail, search, and reports resolve Element IDs by `(part_id, color_id)` → alias class → `part_color_keys` → `part_color_element_ids`. Import/sync writes here (via `part_color_catalog_service`); inventory lines no longer store their own Element ID copies.
 
 ### `element_images`
 
@@ -231,7 +241,7 @@ Color-specific part images keyed by LEGO **Element ID** (one BLOB per element). 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | INTEGER PK | |
-| `element_id` | TEXT NOT NULL UNIQUE | LEGO Element ID (matches `inventory_line_element_ids.element_id`). |
+| `element_id` | TEXT NOT NULL UNIQUE | LEGO Element ID (matches `part_color_element_ids.element_id`). |
 | `image_blob` | BLOB NULL | JPEG/PNG bytes. |
 | `image_content_type` | TEXT NULL | `image/jpeg` or `image/png` when `image_blob` set. |
 | `image_byte_size` | INTEGER NULL | Byte length of `image_blob`. |
@@ -262,7 +272,7 @@ Per **set copy**, links to **one** `owned_set_inventory_lines` row when the user
 | `catalog_sets` | `(set_number, set_variant)` | Unique lookup; search by set number prefix on `set_number`. |
 | `parts` | `part_num` | Lookup; prefix search helper. |
 | `part_aliases` | `alias` | Search by alternate id. |
-| `inventory_line_element_ids` | `element_id` | Element ID search. |
+| `part_color_element_ids` | `element_id` | Element ID search. |
 | `set_part_inventory_lines` | `(catalog_set_id)` | Set detail parts query. |
 | `set_minifig_inventory_lines` | `(catalog_set_id)` | Set detail minifigs. |
 | `minifig_part_inventory_lines` | `(catalog_minifig_id)` | Expand minifig BOM. |

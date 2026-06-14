@@ -60,3 +60,54 @@ def clear_element_catalog_cache() -> None:
 
 def element_ids_for(part_num: str, color_id: int) -> tuple[str, ...]:
     return load_element_catalog().element_ids_for(part_num, color_id)
+
+
+def _sibling_variant(part_num: str) -> str | None:
+    if len(part_num) < 2 or part_num[-1] not in ("a", "b"):
+        return None
+    base = part_num[:-1]
+    if not base:
+        return None
+    return f"{base}{'b' if part_num[-1] == 'a' else 'a'}"
+
+
+def _strip_variant_suffix(part_num: str) -> str | None:
+    if len(part_num) < 2 or not part_num[-1].isalpha():
+        return None
+    base = part_num[:-1]
+    return base if base else None
+
+
+def element_ids_for_import(
+    part_num: str,
+    color_id: int,
+    aliases: tuple[str, ...] | list[str] = (),
+) -> tuple[str, ...]:
+    """Resolve Element IDs using part number, aliases, and mold variants (a/b)."""
+    catalog = load_element_catalog()
+    candidate_groups: list[list[str]] = [[part_num]]
+    alias_candidates = [
+        alias.strip()
+        for alias in aliases
+        if alias.strip() and alias.strip() != part_num
+    ]
+    if alias_candidates:
+        candidate_groups.append(alias_candidates)
+
+    sibling = _sibling_variant(part_num)
+    if sibling:
+        candidate_groups.append([sibling])
+
+    base = _strip_variant_suffix(part_num)
+    if base and base != part_num and base not in alias_candidates:
+        candidate_groups.append([base])
+
+    collected: list[str] = []
+    seen: set[str] = set()
+    for group in candidate_groups:
+        for candidate in group:
+            for element_id in catalog.element_ids_for(candidate, color_id):
+                if element_id not in seen:
+                    seen.add(element_id)
+                    collected.append(element_id)
+    return tuple(collected)

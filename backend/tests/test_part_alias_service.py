@@ -1,10 +1,14 @@
 """Symmetric part alias closure (Phase 11B)."""
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
-from app.db.models import Part, PartAlias
+from app.db.models import Part, PartAlias, PartColorKey
 from app.services.part_alias_service import PartAliasError, replace_part_aliases
-from tests.factories import add_part, add_part_alias
+from app.services.part_color_catalog_service import (
+    element_ids_for_part_color,
+    set_element_ids_for_part_color,
+)
+from tests.factories import add_color, add_part, add_part_alias
 
 
 def test_add_b_to_x_adds_x_to_b(db_session) -> None:
@@ -71,6 +75,31 @@ def test_replace_list_drops_removed_strings(db_session) -> None:
         )
     ).all()
     assert aliases == ["alt2"]
+
+
+def test_merging_alias_classes_merges_part_color_keys(db_session) -> None:
+    color = add_color(db_session, external_id=70, name="Reddish Brown")
+    part_plain = add_part(db_session, part_num="4079")
+    part_variant = add_part(db_session, part_num="4079b")
+
+    set_element_ids_for_part_color(db_session, part_plain.id, color.id, ("4211206",))
+    set_element_ids_for_part_color(db_session, part_variant.id, color.id, ("6127738",))
+    db_session.commit()
+
+    replace_part_aliases(db_session, part_plain.id, ["4079b"])
+    db_session.commit()
+
+    assert element_ids_for_part_color(db_session, part_plain.id, color.id) == [
+        "4211206",
+        "6127738",
+    ]
+    assert element_ids_for_part_color(db_session, part_variant.id, color.id) == [
+        "4211206",
+        "6127738",
+    ]
+
+    key_count = db_session.scalar(select(func.count()).select_from(PartColorKey))
+    assert key_count == 1
 
 
 def test_unknown_part_raises(db_session) -> None:

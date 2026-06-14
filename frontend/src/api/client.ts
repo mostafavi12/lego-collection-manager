@@ -17,6 +17,7 @@ import type {
   RebrickableSetDraftResponse,
   RebrickableSyncResponse,
   IncompleteSetsReportResponse,
+  IncompleteCatalogReportResponse,
   MissingPartReportItem,
   MissingPartsReportResponse,
   ReportsSummaryResponse,
@@ -269,7 +270,8 @@ export function syncRebrickable(
   options?: {
     download_set_images?: boolean;
     download_missing_part_images?: boolean;
-    part_image_download_mode?: "none" | "missing" | "all";
+    part_image_download_mode?: "none" | "missing" | "all" | "no_element_id";
+    catalog_gap_part_keys?: Array<{ part_id: number; color_id: number }>;
   },
 ): Promise<RebrickableSyncResponse> {
   const body = {
@@ -482,6 +484,21 @@ export function getMissingPartsReport(params?: {
   }
   const query = search.toString();
   return request(`/reports/missing-parts${query ? `?${query}` : ""}`);
+}
+
+export function getIncompleteCatalogReport(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<IncompleteCatalogReportResponse> {
+  const search = new URLSearchParams();
+  if (params?.limit != null) {
+    search.set("limit", String(params.limit));
+  }
+  if (params?.offset != null) {
+    search.set("offset", String(params.offset));
+  }
+  const query = search.toString();
+  return request(`/reports/incomplete-catalog${query ? `?${query}` : ""}`);
 }
 
 const MISSING_PARTS_REPORT_PAGE_SIZE = 200;

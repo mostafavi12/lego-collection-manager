@@ -59,6 +59,7 @@ from app.services.instance_labels import (
     display_label,
     suggested_copy_label,
 )
+from app.services.part_color_catalog_service import load_element_ids_for_part_colors
 from app.domain.lego_set_number import (
     LegoSetId,
     LegoSetNumberParseError,
@@ -80,12 +81,6 @@ def utc_now() -> datetime:
 
 def _aliases_for_part(part: Part) -> list[str]:
     return sorted(a.alias for a in part.aliases if a.alias != part.part_num)
-
-
-def _element_ids_for_inventory_line(
-    line: SetPartInventoryLine | MinifigPartInventoryLine,
-) -> list[str]:
-    return sorted(element.element_id for element in line.element_ids)
 
 
 def _missing_counts(session: Session, owned_set_ids: list[int]) -> dict[int, int]:
@@ -328,14 +323,15 @@ def get_owned_set_detail(
         .options(
             selectinload(SetPartInventoryLine.part).selectinload(Part.aliases),
             selectinload(SetPartInventoryLine.color),
-            selectinload(SetPartInventoryLine.element_ids),
         )
         .order_by(SetPartInventoryLine.id)
     ).all()
 
+    set_part_keys = {(line.part_id, line.color_id) for line in set_part_catalog_lines}
+    element_id_map = load_element_ids_for_part_colors(session, set_part_keys)
     all_element_ids: set[str] = set()
-    for line in set_part_catalog_lines:
-        all_element_ids.update(_element_ids_for_inventory_line(line))
+    for ids in element_id_map.values():
+        all_element_ids.update(ids)
     element_url_by_id = load_element_image_urls(session, all_element_ids)
 
     set_parts: list[SetPartLineDetail] = []
@@ -346,7 +342,7 @@ def get_owned_set_detail(
         if instance_line is None:
             continue
         missing = instance_line.missing_item
-        line_element_ids = _element_ids_for_inventory_line(line)
+        line_element_ids = element_id_map.get((line.part_id, line.color_id), [])
         resolved_image_url = resolve_line_image_url(
             element_ids=line_element_ids,
             part=part,
@@ -395,13 +391,14 @@ def get_owned_set_detail(
             .join(Part, MinifigPartInventoryLine.part_id == Part.id)
             .join(Color, MinifigPartInventoryLine.color_id == Color.id)
             .where(MinifigPartInventoryLine.catalog_minifig_id == catalog_minifig.id)
-            .options(selectinload(MinifigPartInventoryLine.element_ids))
             .order_by(MinifigPartInventoryLine.id)
         ).all()
 
+        minifig_keys = {(part_line.part_id, part_line.color_id) for part_line, _, _ in part_rows}
+        minifig_element_map = load_element_ids_for_part_colors(session, minifig_keys)
         minifig_element_ids: set[str] = set()
-        for part_line, _part, _color in part_rows:
-            minifig_element_ids.update(_element_ids_for_inventory_line(part_line))
+        for ids in minifig_element_map.values():
+            minifig_element_ids.update(ids)
         element_url_by_id.update(
             load_element_image_urls(session, minifig_element_ids - set(element_url_by_id))
         )
@@ -412,7 +409,9 @@ def get_owned_set_detail(
             if instance_line is None:
                 continue
             missing = instance_line.missing_item
-            line_element_ids = _element_ids_for_inventory_line(part_line)
+            line_element_ids = minifig_element_map.get(
+                (part_line.part_id, part_line.color_id), []
+            )
             resolved_image_url = resolve_line_image_url(
                 element_ids=line_element_ids,
                 part=part,

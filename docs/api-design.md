@@ -146,7 +146,7 @@ Returns **`200`** when the sync completes for the selected scope in the request 
 }
 ```
 
-Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory). Sync updates set name, set image URL/BLOB when requested, number of parts, part names/images, catalog inventory lines, and per-copy part quantities. Sync preserves theme, year, age, investigated, missing quantities/items, labels, and notes. `download_set_images` stores set box images and minifigure images in SQLite. `part_image_download_mode` is one of `none` (default), `missing` (only parts currently marked missing, including minifig BOM parts), or `all` (all synced inventory parts, including minifig BOM parts). When part-image download is enabled, bytes are stored in **`element_images`** keyed by the line’s primary Element ID (requires persisted element IDs from `elements.csv` enrichment); the response counter remains `part_images_downloaded`.
+Omit `owned_set_ids` or pass `null` to sync **every `set_num`** that has at least one `owned_sets` row (distinct `catalog_set_id` values may be synced once per `set_num` while updating shared catalog inventory). Sync updates set name, set image URL/BLOB when requested, number of parts, part names/images, catalog inventory lines, and per-copy part quantities. Sync preserves theme, year, age, investigated, missing quantities/items, labels, and notes. `download_set_images` stores set box images and minifigure images in SQLite. `part_image_download_mode` is one of `none` (default), `missing` (only parts currently marked missing, including minifig BOM parts), or `all` (all synced inventory parts, including minifig BOM parts). When part-image download is enabled, bytes are stored in **`element_images`** keyed by the colored part’s primary Element ID (requires persisted element IDs from `elements.csv` enrichment on the canonical **`part_color_*`** tables); the response counter remains `part_images_downloaded`.
 
 `download_missing_part_images` is accepted as a legacy compatibility boolean only when `part_image_download_mode` is left at `none`; new clients should use `part_image_download_mode`.
 
@@ -335,7 +335,8 @@ Multiple `items` may share the same `set_num` with different `id`.
 
 | Field | Meaning |
 |-------|---------|
-| `image_url` | **Line display URL:** first persisted Element ID on the line with a local element BLOB (`/api/elements/{element_id}/image`), else the global part BLOB (`/api/parts/{part_id}/image`) when present, else `null`. |
+| `element_ids` | Persisted LEGO Element IDs for this **colored part** (alias class + color), read from canonical `part_color_element_ids` — identical in every set that uses this part + color. |
+| `image_url` | **Line display URL:** first persisted Element ID for this colored part with a local element BLOB (`/api/elements/{element_id}/image`), else the global part BLOB (`/api/parts/{part_id}/image`) when present, else `null`. |
 | `part_image_url` | **Part BLOB only:** `/api/parts/{part_id}/image` when `parts.image_blob` exists, else `null` (never an element path). |
 | `part_image_user_removed` | `true` after **`DELETE /parts/{part_id}/image`** (or equivalent clear) while element/catalog images may still exist; cleared on **`PUT /parts/{part_id}/image`**. |
 

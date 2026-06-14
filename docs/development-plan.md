@@ -216,7 +216,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 
 - User can add a part with optional photo; photo appears for that `part_id` everywhere.
 - Clicking a set-part row opens edit modal; delete removes the **`owned_set_inventory_lines`** row and orphan catalog line when unused.
-- Table shows Element IDs; aliases are edited in the part modal.
+- Table shows Element IDs (from canonical **`part_color_*`** tables — shared across all sets for the same alias class + color); aliases are edited in the part modal.
 - No live Rebrickable in tests.
 
 ## Phase 11B — Part alias editing in modal
@@ -226,7 +226,7 @@ Implement **one phase at a time**; update [database-schema.md](./database-schema
 **Deliverables**
 
 - API: `PATCH /api/parts/{part_id}/aliases` with replace-list body `{ "aliases": [...] }` and server-side closure (see [api-design.md](./api-design.md)).
-- Service: `part_alias_service.replace_aliases` — manual rows use `source='user'`; merge classes when an alias string links to another part (documented policy).
+- Service: `part_alias_service.replace_aliases` — manual rows use `source='user'`; merge classes when an alias string links to another part (documented policy); **`merge_part_color_keys_for_class`** unifies Element IDs when classes merge.
 - Frontend: **AliasChipEditor** in create and edit modals; submit order: create — `POST set-parts` → `PATCH aliases` → `PUT image`; edit — `PATCH set-parts` → `PATCH aliases` → image as needed.
 - Tests: symmetry property tests (add B to X ⇒ X on B; remove A from X ⇒ X removed from A); search by alias across class.
 

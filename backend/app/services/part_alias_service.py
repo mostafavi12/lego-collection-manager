@@ -71,6 +71,11 @@ def _expand_equivalence_class(
     return class_ids
 
 
+def part_equivalence_class_ids(session: Session, part_id: int) -> set[int]:
+    """Return all part row ids in the alias-linked equivalence class."""
+    return _expand_equivalence_class(session, part_id, [])
+
+
 def _aliases_for_display(part: Part, alias_strings: list[str]) -> list[str]:
     return sorted(a for a in alias_strings if a != part.part_num)
 
@@ -145,4 +150,7 @@ def replace_part_aliases(
             )
 
     session.flush()
+    from app.services.part_color_catalog_service import merge_part_color_keys_for_class
+
+    merge_part_color_keys_for_class(session, class_ids)
     return anchor, per_part_aliases[anchor.id]

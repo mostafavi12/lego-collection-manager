@@ -134,10 +134,10 @@ Rules:
 - `data/elements.csv` is read only during import/sync or migration backfill.
 - Override the import-time path with `ELEMENTS_CSV_PATH` when running from a
   non-standard checkout or in tests.
-- Matching uses Rebrickable `part_num` plus Rebrickable external `color_id`.
-- Multiple Element IDs for one part/color are valid and are stored as a list.
-- Set detail and search read persisted Element IDs from SQLite; they do not read
-  the CSV at request time.
+- Matching uses Rebrickable `part_num` plus Rebrickable external `color_id`, with alias and mold-variant fallbacks (`element_ids_for_import`).
+- Multiple Element IDs for one part/color are valid and are stored on the canonical **`part_color_element_ids`** row for that alias class + color.
+- Set detail and search read persisted Element IDs from **`part_color_keys`** / **`part_color_element_ids`**; they do not read the CSV at request time.
+- Updating Element IDs during import/sync or a future manual edit updates the canonical colored-part record; all sets with that part + color see the change immediately.
 - When Rebrickable sync runs with part-image download enabled, element image bytes
   from inventory line CDN URLs are stored in **`element_images`** keyed by Element ID
   (primary ID on each line). This enables color-specific thumbnails for the same

@@ -207,7 +207,8 @@ User-uploaded and sync-downloaded images are stored in SQLite (Phase 10). There 
 | `set_num` re-link | **This copy only** (with warning; existing MVP rule). |
 | **Part quantity** on inventory | **This copy only** (Phase 9). |
 | **Missing quantity** per line | **This copy only**; must satisfy `0 ≤ missing ≤ quantity` for that copy’s line. |
-| **Part image (display)** | **Per inventory line** when Element IDs and element BLOBs exist (color-specific); otherwise **global per `parts` row** fallback. Part-modal uploads still target the global **`parts`** row. |
+| **Element IDs** | **Global per part alias class + color** — see §11.5 and `part_color_keys` in [database-schema.md](./database-schema.md). All sets sharing the same colored part read the same Element ID list. |
+| **Part image (display)** | **Shared per colored part** when Element IDs and element BLOBs exist (via `element_images`); otherwise **global per `parts` row** fallback. Part-modal uploads still target the global **`parts`** row. |
 | **Part aliases** | **Symmetric equivalence class** — see §11.5. |
 
 ### 11.4 Part images
