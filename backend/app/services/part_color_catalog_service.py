@@ -63,45 +63,6 @@ def element_ids_for_part_color(
 ) -> list[str]:
     key = get_part_color_key(session, part_id, color_db_id)
     if key is None:
-        # #region agent log
-        if part_id and color_db_id:
-            import json
-            import time
-
-            from app.db.models import Color, Part
-
-            part = session.get(Part, part_id)
-            color = session.get(Color, color_db_id)
-            if part is not None and part.part_num == "44861" and color is not None and color.external_id == 0:
-                anchor_id = anchor_part_id_for_class(session, part_id)
-                csv_ids = element_ids_for_import(part.part_num, color.external_id, _part_aliases(session, part_id))
-                try:
-                    with open("/home/ahmad/projects/lego-collection-manager/.cursor/debug-ba0bb6.log", "a", encoding="utf-8") as _log:
-                        _log.write(
-                            json.dumps(
-                                {
-                                    "sessionId": "ba0bb6",
-                                    "runId": "pre-fix",
-                                    "hypothesisId": "A,C",
-                                    "location": "part_color_catalog_service.py:element_ids_for_part_color",
-                                    "message": "missing part_color_key for 44861 black",
-                                    "data": {
-                                        "part_id": part_id,
-                                        "part_num": part.part_num,
-                                        "color_db_id": color_db_id,
-                                        "color_external_id": color.external_id,
-                                        "anchor_part_id": anchor_id,
-                                        "csv_element_ids": list(csv_ids),
-                                        "part_color_key_found": False,
-                                    },
-                                    "timestamp": int(time.time() * 1000),
-                                }
-                            )
-                            + "\n"
-                        )
-                except OSError:
-                    pass
-        # #endregion
         return []
     return sorted(row.element_id for row in key.element_ids)
 
