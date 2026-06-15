@@ -12,6 +12,7 @@ from app.db.models import (
     PartAlias,
     PartColorElementId,
     PartColorKey,
+    Color,
 )
 from app.services.element_catalog import element_ids_for_import
 from app.services.part_alias_service import part_equivalence_class_ids
@@ -62,6 +63,45 @@ def element_ids_for_part_color(
 ) -> list[str]:
     key = get_part_color_key(session, part_id, color_db_id)
     if key is None:
+        # #region agent log
+        if part_id and color_db_id:
+            import json
+            import time
+
+            from app.db.models import Color, Part
+
+            part = session.get(Part, part_id)
+            color = session.get(Color, color_db_id)
+            if part is not None and part.part_num == "44861" and color is not None and color.external_id == 0:
+                anchor_id = anchor_part_id_for_class(session, part_id)
+                csv_ids = element_ids_for_import(part.part_num, color.external_id, _part_aliases(session, part_id))
+                try:
+                    with open("/home/ahmad/projects/lego-collection-manager/.cursor/debug-ba0bb6.log", "a", encoding="utf-8") as _log:
+                        _log.write(
+                            json.dumps(
+                                {
+                                    "sessionId": "ba0bb6",
+                                    "runId": "pre-fix",
+                                    "hypothesisId": "A,C",
+                                    "location": "part_color_catalog_service.py:element_ids_for_part_color",
+                                    "message": "missing part_color_key for 44861 black",
+                                    "data": {
+                                        "part_id": part_id,
+                                        "part_num": part.part_num,
+                                        "color_db_id": color_db_id,
+                                        "color_external_id": color.external_id,
+                                        "anchor_part_id": anchor_id,
+                                        "csv_element_ids": list(csv_ids),
+                                        "part_color_key_found": False,
+                                    },
+                                    "timestamp": int(time.time() * 1000),
+                                }
+                            )
+                            + "\n"
+                        )
+                except OSError:
+                    pass
+        # #endregion
         return []
     return sorted(row.element_id for row in key.element_ids)
 
@@ -203,6 +243,65 @@ def enrich_element_ids_for_part_color(
             merge=True,
         )
     return computed
+
+
+def backfill_part_color_element_ids_from_csv(session: Session) -> int:
+    """Enrich canonical part-color rows from elements.csv for all inventory pairs."""
+    from app.db.models import MinifigPartInventoryLine, SetPartInventoryLine
+
+    keys: set[tuple[int, int]] = set()
+    for part_id, color_id in session.execute(
+        select(SetPartInventoryLine.part_id, SetPartInventoryLine.color_id).distinct()
+    ):
+        keys.add((part_id, color_id))
+    for part_id, color_id in session.execute(
+        select(MinifigPartInventoryLine.part_id, MinifigPartInventoryLine.color_id).distinct()
+    ):
+        keys.add((part_id, color_id))
+
+    existing_map = load_element_ids_for_part_colors(session, keys)
+    part_ids = {part_id for part_id, _ in keys}
+    color_ids = {color_id for _, color_id in keys}
+    parts_by_id = {
+        part.id: part
+        for part in session.scalars(select(Part).where(Part.id.in_(part_ids))).all()
+    }
+    colors_by_id = {
+        color.id: color
+        for color in session.scalars(select(Color).where(Color.id.in_(color_ids))).all()
+    }
+    aliases_by_part: dict[int, tuple[str, ...]] = {}
+    for part_id in part_ids:
+        aliases_by_part[part_id] = _part_aliases(session, part_id)
+
+    enriched = 0
+    for part_id, color_id in keys:
+        if existing_map.get((part_id, color_id)):
+            continue
+        part = parts_by_id.get(part_id)
+        color = colors_by_id.get(color_id)
+        if part is None or color is None:
+            continue
+        computed = element_ids_for_import(
+            part.part_num,
+            color.external_id,
+            aliases_by_part.get(part_id, ()),
+        )
+        if not computed:
+            continue
+        set_element_ids_for_part_color(
+            session,
+            part_id,
+            color_id,
+            computed,
+            source=REBRICKABLE_SOURCE,
+            merge=True,
+        )
+        enriched += 1
+        if enriched % 200 == 0:
+            session.flush()
+    session.flush()
+    return enriched
 
 
 def merge_part_color_keys_for_class(

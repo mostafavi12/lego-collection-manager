@@ -2,6 +2,7 @@ from sqlalchemy import func, select
 
 from app.db.models import PartColorKey
 from app.services.part_color_catalog_service import (
+    backfill_part_color_element_ids_from_csv,
     element_ids_for_part_color,
     enrich_element_ids_for_part_color,
     find_part_color_keys_by_element_prefix,
@@ -163,3 +164,35 @@ def test_enrich_element_ids_for_part_color_persists_from_csv(
     clear_element_catalog_cache()
 
     assert element_ids_for_part_color(db_session, part.id, color.id) == ["4211206"]
+
+
+def test_backfill_part_color_element_ids_from_csv_enriches_inventory(
+    db_session, tmp_path, monkeypatch
+) -> None:
+    path = tmp_path / "elements.csv"
+    path.write_text(
+        "element_id,part_num,color_id,design_id\n"
+        "6347310,44861,0,44861\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ELEMENTS_CSV_PATH", str(path))
+    clear_element_catalog_cache()
+
+    color = add_color(db_session, external_id=0, name="Black")
+    part = add_part(db_session, part_num="44861")
+    add_set_part_inventory_line(
+        db_session,
+        catalog_set=add_catalog_set(db_session, set_number=71720),
+        part=part,
+        color=color,
+    )
+    db_session.commit()
+
+    assert element_ids_for_part_color(db_session, part.id, color.id) == []
+
+    enriched = backfill_part_color_element_ids_from_csv(db_session)
+    db_session.commit()
+    clear_element_catalog_cache()
+
+    assert enriched == 1
+    assert element_ids_for_part_color(db_session, part.id, color.id) == ["6347310"]

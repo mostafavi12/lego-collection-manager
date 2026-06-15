@@ -343,6 +343,49 @@ def get_owned_set_detail(
             continue
         missing = instance_line.missing_item
         line_element_ids = element_id_map.get((line.part_id, line.color_id), [])
+        # #region agent log
+        if part.part_num == "44861" and color.external_id == 0:
+            import json
+            import time
+
+            from app.services.element_catalog import element_ids_for_import
+
+            try:
+                with open(
+                    "/home/ahmad/projects/lego-collection-manager/.cursor/debug-ba0bb6.log",
+                    "a",
+                    encoding="utf-8",
+                ) as _log:
+                    _log.write(
+                        json.dumps(
+                            {
+                                "sessionId": "ba0bb6",
+                                "runId": "pre-fix",
+                                "hypothesisId": "D",
+                                "location": "owned_sets_service.py:get_owned_set_detail",
+                                "message": "set detail element ids for 44861 black",
+                                "data": {
+                                    "set_num": catalog_set.set_number,
+                                    "part_id": line.part_id,
+                                    "color_db_id": line.color_id,
+                                    "color_external_id": color.external_id,
+                                    "persisted_element_ids": line_element_ids,
+                                    "csv_element_ids": list(
+                                        element_ids_for_import(
+                                            part.part_num,
+                                            color.external_id,
+                                            _aliases_for_part(part),
+                                        )
+                                    ),
+                                },
+                                "timestamp": int(time.time() * 1000),
+                            }
+                        )
+                        + "\n"
+                    )
+            except OSError:
+                pass
+        # #endregion
         resolved_image_url = resolve_line_image_url(
             element_ids=line_element_ids,
             part=part,
