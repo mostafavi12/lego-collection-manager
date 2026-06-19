@@ -7,6 +7,7 @@ import { useCapabilities } from "../appMode/AppModeContext";
 import { AsyncMessage } from "../components/AsyncMessage";
 import { AddSetWizard } from "../components/AddSetWizard";
 import { MakeACopyDialog } from "../components/MakeACopyDialog";
+import { MultiSelectDropdown } from "../components/MultiSelectDropdown";
 import {
   buildGroupedSections,
   paginateGroupedSections,
@@ -18,12 +19,11 @@ import {
 import {
   readStoredSetsListPreferences,
   writeStoredSetsListPreferences,
+  type InvestigatedFilter,
 } from "./setsListPreferencesStorage";
 import { formatSetCopyTitle } from "../utils/setCopyTitle";
 
 const PAGE_SIZE = 20;
-
-type InvestigatedFilter = "all" | "true" | "false";
 
 function formatMeta(item: SetCopyListItem): string {
   const theme = item.theme_name?.trim() || "Unknown theme";
@@ -56,9 +56,15 @@ export function SetsListPage() {
   const [offset, setOffset] = useState(() =>
     offsetForPage(pageFromSearch(location.search)),
   );
-  const [filter, setFilter] = useState<InvestigatedFilter>("all");
-  const [themeFilter, setThemeFilter] = useState<string[]>([]);
-  const [missingOnly, setMissingOnly] = useState(false);
+  const [filter, setFilter] = useState<InvestigatedFilter>(
+    () => readStoredSetsListPreferences().investigatedFilter,
+  );
+  const [themeFilter, setThemeFilter] = useState<string[]>(
+    () => readStoredSetsListPreferences().themeFilter,
+  );
+  const [missingOnly, setMissingOnly] = useState(
+    () => readStoredSetsListPreferences().missingOnly,
+  );
   const [sortBy, setSortBy] = useState<SetSortBy>(
     () => readStoredSetsListPreferences().sortBy,
   );
@@ -100,8 +106,15 @@ export function SetsListPage() {
   }, [load]);
 
   useEffect(() => {
-    writeStoredSetsListPreferences({ sortBy, sortDir, groupBy });
-  }, [groupBy, sortBy, sortDir]);
+    writeStoredSetsListPreferences({
+      sortBy,
+      sortDir,
+      groupBy,
+      investigatedFilter: filter,
+      themeFilter,
+      missingOnly,
+    });
+  }, [filter, groupBy, missingOnly, sortBy, sortDir, themeFilter]);
 
   useEffect(() => {
     let ignore = false;
@@ -296,38 +309,32 @@ export function SetsListPage() {
             <option value="true">Investigated</option>
           </select>
         </label>
-        <div className="toolbar__field">
-          <span>Theme</span>
-          <details className="multi-select">
-            <summary>{themeFilterLabel}</summary>
-            <div className="multi-select__menu">
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={themeFilter.length === 0}
-                  onChange={() => {
-                    resetToFirstPage();
-                    setThemeFilter([]);
-                  }}
-                />
-                All
-              </label>
-              {themeOptions.map((theme) => (
-                <label key={theme} className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={themeFilter.includes(theme)}
-                    onChange={() => {
-                      resetToFirstPage();
-                      setThemeFilter((current) => toggleValue(current, theme));
-                    }}
-                  />
-                  {theme}
-                </label>
-              ))}
-            </div>
-          </details>
-        </div>
+        <MultiSelectDropdown label="Theme" summary={themeFilterLabel}>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={themeFilter.length === 0}
+              onChange={() => {
+                resetToFirstPage();
+                setThemeFilter([]);
+              }}
+            />
+            All
+          </label>
+          {themeOptions.map((theme) => (
+            <label key={theme} className="checkbox">
+              <input
+                type="checkbox"
+                checked={themeFilter.includes(theme)}
+                onChange={() => {
+                  resetToFirstPage();
+                  setThemeFilter((current) => toggleValue(current, theme));
+                }}
+              />
+              {theme}
+            </label>
+          ))}
+        </MultiSelectDropdown>
         <label className="checkbox">
           <input
             type="checkbox"
@@ -369,47 +376,41 @@ export function SetsListPage() {
             <option value="desc">Descending</option>
           </select>
         </label>
-        <div className="toolbar__field">
-          <span>Group by</span>
-          <details className="multi-select">
-            <summary>{groupByLabel}</summary>
-            <div className="multi-select__menu">
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={groupBy.length === 0}
-                  onChange={() => {
-                    resetToFirstPage();
-                    setGroupBy([]);
-                  }}
-                />
-                None
-              </label>
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={groupBy.includes("theme")}
-                  onChange={() => {
-                    resetToFirstPage();
-                    setGroupBy((current) => toggleValue(current, "theme"));
-                  }}
-                />
-                Theme
-              </label>
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={groupBy.includes("age")}
-                  onChange={() => {
-                    resetToFirstPage();
-                    setGroupBy((current) => toggleValue(current, "age"));
-                  }}
-                />
-                Age
-              </label>
-            </div>
-          </details>
-        </div>
+        <MultiSelectDropdown label="Group by" summary={groupByLabel}>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={groupBy.length === 0}
+              onChange={() => {
+                resetToFirstPage();
+                setGroupBy([]);
+              }}
+            />
+            None
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={groupBy.includes("theme")}
+              onChange={() => {
+                resetToFirstPage();
+                setGroupBy((current) => toggleValue(current, "theme"));
+              }}
+            />
+            Theme
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={groupBy.includes("age")}
+              onChange={() => {
+                resetToFirstPage();
+                setGroupBy((current) => toggleValue(current, "age"));
+              }}
+            />
+            Age
+          </label>
+        </MultiSelectDropdown>
       </div>
 
       <AsyncMessage error={error} loading={loading && items.length === 0} />

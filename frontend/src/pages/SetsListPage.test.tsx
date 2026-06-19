@@ -400,6 +400,32 @@ describe("SetsListPage", () => {
         sortBy: "name",
         sortDir: "desc",
         groupBy: ["age"],
+        investigatedFilter: "all",
+        themeFilter: [],
+        missingOnly: false,
+      }),
+    );
+  });
+
+  it("persists filter preferences to localStorage", async () => {
+    vi.stubGlobal("fetch", mockCollectionFetch());
+
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/6024 \(Police Car\) - copy A/);
+
+    await user.selectOptions(screen.getByLabelText(/investigation/i), "true");
+    await user.click(screen.getByRole("checkbox", { name: "Town" }));
+    await user.click(screen.getByLabelText("Missing parts only"));
+
+    expect(localStorage.getItem("lcm.setsListPreferences")).toBe(
+      JSON.stringify({
+        sortBy: "set_num",
+        sortDir: "asc",
+        groupBy: ["theme"],
+        investigatedFilter: "true",
+        themeFilter: ["Town"],
+        missingOnly: true,
       }),
     );
   });
@@ -411,6 +437,9 @@ describe("SetsListPage", () => {
         sortBy: "theme",
         sortDir: "desc",
         groupBy: ["theme", "age"],
+        investigatedFilter: "all",
+        themeFilter: [],
+        missingOnly: false,
       }),
     );
     vi.stubGlobal("fetch", mockCollectionFetch());
@@ -422,6 +451,27 @@ describe("SetsListPage", () => {
     expect(screen.getByLabelText(/direction/i)).toHaveValue("desc");
     expect(screen.getByRole("heading", { name: "Town" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Age 8" })).toBeInTheDocument();
+  });
+
+  it("restores filter preferences from localStorage", async () => {
+    localStorage.setItem(
+      "lcm.setsListPreferences",
+      JSON.stringify({
+        sortBy: "set_num",
+        sortDir: "asc",
+        groupBy: ["theme"],
+        investigatedFilter: "false",
+        themeFilter: ["Town"],
+        missingOnly: true,
+      }),
+    );
+    vi.stubGlobal("fetch", mockCollectionFetch());
+
+    renderPage();
+
+    await screen.findByText(/6024 \(Police Car\) - copy A/);
+    expect(screen.getByLabelText(/investigation/i)).toHaveValue("false");
+    expect(screen.getByLabelText("Missing parts only")).toBeChecked();
   });
 
   it("disables make a copy and hides add set in view mode", async () => {

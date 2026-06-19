@@ -16,15 +16,22 @@ const SORT_BY_VALUES: SetSortBy[] = [
 ];
 const SORT_DIR_VALUES: SortDir[] = ["asc", "desc"];
 const GROUP_BY_VALUES: GroupBy[] = ["theme", "age"];
+const INVESTIGATED_FILTER_VALUES = ["all", "true", "false"] as const;
+
+export type InvestigatedFilter = (typeof INVESTIGATED_FILTER_VALUES)[number];
 
 export const DEFAULT_SETS_LIST_SORT_BY: SetSortBy = "set_num";
 export const DEFAULT_SETS_LIST_SORT_DIR: SortDir = "asc";
 export const DEFAULT_SETS_LIST_GROUP_BY: GroupBy[] = ["theme"];
+export const DEFAULT_INVESTIGATED_FILTER: InvestigatedFilter = "all";
 
 export type SetsListPreferences = {
   sortBy: SetSortBy;
   sortDir: SortDir;
   groupBy: GroupBy[];
+  investigatedFilter: InvestigatedFilter;
+  themeFilter: string[];
+  missingOnly: boolean;
 };
 
 function defaultPreferences(): SetsListPreferences {
@@ -32,6 +39,9 @@ function defaultPreferences(): SetsListPreferences {
     sortBy: DEFAULT_SETS_LIST_SORT_BY,
     sortDir: DEFAULT_SETS_LIST_SORT_DIR,
     groupBy: [...DEFAULT_SETS_LIST_GROUP_BY],
+    investigatedFilter: DEFAULT_INVESTIGATED_FILTER,
+    themeFilter: [],
+    missingOnly: false,
   };
 }
 
@@ -55,6 +65,35 @@ function parseGroupBy(value: unknown): GroupBy[] {
   return groupBy;
 }
 
+function parseInvestigatedFilter(value: unknown): InvestigatedFilter {
+  if (
+    typeof value === "string" &&
+    INVESTIGATED_FILTER_VALUES.includes(value as InvestigatedFilter)
+  ) {
+    return value as InvestigatedFilter;
+  }
+  return DEFAULT_INVESTIGATED_FILTER;
+}
+
+function parseThemeFilter(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const themeFilter: string[] = [];
+  for (const entry of value) {
+    if (typeof entry === "string" && entry && !seen.has(entry)) {
+      seen.add(entry);
+      themeFilter.push(entry);
+    }
+  }
+  return themeFilter;
+}
+
+function parseMissingOnly(value: unknown): boolean {
+  return value === true;
+}
+
 export function readStoredSetsListPreferences(): SetsListPreferences {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -72,6 +111,9 @@ export function readStoredSetsListPreferences(): SetsListPreferences {
       sortBy,
       sortDir,
       groupBy: parseGroupBy(parsed.groupBy),
+      investigatedFilter: parseInvestigatedFilter(parsed.investigatedFilter),
+      themeFilter: parseThemeFilter(parsed.themeFilter),
+      missingOnly: parseMissingOnly(parsed.missingOnly),
     };
   } catch {
     return defaultPreferences();
