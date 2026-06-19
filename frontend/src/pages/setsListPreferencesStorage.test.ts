@@ -17,6 +17,9 @@ describe("setsListPreferencesStorage", () => {
       sortBy: "set_num",
       sortDir: "asc",
       groupBy: ["theme"],
+      investigatedFilter: "all",
+      themeFilter: [],
+      missingOnly: false,
     });
   });
 
@@ -25,11 +28,17 @@ describe("setsListPreferencesStorage", () => {
       sortBy: "name",
       sortDir: "desc",
       groupBy: ["age", "theme"],
+      investigatedFilter: "true",
+      themeFilter: ["Town", "Space"],
+      missingOnly: true,
     });
     expect(readStoredSetsListPreferences()).toEqual({
       sortBy: "name",
       sortDir: "desc",
       groupBy: ["age", "theme"],
+      investigatedFilter: "true",
+      themeFilter: ["Town", "Space"],
+      missingOnly: true,
     });
   });
 
@@ -46,6 +55,9 @@ describe("setsListPreferencesStorage", () => {
       sortBy: DEFAULT_SETS_LIST_SORT_BY,
       sortDir: "asc",
       groupBy: ["theme"],
+      investigatedFilter: "all",
+      themeFilter: [],
+      missingOnly: false,
     });
     expect(DEFAULT_SETS_LIST_GROUP_BY).toEqual(["theme"]);
   });
