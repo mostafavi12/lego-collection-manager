@@ -11,7 +11,7 @@ router = APIRouter(prefix="/media", tags=["media"])
 @router.get("/missing/{missing_item_id}")
 def get_missing_image(
     missing_item_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> Response:
     resolved = resolve_missing_image_for_serving(db, missing_item_id)
     if resolved is None:

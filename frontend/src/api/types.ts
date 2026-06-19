@@ -29,6 +29,8 @@ export interface DuplicatePreviewResponse {
   suggested_label: string;
 }
 
+export type CatalogThemeScope = "all" | "this_set";
+
 export interface SetCopyUpdateBody {
   investigated?: boolean;
   label?: string | null;
@@ -39,6 +41,7 @@ export interface SetCopyUpdateBody {
   catalog_num_parts?: number | null;
   catalog_year?: number | null;
   catalog_theme_name?: string | null;
+  catalog_theme_scope?: CatalogThemeScope;
 }
 
 export interface SetCopyListResponse {
@@ -60,6 +63,7 @@ export interface CatalogBlock {
   name: string | null;
   year: number | null;
   theme_name: string | null;
+  theme_shared_catalog_set_count: number;
   image_url: string | null;
   num_parts: number | null;
 }

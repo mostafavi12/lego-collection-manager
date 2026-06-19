@@ -32,6 +32,7 @@ import {
 } from "../components/PartLineModal";
 import { inventoryLineImageUrl } from "../utils/partPhotoDisplay";
 import { formatSetCopyTitle } from "../utils/setCopyTitle";
+import { queueThemeFilterRename } from "./themeFilterSync";
 
 interface InstanceForm {
   label: string;
@@ -117,6 +118,7 @@ export function SetDetailPage() {
   const [detail, setDetail] = useState<SetCopyDetailResponse | null>(null);
   const [form, setForm] = useState<InstanceForm | null>(null);
   const [originalSetNum, setOriginalSetNum] = useState("");
+  const [originalCatalogTheme, setOriginalCatalogTheme] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -145,6 +147,7 @@ export function SetDetailPage() {
   const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const [partSort, setPartSort] = useState<PartInventorySort>("color");
   const [showSetNumWarning, setShowSetNumWarning] = useState(false);
+  const [showThemeScopeWarning, setShowThemeScopeWarning] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [partModal, setPartModal] = useState<
     | { mode: "create" }
@@ -157,7 +160,7 @@ export function SetDetailPage() {
     if (!Number.isFinite(setCopyId)) {
       setError("Invalid set id");
       setLoading(false);
-      return;
+      return null;
     }
     setLoading(true);
     setError(null);
@@ -166,8 +169,11 @@ export function SetDetailPage() {
       setDetail(data);
       setForm(formFromDetail(data));
       setOriginalSetNum(String(data.catalog.set_num));
+      setOriginalCatalogTheme(data.catalog.theme_name ?? "");
+      return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load set");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -184,7 +190,10 @@ export function SetDetailPage() {
     void load();
   }, [load]);
 
-  function buildPatchBody(current: InstanceForm) {
+  function buildPatchBody(
+    current: InstanceForm,
+    options?: { themeScope?: "all" | "this_set" },
+  ) {
     const ageTrimmed = current.age.trim();
     const partsTrimmed = current.catalogParts.trim();
     const yearTrimmed = current.catalogYear.trim();
@@ -195,13 +204,29 @@ export function SetDetailPage() {
       set_num: current.setNum.trim(),
       catalog_name: current.catalogName.trim() || null,
       catalog_theme_name: current.catalogTheme.trim() || null,
+      ...(options?.themeScope ? { catalog_theme_scope: options.themeScope } : {}),
       catalog_num_parts:
         partsTrimmed === "" ? null : Number.parseInt(partsTrimmed, 10),
       catalog_year: yearTrimmed === "" ? null : Number.parseInt(yearTrimmed, 10),
     };
   }
 
-  async function saveForm(current: InstanceForm) {
+  function themeChangeNeedsScopeChoice(current: InstanceForm): boolean {
+    if (!detail || !canEditCatalog) {
+      return false;
+    }
+    const newTheme = current.catalogTheme.trim();
+    const oldTheme = originalCatalogTheme.trim();
+    if (!oldTheme || newTheme === oldTheme) {
+      return false;
+    }
+    return (detail.catalog.theme_shared_catalog_set_count ?? 0) > 1;
+  }
+
+  async function saveForm(
+    current: InstanceForm,
+    options?: { themeScope?: "all" | "this_set" },
+  ) {
     setSaving(true);
     setError(null);
     try {
@@ -211,9 +236,24 @@ export function SetDetailPage() {
         setCopyId,
         investigateOnlySave
           ? { investigated: current.investigated }
-          : buildPatchBody(current),
+          : buildPatchBody(current, options),
       );
-      await load();
+      const oldTheme = originalCatalogTheme.trim();
+      const newTheme = current.catalogTheme.trim();
+      const reloaded = await load();
+      const persistedTheme = reloaded?.catalog.theme_name?.trim() ?? "";
+      if (
+        oldTheme &&
+        newTheme &&
+        oldTheme !== newTheme &&
+        persistedTheme === newTheme
+      ) {
+        queueThemeFilterRename({
+          from: oldTheme,
+          to: newTheme,
+          scope: options?.themeScope ?? "all",
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -229,8 +269,14 @@ export function SetDetailPage() {
     ) {
       return;
     }
-    if (form.setNum.trim() !== originalSetNum) {
+    const needsSetNumWarning = form.setNum.trim() !== originalSetNum;
+    const needsThemeScope = themeChangeNeedsScopeChoice(form);
+    if (needsSetNumWarning) {
       setShowSetNumWarning(true);
+      return;
+    }
+    if (needsThemeScope) {
+      setShowThemeScopeWarning(true);
       return;
     }
     void saveForm(form);
@@ -241,6 +287,10 @@ export function SetDetailPage() {
       return;
     }
     setShowSetNumWarning(false);
+    if (themeChangeNeedsScopeChoice(form)) {
+      setShowThemeScopeWarning(true);
+      return;
+    }
     await saveForm(form);
   }
 
@@ -250,6 +300,22 @@ export function SetDetailPage() {
     }
     setForm({ ...form, setNum: originalSetNum });
     setShowSetNumWarning(false);
+  }
+
+  async function confirmThemeScope(scope: "all" | "this_set") {
+    if (!form) {
+      return;
+    }
+    setShowThemeScopeWarning(false);
+    await saveForm(form, { themeScope: scope });
+  }
+
+  function cancelThemeScopeChange() {
+    if (!form) {
+      return;
+    }
+    setShowThemeScopeWarning(false);
+    setForm({ ...form, catalogTheme: originalCatalogTheme });
   }
 
   async function toggleInvestigated() {
@@ -906,6 +972,45 @@ export function SetDetailPage() {
               onClick={() => void confirmSetNumChange()}
             >
               Continue
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {showThemeScopeWarning && form && detail && (
+        <Modal
+          title="Update theme?"
+          onClose={cancelThemeScopeChange}
+        >
+          <p>
+            You changed the theme from <strong>{originalCatalogTheme.trim()}</strong>{" "}
+            to <strong>{form.catalogTheme.trim()}</strong>.{" "}
+            {detail.catalog.theme_shared_catalog_set_count} sets in your collection
+            share the theme <strong>{originalCatalogTheme.trim()}</strong>.
+          </p>
+          <div className="modal__actions">
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => cancelThemeScopeChange()}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={saving}
+              onClick={() => void confirmThemeScope("this_set")}
+            >
+              Only this set
+            </button>
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={saving}
+              onClick={() => void confirmThemeScope("all")}
+            >
+              All sets with this theme
             </button>
           </div>
         </Modal>

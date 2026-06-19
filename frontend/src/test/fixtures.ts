@@ -56,6 +56,7 @@ export const setCopyDetailFixture: SetCopyDetailResponse = {
     name: "Police Car",
     year: 1980,
     theme_name: "Town",
+    theme_shared_catalog_set_count: 1,
     image_url: null,
     num_parts: 27,
   },

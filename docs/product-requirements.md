@@ -93,6 +93,8 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 - List is **paginated** (offset/limit) per [api-design.md](./api-design.md).
 - Rows link to the **set detail** view for that copy’s `id`.
 - **Investigated** vs **not investigated** is visible (badge or column); optional filter by investigation state.
+- **Theme** multi-select filter and **Missing parts only** toggle; list preferences (investigation filter, theme filter, missing-only, sort field/direction, group-by) persist in **`localStorage`** key `lcm.setsListPreferences` across navigation and refresh.
+- After a successful theme rename on set detail, the active theme filter stays in sync when the user returns to the list: **`scope: all`** replaces the old theme name with the new; **`scope: this_set`** keeps the old theme and adds the new one (queued in **`sessionStorage`** key `lcm.pendingThemeFilterSync`, consumed on list mount/navigation).
 - Multiple rows may share the same `set_num` (distinct `id`).
 - Sets without a successful catalog sync yet may show **placeholder or partial** metadata until sync completes.
 - Each row shows **`{display_label} — {set_num}`** where `display_label` is the user label or default `Copy #n`.
@@ -109,7 +111,8 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 - User can edit **per-copy fields**: `label` (default `Copy #n` when empty in the UI), `investigated`, `age`, and `notes`.
 - User can **delete** **this copy** (with confirmation); missing rows for that copy are removed.
 - **Make a copy** is **not** on the detail page (list only, with confirmation dialog per [§8](#8-duplicate-a-set-copy-make-a-copy)).
-- User can edit **shared catalog fields** on detail (`name`, theme, part count, age, etc.); changes apply to **every copy** with the same `catalog_set_id`, except **`set_num`** (see below).
+- User can edit **shared catalog fields** on detail (`name`, theme, part count, age, etc.); changes apply to **every copy** with the same `catalog_set_id`, except **`set_num`** (see below) and **theme** when the user chooses **Only this set** in the theme scope dialog (see below).
+- When the user changes **theme** and more than one catalog set in the collection shares the current theme name, show **Update theme?** with **All sets with this theme**, **Only this set**, and **Cancel** (Cancel restores the previous theme value without saving).
 - Changing **`set_num`**: show a warning (“You are about to change the LEGO set number”); **Cancel** restores the previous value; **Continue** re-links **only this copy** to the new set number (create or match `catalog_sets` row) without changing other copies.
 - Inventory table supports sorting or stable default order (e.g. by part number, then color).
 - Rebrickable **spare** and **alternate** inventory rows are **not imported** (not shown in the UI).
@@ -152,7 +155,7 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 - Action available from **sets list only** (not on set detail).
 - Dialog states that a copy of set number **X** is being created; shows editable **label** prefilled with **`Copy #n`** (`n` = number of existing copies for that `set_num` + 1); **Cancel** and **Create a copy** buttons; POST runs only after confirm.
 - Creates a new `owned_sets` row with the same `catalog_set_id` as the source row.
-- New copy has `investigated` = **false**, confirmed `label`, `age` = **null**, `notes` = **null**, and **no** `missing_items`.
+- New copy has `investigated` = **false**, confirmed `label`, `age` copied from source when set (else **null**), `notes` = **null**, and **no** `missing_items`.
 - Response returns the new copy’s `id` for navigation.
 - **`404`** if the source set copy **id** does not exist.
 - Does not modify or delete the source copy.
@@ -172,7 +175,8 @@ Everything the app stores on disk is **in your collection**. There is **no** sep
 | Field | Scope when edited from detail |
 |-------|-------------------------------|
 | `set_num` | **This copy only**, after warning + Continue; Cancel restores previous value. |
-| `name`, theme, `num_parts`, `age`, etc. | **All copies** sharing the same `catalog_set_id`. |
+| `name`, `num_parts`, `age`, etc. | **All copies** sharing the same `catalog_set_id`. |
+| `theme` | **All copies** sharing the same theme name when user chooses **All sets with this theme**; **this copy only** (re-link to separate theme row) when user chooses **Only this set**. |
 
 **Provenance:** every field in the table above (and `set_num`) may be filled from **Rebrickable** (or left empty after CSV import) **or** entered/edited by the user on set detail—except **`label`**, which is user-only **per copy**. See [data-sources.md — Catalog metadata (dual source)](./data-sources.md#catalog-metadata-dual-source). Re-running Rebrickable sync refreshes safe source fields (set name, set image, part names/images, part counts, inventory lines, and per-copy part quantities) while preserving theme, year, age, investigated, missing, label, and notes.
 

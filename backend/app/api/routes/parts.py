@@ -14,7 +14,7 @@ router = APIRouter(prefix="/parts", tags=["parts"])
 def patch_part_aliases(
     part_id: int,
     body: PartAliasesReplaceRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> PartAliasesResponse:
     try:
         part, aliases = replace_part_aliases(db, part_id, body.aliases)

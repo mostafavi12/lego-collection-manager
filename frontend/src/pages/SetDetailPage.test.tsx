@@ -4,7 +4,7 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SetDetailPage } from "./SetDetailPage";
-import { setCopyDetailFixture } from "../test/fixtures";
+import { setCopyDetailFixture, setCopyListFixture } from "../test/fixtures";
 import { renderWithAppMode } from "../test/renderWithAppMode";
 
 function renderDetail(mode: "view" | "investigate" | "edit" = "edit") {
@@ -22,6 +22,7 @@ describe("SetDetailPage", () => {
     vi.unstubAllGlobals();
     try {
       sessionStorage.clear();
+      localStorage.clear();
     } catch {
       /* jsdom may restrict storage in some environments */
     }
@@ -723,6 +724,197 @@ describe("SetDetailPage", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
     expect(setNumInput).toHaveValue("6024");
+  });
+
+  it("shows theme scope dialog when renaming a shared theme", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      catalog: {
+        ...setCopyDetailFixture.catalog,
+        theme_shared_catalog_set_count: 3,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => detail,
+      }) as typeof fetch,
+    );
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Copy details");
+    const themeInput = screen.getByDisplayValue("Town");
+    await user.clear(themeInput);
+    await user.type(themeInput, "Classic Town");
+    const saveButton = screen.getByRole("button", { name: /save changes/i });
+    await user.click(saveButton);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /update theme\?/i }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/3 sets in your collection/i)).toBeInTheDocument();
+    await user.click(
+      within(dialog).getByRole("button", { name: /only this set/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/owned-sets/1"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"catalog_theme_scope":"this_set"'),
+      }),
+    );
+  });
+
+  it("sends catalog_theme_scope all when confirming all sets with this theme", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      catalog: {
+        ...setCopyDetailFixture.catalog,
+        theme_shared_catalog_set_count: 3,
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => detail,
+    });
+    vi.stubGlobal("fetch", fetchMock as typeof fetch);
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Copy details");
+    const themeInput = screen.getByDisplayValue("Town");
+    await user.clear(themeInput);
+    await user.type(themeInput, "Classic Town");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: /all sets with this theme/i }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/owned-sets/1"),
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining('"catalog_theme_scope":"all"'),
+        }),
+      );
+    });
+  });
+
+  it("restores the original theme and skips PATCH when theme scope is cancelled", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      catalog: {
+        ...setCopyDetailFixture.catalog,
+        theme_shared_catalog_set_count: 3,
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => detail,
+    });
+    vi.stubGlobal("fetch", fetchMock as typeof fetch);
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Copy details");
+    const themeInput = screen.getByDisplayValue("Town");
+    await user.clear(themeInput);
+    await user.type(themeInput, "Classic Town");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^cancel$/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(themeInput).toHaveValue("Town");
+    expect(
+      fetchMock.mock.calls.some(
+        ([, init]) =>
+          init &&
+          typeof init === "object" &&
+          "method" in init &&
+          init.method === "PATCH",
+      ),
+    ).toBe(false);
+  });
+
+  it("queues a theme filter rename after a successful shared theme save", async () => {
+    const detail = {
+      ...setCopyDetailFixture,
+      catalog: {
+        ...setCopyDetailFixture.catalog,
+        theme_shared_catalog_set_count: 3,
+      },
+    };
+    const updatedDetail = {
+      ...detail,
+      catalog: {
+        ...detail.catalog,
+        theme_name: "Classic Town",
+      },
+    };
+    let saved = false;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "PATCH") {
+        saved = true;
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...setCopyListFixture.items[0],
+            theme_name: "Classic Town",
+          }),
+        });
+      }
+      if (/\/owned-sets\/1$/.test(url)) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => (saved ? updatedDetail : detail),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => detail,
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock as typeof fetch);
+
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Copy details");
+    const themeInput = screen.getByDisplayValue("Town");
+    await user.clear(themeInput);
+    await user.type(themeInput, "Classic Town");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: /all sets with this theme/i }),
+    );
+
+    await waitFor(() => {
+      expect(sessionStorage.getItem("lcm.pendingThemeFilterSync")).toBe(
+        JSON.stringify([
+          { from: "Town", to: "Classic Town", scope: "all" },
+        ]),
+      );
+    });
   });
 
   it("filters set parts to missing-only and sorts by element id", async () => {

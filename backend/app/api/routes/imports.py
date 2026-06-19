@@ -208,7 +208,7 @@ def download_failed_sets_csv() -> FileResponse:
 async def import_csv(
     file: UploadFile = File(...),
     existing_set_mode: ExistingSetImportMode = Form("skip"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> CsvImportResponse:
     raw = await file.read()
     if len(raw) > MAX_CSV_BYTES:
@@ -230,7 +230,7 @@ async def import_csv(
 @router.post("/rebrickable/sync", response_model=RebrickableSyncResponse)
 def import_rebrickable_sync(
     body: RebrickableSyncRequest | None = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> RebrickableSyncResponse:
     try:
         ensure_api_key_configured()
@@ -285,7 +285,7 @@ def import_rebrickable_sync(
 async def import_database(
     file: UploadFile = File(...),
     mode: DatabaseImportMode = Form("add_only_new"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> DatabaseImportResponse:
     raw = await file.read()
     if len(raw) > MAX_DATABASE_BYTES:
@@ -313,7 +313,7 @@ async def import_database(
 
 
 @router.post("/local-metadata", response_model=LocalMetadataUpdateResponse)
-def update_local_metadata(db: Session = Depends(get_db)) -> LocalMetadataUpdateResponse:
+def update_local_metadata(db: Session = Depends(get_db, scope="function")) -> LocalMetadataUpdateResponse:
     result = update_missing_local_metadata(db)
     return LocalMetadataUpdateResponse(
         owned_set_ages_updated=result.owned_set_ages_updated,

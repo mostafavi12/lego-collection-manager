@@ -14,7 +14,7 @@ def get_search(
     search_type: str = Query("all", alias="type", pattern="^(set|part|element|all)$"),
     limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> SearchResponse:
     trimmed = q.strip()
     if not trimmed:

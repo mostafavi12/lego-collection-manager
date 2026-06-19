@@ -40,7 +40,7 @@ def _raise_image_error(exc: ImageBlobError) -> None:
 
 
 @router.get("/parts/{part_id}/image")
-def get_part_image_route(part_id: int, db: Session = Depends(get_db)) -> Response:
+def get_part_image_route(part_id: int, db: Session = Depends(get_db, scope="function")) -> Response:
     stored = get_part_image(db, part_id)
     if stored is None:
         raise HTTPException(status_code=404, detail="Image not found")
@@ -51,7 +51,7 @@ def get_part_image_route(part_id: int, db: Session = Depends(get_db)) -> Respons
 async def put_part_image_route(
     part_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> ImageUploadResponse:
     raw = await file.read()
     if len(raw) > get_max_image_bytes():
@@ -66,7 +66,7 @@ async def put_part_image_route(
 @router.delete("/parts/{part_id}/image", response_model=ImageDeleteResponse)
 def delete_part_image_route(
     part_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> ImageDeleteResponse:
     try:
         clear_part_image(db, part_id)
@@ -78,7 +78,7 @@ def delete_part_image_route(
 @router.get("/catalog-sets/{catalog_set_id}/image")
 def get_catalog_set_image_route(
     catalog_set_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> Response:
     stored = get_catalog_set_image(db, catalog_set_id)
     if stored is None:
@@ -90,7 +90,7 @@ def get_catalog_set_image_route(
 async def put_catalog_set_image_route(
     catalog_set_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> ImageUploadResponse:
     raw = await file.read()
     if len(raw) > get_max_image_bytes():
@@ -110,7 +110,7 @@ async def put_catalog_set_image_route(
 @router.delete("/catalog-sets/{catalog_set_id}/image", response_model=ImageDeleteResponse)
 def delete_catalog_set_image_route(
     catalog_set_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> ImageDeleteResponse:
     try:
         clear_catalog_set_image(db, catalog_set_id)
@@ -122,7 +122,7 @@ def delete_catalog_set_image_route(
 @router.get("/catalog-minifigs/{catalog_minifig_id}/image")
 def get_catalog_minifig_image_route(
     catalog_minifig_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> Response:
     stored = get_catalog_minifig_image(db, catalog_minifig_id)
     if stored is None:
@@ -134,7 +134,7 @@ def get_catalog_minifig_image_route(
 async def put_catalog_minifig_image_route(
     catalog_minifig_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> ImageUploadResponse:
     raw = await file.read()
     if len(raw) > get_max_image_bytes():
@@ -157,7 +157,7 @@ async def put_catalog_minifig_image_route(
 )
 def delete_catalog_minifig_image_route(
     catalog_minifig_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> ImageDeleteResponse:
     try:
         clear_catalog_minifig_image(db, catalog_minifig_id)
@@ -167,7 +167,7 @@ def delete_catalog_minifig_image_route(
 
 
 @router.get("/elements/{element_id}/image")
-def get_element_image_route(element_id: str, db: Session = Depends(get_db)) -> Response:
+def get_element_image_route(element_id: str, db: Session = Depends(get_db, scope="function")) -> Response:
     stored = get_element_image(db, element_id)
     if stored is None:
         raise HTTPException(status_code=404, detail="Image not found")
