@@ -209,6 +209,24 @@ Everything under this path is **a physical copy** in the user’s collection (ta
 | Query param | Purpose |
 |-------------|---------|
 | `investigated` | Optional filter: `true` \| `false`. Omit for all. |
+| `theme` | Repeatable. Filter by exact `themes.name` (case-sensitive). Omit for all themes. |
+| `missing_only` | When `true`, only copies with at least one missing item. |
+| `sort_by` | `created` \| `set_num` \| `name` \| `theme` \| `num_parts` \| `age` (default `created`). |
+| `sort_dir` | `asc` \| `desc` (default `asc`). |
+
+The sets list UI loads **all** rows matching these server filters (paginated API requests), then applies sort, group-by, and client-side pagination.
+
+### Theme options (filter dropdown)
+
+**`GET /owned-sets/theme-options`**
+
+**Response `200`:**
+
+```json
+{ "themes": ["Classic Town", "Space"] }
+```
+
+Distinct theme names from owned sets in the collection (ordered case-insensitively). Used to populate the Theme multi-select on the sets list.
 
 **Response `200`:**
 
@@ -272,6 +290,7 @@ Multiple `items` may share the same `set_num` with different `id`.
     "name": "Police Car",
     "year": 1980,
     "theme_name": "Classic Town",
+    "theme_shared_catalog_set_count": 2,
     "image_url": "/api/catalog-sets/10/image",
     "num_parts": 27
   },
@@ -362,7 +381,8 @@ All fields optional; omitted fields unchanged.
 | `age` | integer \| null | **All copies** with same `catalog_set_id` | Rebrickable sync may set from `age_range` (`6+` → `6`). |
 | `set_num` | string | **This copy only** | Re-links to matching or new `catalog_sets` row; clears this copy’s missing items. UI warning required. |
 | `catalog_name` | string \| null | **All copies** (catalog row) | |
-| `catalog_theme_name` | string \| null | **All copies** (catalog row) | Creates or links a `themes` row when `theme_id` was NULL. |
+| `catalog_theme_name` | string \| null | Catalog row (see `catalog_theme_scope`) | Creates or links a `themes` row when `theme_id` was NULL. |
+| `catalog_theme_scope` | `"all"` \| `"this_set"` | With `catalog_theme_name` | Default **`all`**. See theme scope rules below. |
 | `catalog_num_parts` | integer \| null | **All copies** (catalog row) | |
 | `catalog_year` | integer \| null | **All copies** (catalog row) | |
 
@@ -376,10 +396,20 @@ Example (**this copy** + shared catalog fields):
   "notes": "Second-hand, box damaged",
   "catalog_name": "Police Car",
   "catalog_theme_name": "Town",
+  "catalog_theme_scope": "this_set",
   "catalog_num_parts": 27,
   "catalog_year": 1980
 }
 ```
+
+**Theme rename scope** (with `catalog_theme_name`):
+
+| `catalog_theme_scope` | Behavior |
+|-----------------------|----------|
+| **`all`** (default) | When other catalog sets share the same theme name (case-insensitive), rename the shared `themes` row in place, or merge all catalog sets on the source theme into an existing theme with the target name. |
+| **`this_set`** | Re-link only this copy’s `catalog_sets` row to a separate theme (find-or-create by name); other catalog sets keep the previous theme. |
+
+Detail **`catalog.theme_shared_catalog_set_count`** counts catalog sets in the collection whose theme name matches (case-insensitive). The UI shows an **Update theme?** dialog when this count is **> 1** and the user changes theme on save.
 
 **Set number change:** send `set_num` only after UI warning; server re-links **this copy** to the matching or new `catalog_sets` row; other copies unchanged. Invalid or empty `set_num` → **400**.
 
@@ -433,7 +463,7 @@ If `label` is omitted, server uses `suggested_label` from the preview rules.
 | `catalog_set_id` | Copied from source row |
 | `investigated` | Always **`false`** |
 | `label` | From request body or `Copy #n` default |
-| `age`, `notes` | **`null`** (not copied from source) |
+| `age`, `notes` | Copied from source (`age` may be **`null`** when source has no age) |
 | `missing_items` | **None** on the new copy |
 | Source row | Unchanged |
 

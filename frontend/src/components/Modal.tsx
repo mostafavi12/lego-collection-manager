@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 interface ModalProps {
   title: string;
@@ -9,12 +9,28 @@ interface ModalProps {
 }
 
 export function Modal({ title, children, onClose, modalClassName }: ModalProps) {
+  const openedAtRef = useRef(0);
   const dialogCls = modalClassName
     ? `modal ${modalClassName}`
     : "modal";
 
+  useEffect(() => {
+    openedAtRef.current = performance.now();
+  }, []);
+
+  function handleBackdropClick() {
+    if (performance.now() - openedAtRef.current < 300) {
+      return;
+    }
+    onClose();
+  }
+
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onClick={handleBackdropClick}
+    >
       <div
         className={dialogCls}
         role="dialog"

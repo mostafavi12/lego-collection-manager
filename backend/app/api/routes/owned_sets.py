@@ -85,7 +85,7 @@ def get_owned_sets(
         pattern="^(created|set_num|name|theme|num_parts|age)$",
     ),
     sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetListResponse:
     return list_owned_sets(
         db,
@@ -101,7 +101,7 @@ def get_owned_sets(
 
 @router.get("/theme-options", response_model=OwnedSetThemeOptionsResponse)
 def get_owned_set_theme_options(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetThemeOptionsResponse:
     return OwnedSetThemeOptionsResponse(themes=list_owned_set_theme_options(db))
 
@@ -109,7 +109,7 @@ def get_owned_set_theme_options(
 @router.get("/add-preview", response_model=OwnedSetAddPreviewResponse)
 def get_owned_set_add_preview(
     set_num: str = Query(..., min_length=1),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetAddPreviewResponse:
     try:
         return get_add_preview(db, set_num)
@@ -120,7 +120,7 @@ def get_owned_set_add_preview(
 @router.get("/add-rebrickable-draft", response_model=OwnedSetRebrickableDraftResponse)
 def get_manual_add_rebrickable_draft(
     set_num: str = Query(..., min_length=1),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetRebrickableDraftResponse:
     """Return catalog metadata + non-spare/non-alternate set part lines for wizard prefill."""
     try:
@@ -158,7 +158,7 @@ def get_manual_add_rebrickable_draft(
 @router.post("", response_model=OwnedSetCreateResponse, status_code=201)
 def post_owned_set(
     body: OwnedSetCreateRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetCreateResponse:
     try:
         return create_owned_set_manual(db, body)
@@ -169,7 +169,7 @@ def post_owned_set(
 @router.get("/{owned_set_id}", response_model=OwnedSetDetailResponse)
 def get_owned_set(
     owned_set_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetDetailResponse:
     detail = get_owned_set_detail(db, owned_set_id)
     if detail is None:
@@ -185,7 +185,7 @@ def get_owned_set(
 def post_set_part_line(
     owned_set_id: int,
     body: AddSetPartLineRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> InstanceInventoryLineResponse:
     from app.schemas.manual_add import ManualAddPartInput
 
@@ -208,7 +208,7 @@ def patch_set_part_line(
     owned_set_id: int,
     instance_line_id: int,
     body: UpdateSetPartLineRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> InstanceInventoryLineResponse:
     try:
         line = update_set_part_on_owned_set(db, owned_set_id, instance_line_id, body)
@@ -224,7 +224,7 @@ def patch_set_part_line(
 def delete_set_part_line(
     owned_set_id: int,
     instance_line_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> None:
     try:
         delete_set_part_from_owned_set(db, owned_set_id, instance_line_id)
@@ -240,7 +240,7 @@ def patch_instance_inventory_line(
     owned_set_id: int,
     instance_line_id: int,
     body: InstanceInventoryLineUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> InstanceInventoryLineResponse:
     if body.quantity is None and body.quantity_missing is None:
         raise HTTPException(
@@ -288,7 +288,7 @@ def patch_instance_inventory_line(
 def patch_owned_set(
     owned_set_id: int,
     body: OwnedSetUpdateRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetListItem:
     try:
         updated = update_owned_set(db, owned_set_id, body)
@@ -302,7 +302,7 @@ def patch_owned_set(
 @router.delete("/{owned_set_id}", response_model=OwnedSetDeleteResponse)
 def delete_owned_set_route(
     owned_set_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetDeleteResponse:
     deleted = delete_owned_set(db, owned_set_id)
     if deleted is None:
@@ -316,7 +316,7 @@ def delete_owned_set_route(
 )
 def get_duplicate_preview_route(
     owned_set_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> DuplicatePreviewResponse:
     preview = get_duplicate_preview(db, owned_set_id)
     if preview is None:
@@ -328,7 +328,7 @@ def get_duplicate_preview_route(
 def post_duplicate_owned_set(
     owned_set_id: int,
     body: DuplicateRequest | None = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> OwnedSetDuplicateResponse:
     label = body.label if body is not None else None
     duplicated = duplicate_owned_set(db, owned_set_id, label=label)
@@ -345,7 +345,7 @@ def _raise_missing_error(exc: MissingItemError) -> None:
 def patch_missing_item(
     owned_set_id: int,
     body: MissingUpsertRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> MissingUpsertResponse:
     try:
         return upsert_missing(db, owned_set_id, body)
@@ -362,7 +362,7 @@ async def put_missing_image(
     owned_set_id: int,
     missing_item_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> MissingImageResponse:
     raw = await file.read()
     max_bytes = get_max_image_bytes()
@@ -389,7 +389,7 @@ async def put_missing_image(
 def delete_missing_image_route(
     owned_set_id: int,
     missing_item_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> MissingImageResponse:
     try:
         return delete_missing_image(db, owned_set_id, missing_item_id)

@@ -80,6 +80,7 @@ describe("SetsListPage", () => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("renders display label before set number", async () => {
@@ -484,5 +485,112 @@ describe("SetsListPage", () => {
     for (const button of screen.getAllByRole("button", { name: /make a copy/i })) {
       expect(button).toBeDisabled();
     }
+  });
+
+  it("applies pending theme filter renames before the first list fetch", async () => {
+    localStorage.setItem(
+      "lcm.setsListPreferences",
+      JSON.stringify({
+        sortBy: "set_num",
+        sortDir: "asc",
+        groupBy: ["theme"],
+        investigatedFilter: "all",
+        themeFilter: ["Town"],
+        missingOnly: false,
+      }),
+    );
+    sessionStorage.setItem(
+      "lcm.pendingThemeFilterSync",
+      JSON.stringify([{ from: "Town", to: "Classic Town", scope: "all" }]),
+    );
+
+    const classicItem = {
+      ...setCopyListFixture.items[0]!,
+      id: 99,
+      name: "Classic Car",
+      theme_name: "Classic Town",
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/owned-sets/theme-options")) {
+        return Promise.resolve(okJson({ themes: ["Classic Town", "Town"] }));
+      }
+      if (url.includes("theme=Classic+Town") || url.includes("theme=Classic%20Town")) {
+        return Promise.resolve(okJson({ total: 1, items: [classicItem] }));
+      }
+      if (url.includes("theme=Town")) {
+        return Promise.resolve(okJson({ total: 0, items: [] }));
+      }
+      return Promise.resolve(okJson(setCopyListFixture));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+
+    expect(
+      await screen.findByText(/6024 \(Classic Car\) - copy A/),
+    ).toBeInTheDocument();
+    expect(
+      listFetchCalls(fetchMock).some(
+        (url) => url.includes("theme=Classic+Town") || url.includes("theme=Classic%20Town"),
+      ),
+    ).toBe(true);
+    expect(listFetchCalls(fetchMock).some((url) => url.includes("theme=Town"))).toBe(
+      false,
+    );
+  });
+
+  it("ignores stale list responses when the theme filter changes quickly", async () => {
+    const spaceItem = {
+      ...setCopyListFixture.items[0]!,
+      id: 99,
+      name: "Space Ship",
+      theme_name: "Space",
+      display_label: "Space copy",
+      label: "Space copy",
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/owned-sets/theme-options")) {
+        return Promise.resolve(okJson({ themes: ["Space", "Town"] }));
+      }
+      if (url.includes("theme=Space")) {
+        return Promise.resolve(okJson({ total: 1, items: [spaceItem] }));
+      }
+      if (url.includes("theme=Town")) {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(
+              okJson({
+                total: 1,
+                items: [setCopyListFixture.items[0]!],
+              }),
+            );
+          }, 150);
+        });
+      }
+      return Promise.resolve(okJson(setCopyListFixture));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/6024 \(Police Car\) - copy A/);
+
+    await user.click(screen.getByRole("checkbox", { name: "All" }));
+    await user.click(screen.getByRole("checkbox", { name: "Town" }));
+    await user.click(screen.getByRole("checkbox", { name: "Space" }));
+
+    expect(
+      await screen.findByText(/6024 \(Space Ship\) - Space copy/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/6024 \(Police Car\) - copy A/)).not.toBeInTheDocument();
+
+    await waitFor(
+      () => {
+        expect(screen.queryByText(/6024 \(Police Car\) - copy A/)).not.toBeInTheDocument();
+      },
+      { timeout: 500 },
+    );
   });
 });

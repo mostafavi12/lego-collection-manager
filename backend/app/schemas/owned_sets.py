@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+CatalogThemeScope = Literal["all", "this_set"]
 
 
 class OwnedSetListItem(BaseModel):
@@ -39,6 +43,7 @@ class OwnedSetUpdateRequest(BaseModel):
     catalog_num_parts: int | None = None
     catalog_year: int | None = None
     catalog_theme_name: str | None = None
+    catalog_theme_scope: CatalogThemeScope = "all"
 
 
 class DuplicatePreviewResponse(BaseModel):
@@ -68,6 +73,7 @@ class CatalogBlock(BaseModel):
     name: str | None
     year: int | None
     theme_name: str | None
+    theme_shared_catalog_set_count: int = 0
     image_url: str | None
     num_parts: int | None
 

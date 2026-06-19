@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
@@ -127,10 +127,49 @@ def _apply_shared_age(
         owned.age = age
 
 
+def _find_or_create_theme_by_name(session: Session, theme_name: str) -> Theme:
+    name = theme_name.strip()
+    theme = session.scalar(
+        select(Theme).where(func.lower(Theme.name) == name.lower())
+    )
+    if theme is not None:
+        return theme
+
+    min_user_external_id = session.scalar(
+        select(func.min(Theme.external_id)).where(Theme.external_id < 0)
+    )
+    external_id = -1 if min_user_external_id is None else min_user_external_id - 1
+    theme = Theme(
+        external_id=external_id,
+        name=name,
+        source=USER_THEME_SOURCE,
+        fetched_at=utc_now(),
+    )
+    session.add(theme)
+    session.flush()
+    return theme
+
+
+def _count_catalog_sets_with_theme_name(session: Session, theme_name: str) -> int:
+    name = theme_name.strip()
+    if not name:
+        return 0
+    return int(
+        session.scalar(
+            select(func.count(CatalogSet.id))
+            .join(Theme, CatalogSet.theme_id == Theme.id)
+            .where(func.lower(Theme.name) == name.lower())
+        )
+        or 0
+    )
+
+
 def _apply_catalog_theme_name(
     session: Session,
     catalog_set: CatalogSet,
     theme_name: str,
+    *,
+    scope: str = "all",
 ) -> None:
     """Set or update theme on a catalog set (creates/links when theme_id was NULL)."""
     name = theme_name.strip()
@@ -138,28 +177,26 @@ def _apply_catalog_theme_name(
         catalog_set.theme_id = None
         return
 
-    if catalog_set.theme is not None:
-        catalog_set.theme.name = name
+    if scope == "this_set" or catalog_set.theme is None:
+        catalog_set.theme_id = _find_or_create_theme_by_name(session, name).id
         return
 
-    theme = session.scalar(
+    existing = session.scalar(
         select(Theme).where(func.lower(Theme.name) == name.lower())
     )
-    if theme is None:
-        min_user_external_id = session.scalar(
-            select(func.min(Theme.external_id)).where(Theme.external_id < 0)
-        )
-        external_id = -1 if min_user_external_id is None else min_user_external_id - 1
-        theme = Theme(
-            external_id=external_id,
-            name=name,
-            source=USER_THEME_SOURCE,
-            fetched_at=utc_now(),
-        )
-        session.add(theme)
-        session.flush()
+    if existing is not None and catalog_set.theme_id != existing.id:
+        source_theme_id = catalog_set.theme_id
+        if source_theme_id is not None:
+            session.execute(
+                update(CatalogSet)
+                .where(CatalogSet.theme_id == source_theme_id)
+                .values(theme_id=existing.id)
+            )
+        catalog_set.theme_id = existing.id
+        return
 
-    catalog_set.theme_id = theme.id
+    if catalog_set.theme is not None:
+        catalog_set.theme.name = name
 
 
 def _relocate_to_lego_set(session: Session, owned_set: OwnedSet, lsid: LegoSetId) -> None:
@@ -301,6 +338,11 @@ def get_owned_set_detail(
 
     catalog_set = owned_set.catalog_set
     theme_name = catalog_set.theme.name if catalog_set.theme else None
+    theme_shared_catalog_set_count = (
+        _count_catalog_sets_with_theme_name(session, theme_name)
+        if theme_name
+        else 0
+    )
     copy_idx = copy_index_for_owned_set(session, owned_set)
 
     instance_by_set_line: dict[int, OwnedSetInventoryLine] = {}
@@ -468,6 +510,7 @@ def get_owned_set_detail(
             name=catalog_set.name,
             year=catalog_set.year,
             theme_name=theme_name,
+            theme_shared_catalog_set_count=theme_shared_catalog_set_count,
             image_url=resolve_catalog_image_url(catalog_set),
             num_parts=catalog_set.num_parts,
         ),
@@ -508,7 +551,12 @@ def update_owned_set(
     if body.catalog_year is not None:
         catalog_set.year = body.catalog_year
     if body.catalog_theme_name is not None:
-        _apply_catalog_theme_name(session, catalog_set, body.catalog_theme_name)
+        _apply_catalog_theme_name(
+            session,
+            catalog_set,
+            body.catalog_theme_name,
+            scope=body.catalog_theme_scope,
+        )
 
     if body.set_num is not None:
         try:
@@ -524,7 +572,9 @@ def update_owned_set(
         catalog_set = owned_set.catalog_set
 
     session.flush()
-    if catalog_set.theme_id is not None and catalog_set.theme is None:
+    if body.catalog_theme_name is not None:
+        session.refresh(catalog_set, attribute_names=["theme"])
+    elif catalog_set.theme_id is not None and catalog_set.theme is None:
         session.refresh(catalog_set, attribute_names=["theme"])
 
     theme_name = catalog_set.theme.name if catalog_set.theme else None
@@ -577,7 +627,7 @@ def duplicate_owned_set(
         catalog_set_id=source.catalog_set_id,
         investigated=False,
         label=resolved_label,
-        age=None,
+        age=source.age,
         notes=None,
         created_at=utc_now(),
     )

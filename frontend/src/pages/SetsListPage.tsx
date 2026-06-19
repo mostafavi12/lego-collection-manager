@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { listAllFilteredSetCopies, listSetCopyThemeOptions } from "../api/client";
@@ -21,6 +21,11 @@ import {
   writeStoredSetsListPreferences,
   type InvestigatedFilter,
 } from "./setsListPreferencesStorage";
+import {
+  consumePendingThemeFilterRenames,
+  applyThemeFilterRenames,
+  initialThemeFilter,
+} from "./themeFilterSync";
 import { formatSetCopyTitle } from "../utils/setCopyTitle";
 
 const PAGE_SIZE = 20;
@@ -59,8 +64,8 @@ export function SetsListPage() {
   const [filter, setFilter] = useState<InvestigatedFilter>(
     () => readStoredSetsListPreferences().investigatedFilter,
   );
-  const [themeFilter, setThemeFilter] = useState<string[]>(
-    () => readStoredSetsListPreferences().themeFilter,
+  const [themeFilter, setThemeFilter] = useState<string[]>(() =>
+    initialThemeFilter(readStoredSetsListPreferences().themeFilter),
   );
   const [missingOnly, setMissingOnly] = useState(
     () => readStoredSetsListPreferences().missingOnly,
@@ -81,8 +86,10 @@ export function SetsListPage() {
   const [error, setError] = useState<string | null>(null);
   const [copyDialogId, setCopyDialogId] = useState<number | null>(null);
   const [addSetOpen, setAddSetOpen] = useState(false);
+  const loadGenerationRef = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -93,11 +100,19 @@ export function SetsListPage() {
         themes: themeFilter,
         missing_only: missingOnly,
       });
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setItems(data.items);
     } catch (err) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setError(err instanceof Error ? err.message : "Failed to load sets");
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [filter, missingOnly, themeFilter]);
 
@@ -134,7 +149,27 @@ export function SetsListPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [location.key]);
+
+  useEffect(() => {
+    const renames = consumePendingThemeFilterRenames();
+    if (renames.length === 0) {
+      return;
+    }
+    setThemeFilter((current) => applyThemeFilterRenames(current, renames));
+    setOffset(0);
+  }, [location.key]);
+
+  useEffect(() => {
+    if (themeOptions.length === 0) {
+      return;
+    }
+    setThemeFilter((current) => {
+      const optionSet = new Set(themeOptions);
+      const pruned = current.filter((theme) => optionSet.has(theme));
+      return pruned.length === current.length ? current : pruned;
+    });
+  }, [themeOptions]);
 
   useEffect(() => {
     setOffset(offsetForPage(pageFromSearch(location.search)));
