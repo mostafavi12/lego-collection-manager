@@ -1,4 +1,6 @@
 import type { MissingPartReportItem } from "../api/types";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   fetchImageDataUrl,
   imageFormatFromDataUrl,
@@ -123,11 +125,6 @@ export async function downloadMissingPartsPdf(
   items: MissingPartReportItem[],
   options: MissingPartsPdfOptions,
 ): Promise<void> {
-  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-  ]);
-
   const imageDataUrls = await loadPartImageDataUrls(items);
   const generatedAt = options.generatedAt ?? new Date();
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });

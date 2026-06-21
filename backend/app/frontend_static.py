@@ -7,6 +7,9 @@ from fastapi.responses import FileResponse
 
 from app.runtime_paths import get_web_root
 
+_INDEX_CACHE_CONTROL = {"Cache-Control": "no-cache"}
+_ASSET_CACHE_CONTROL = {"Cache-Control": "public, max-age=31536000, immutable"}
+
 
 def register_frontend_routes(app: FastAPI) -> None:
     @app.get("/", include_in_schema=False)
@@ -17,7 +20,7 @@ def register_frontend_routes(app: FastAPI) -> None:
         index_html = web_root / "index.html"
         if not index_html.is_file():
             raise HTTPException(status_code=404, detail="Not Found")
-        return FileResponse(index_html)
+        return FileResponse(index_html, headers=_INDEX_CACHE_CONTROL)
 
     @app.get("/assets/{asset_path:path}", include_in_schema=False)
     async def serve_asset(asset_path: str) -> FileResponse:
@@ -27,7 +30,7 @@ def register_frontend_routes(app: FastAPI) -> None:
         candidate = web_root / "assets" / asset_path
         if not candidate.is_file():
             raise HTTPException(status_code=404, detail="Not Found")
-        return FileResponse(candidate)
+        return FileResponse(candidate, headers=_ASSET_CACHE_CONTROL)
 
     @app.get("/{spa_path:path}", include_in_schema=False)
     async def serve_spa(spa_path: str) -> FileResponse:
@@ -41,5 +44,5 @@ def register_frontend_routes(app: FastAPI) -> None:
         if candidate.is_file():
             return FileResponse(candidate)
         if index_html.is_file():
-            return FileResponse(index_html)
+            return FileResponse(index_html, headers=_INDEX_CACHE_CONTROL)
         raise HTTPException(status_code=404, detail="Not Found")
